@@ -48,8 +48,16 @@ app.MapGet("/weatherforecast", () =>
 // Dummy endpoint for frontend testing
 app.MapGet("/api/dummy", () =>
 {
-    return new { status = "ok", message = "backend reachable" };
+    var donors = new[]
+    {
+        new { id = 1, name = "Ali", bloodGroup = "A+", city = "Lahore" },
+        new { id = 2, name = "Sara", bloodGroup = "B+", city = "Karachi" },
+        new { id = 3, name = "Omar", bloodGroup = "O-", city = "Islamabad" }
+    };
+
+    return donors;
 });
+
 
 app.Run();
 
