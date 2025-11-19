@@ -1,40 +1,61 @@
-// frontend/src/App.jsx
-import { useEffect, useState } from "react";
-import { getHealth } from "./api/client";
+import { useState } from "react";
 
-export default function App() {
+function App() {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchHealth = async () => {
-    setLoading(true);
+  const testApi = async () => {
     setError(null);
+    setData(null);
+
     try {
-      const res = await getHealth();
-      setData(res);
+      const response = await fetch(
+        `${process.env.REACT_APP_API_BASE}/api/dummy`,
+        {
+          headers: {
+            "ngrok-skip-browser-warning": "true",
+          },
+        }
+      );
+
+      // If ngrok still sends HTML, this will catch it
+      const text = await response.text();
+
+      try {
+        const json = JSON.parse(text);
+        setData(json);
+      } catch {
+        setError("Response was not JSON. Probably HTML from ngrok.");
+        console.log("Response content:", text);
+      }
     } catch (err) {
-      setError(err.message || "Unknown error");
-    } finally {
-      setLoading(false);
+      setError(err.message);
     }
   };
 
-  useEffect(() => { fetchHealth(); }, []);
-
   return (
-    <div style={{ padding: 24, fontFamily: "Inter, Arial, sans-serif" }}>
-      <h1>FloodAid — Frontend</h1>
+    <div style={{ padding: "20px" }}>
+      <h1>Test Backend API</h1>
+      <button onClick={testApi}>Check URL</button>
 
-      <div style={{ marginTop: 12 }}>
-        <button onClick={fetchHealth}>Retry</button>
-      </div>
+      {error && (
+        <p style={{ color: "red", marginTop: "10px" }}>
+          Error: {error}
+        </p>
+      )}
 
-      <div style={{ marginTop: 18 }}>
-        {loading && <div>Loading backend response…</div>}
-        {error && <pre style={{ color: "crimson" }}>Error: {error}</pre>}
-        {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
-      </div>
+      {data && (
+        <pre
+          style={{
+            background: "#eee",
+            padding: "15px",
+            marginTop: "20px",
+            borderRadius: "8px",
+          }}
+        >
+{JSON.stringify(data, null, 2)}
+        </pre>
+      )}
     </div>
   );
 }
