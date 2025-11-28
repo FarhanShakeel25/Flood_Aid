@@ -35,7 +35,7 @@ export function StatsSection() {
         setStats(mockStats);
       }
     } catch (error) {
-      console.error('Failed to fetch stats:', error);
+      //console.error('Failed to fetch stats:', error);
       setStats(mockStats);
     } finally {
       setLoading(false);
