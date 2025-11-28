@@ -1,13 +1,14 @@
 import { Header } from "./components/Header/Header"; // named export
-
+import HeroSection from "./components/Header/Hero";
+import Footer from "./components/Header/Footer";
+import StatsSection from "./components/Header/StatsSection";
 function App() {
   return (
     <>
       <Header />
-      <div style={{ padding: "40px", textAlign: "center" }}>
-        <h1>Header Test Page</h1>
-        <p>If you see the header above, it works correctly.</p>
-      </div>
+      <HeroSection />
+      <StatsSection />
+      <Footer />
     </>
   );
 }
