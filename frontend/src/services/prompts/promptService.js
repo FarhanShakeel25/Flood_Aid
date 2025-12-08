@@ -1,7 +1,7 @@
 // Multilingual System Prompt - AI will respond in the user's language
 export const SYSTEM_PROMPT = `You are a specialized multilingual AI assistant for a Flood Aid Management System. 
 
-**CRITICAL: You MUST respond in the SAME LANGUAGE that the user writes in. If the user writes in Spanish, respond in Spanish. If they write in Hindi, respond in Hindi, etc.**
+**CRITICAL: You MUST respond in the SAME LANGUAGE that the user writes in.  If the user writes in Spanish, respond in Spanish. If they write in Hindi, respond in Hindi, etc.**
 
 Your role is STRICTLY limited to:
 
@@ -34,20 +34,20 @@ Your role is STRICTLY limited to:
 - Provide step-by-step instructions when appropriate
 - Use simple language that's easy to understand in emergencies
 
-Do NOT discuss: weather forecasts, general health issues unrelated to floods, political topics, or any non-emergency subjects.`;
+Do NOT discuss: weather forecasts, general health issues unrelated to floods, political topics, or any non-emergency subjects. `;
 
 // Emergency prompt that works across languages
 export const getEmergencyPrompt = (userMessage) => {
   return `🚨 EMERGENCY DETECTED: "${userMessage}"
 
-RESPOND IN THE SAME LANGUAGE AS THE USER'S MESSAGE! 
+RESPOND IN THE SAME LANGUAGE AS THE USER'S MESSAGE!  
 
 Provide immediate, actionable assistance.  Prioritize:
-1. Immediate safety steps (2-3 steps max)
+1.  Immediate safety steps (2-3 steps max)
 2. Emergency contact information
 3. Critical do's and don'ts
 
-Keep response under 150 words.  Be direct and clear.`;
+Keep response under 150 words. Be direct and clear.`;
 };
 
 // Multilingual keyword detection
@@ -74,9 +74,10 @@ export const isRelevantQuery = (message) => {
     'बाढ़', 'पानी', 'निकासी', 'बचाव', 'प्राथमिक चिकित्सा',
     'आपातकाल', 'डूबना', 'आश्रय', 'सहायता', 'मदद',
     
-    // Arabic
+    // Arabic/Urdu
     'فيضان', 'ماء', 'إخلاء', 'إنقاذ', 'إسعافات',
     'طوارئ', 'غرق', 'مأوى', 'مساعدة',
+    'سیلاب', 'پانی', 'انخلاء', 'بچاؤ', 'مدد',
     
     // Chinese (Simplified)
     '洪水', '水', '疏散', '救援', '急救',
@@ -114,9 +115,8 @@ export const isRelevantQuery = (message) => {
     'বন্যা', 'জল', 'সরিয়ে', 'উদ্ধার', 'প্রাথমিক চিকিৎসা',
     'জরুরী', 'ডুবে যাওয়া', 'আশ্রয়', 'সাহায্য',
     
-    // Urdu
-    'سیلاب', 'پانی', 'انخلاء', 'بچاؤ', 'ابتدائی طبی امداد',
-    'ایمرجنسی', 'ڈوبنا', 'پناہ', 'مدد',
+    // Punjabi
+    'ਹੜ੍ਹ', 'ਪਾਣੀ', 'ਕੱਢਣਾ', 'ਬਚਾਅ', 'ਮਦਦ',
     
     // Swahili
     'mafuriko', 'maji', 'uhamishaji', 'kuokoa', 'huduma za kwanza',
@@ -132,7 +132,7 @@ export const isRelevantQuery = (message) => {
   ];
   
   const lowerMessage = message.toLowerCase();
-  return relevantKeywords.some(keyword => lowerMessage.includes(keyword));
+  return relevantKeywords.some(keyword => lowerMessage.includes(keyword. toLowerCase()));
 };
 
 // Multilingual emergency detection
@@ -158,9 +158,10 @@ export const detectEmergency = (message) => {
     'मदद', 'तत्काल', 'फंसा', 'डूब रहा', 'मर रहा',
     'आपातकाल', 'घायल', 'खून बह रहा',
     
-    // Arabic
+    // Arabic/Urdu
     'مساعدة', 'عاجل', 'محاصر', 'غرق', 'يموت',
     'طوارئ', 'مصاب', 'نزيف',
+    'مدد', 'فوری', 'پھنسا', 'ڈوب رہا', 'زخمی',
     
     // Chinese
     '帮助', '紧急', '被困', '溺水', '垂死',
@@ -198,9 +199,8 @@ export const detectEmergency = (message) => {
     'সাহায্য', 'জরুরি', 'আটকা', 'ডুবে যাচ্ছে', 'মৃত্যু',
     'আহত', 'রক্তপাত',
     
-    // Urdu
-    'مدد', 'فوری', 'پھنسا', 'ڈوب رہا', 'مر رہا',
-    'زخمی', 'خون بہہ رہا',
+    // Punjabi
+    'ਮਦਦ', 'ਤੁਰੰਤ', 'ਫਸਿਆ', 'ਡੁੱਬ ਰਿਹਾ', 'ਜ਼ਖਮੀ',
     
     // Swahili
     'msaada', 'haraka', 'amenaswa', 'anazama', 'anakufa',
@@ -216,7 +216,7 @@ export const detectEmergency = (message) => {
   ];
   
   const lowerMessage = message.toLowerCase();
-  return emergencyKeywords.some(keyword => lowerMessage.includes(keyword));
+  return emergencyKeywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
 };
 
 // Get redirect message in appropriate language
@@ -226,16 +226,19 @@ export const getRedirectMessage = (userMessage) => {
   // Detect language and return appropriate message
   if (/[а-яё]/i.test(userMessage)) {
     // Russian
-    return '⚠️ Я могу помочь только с вопросами о помощи при наводнении и первой помощи.  Пожалуйста, задайте вопрос, связанный с:\n\n• Безопасность при наводнении и эвакуация\n• Первая помощь при наводнении\n• Экстренные ресурсы и помощь\n\nКак я могу помочь вам с помощью при наводнении? ';
+    return '⚠️ Я могу помочь только с вопросами о помощи при наводнении и первой помощи.  Пожалуйста, задайте вопрос, связанный с:\n\n• Безопасность при наводнении и эвакуация\n• Первая помощь при наводнении\n• Экстренные ресурсы и помощь\n\nКак я могу помочь вам с помощью при наводнении?';
   } else if (/[\u4e00-\u9fff]/.test(userMessage)) {
     // Chinese
     return '⚠️ 我只能协助洪水援助和急救紧急情况。请询问有关以下方面的问题：\n\n• 洪水安全和疏散\n• 洪水情况下的急救\n• 应急资源和救援\n\n我如何能帮助您处理与洪水相关的援助？';
   } else if (/[\u0600-\u06FF]/.test(userMessage)) {
-    // Arabic
-    return '⚠️ يمكنني المساعدة فقط في حالات الطوارئ المتعلقة بالمساعدة في الفيضانات والإسعافات الأولية. يرجى طرح الأسئلة المتعلقة بـ:\n\n• السلامة من الفيضانات والإخلاء\n• الإسعافات الأولية في حالات الفيضانات\n• الموارد الطارئة والإغاثة\n\nكيف يمكنني مساعدتك في المساعدة المتعلقة بالفيضانات؟';
+    // Arabic/Urdu
+    return '⚠️ میں صرف سیلاب کی امداد اور ابتدائی طبی امداد میں مدد کر سکتا ہوں۔ براہ کرم ان سے متعلق سوالات پوچھیں:\n\n• سیلاب کی حفاظت اور انخلاء\n• سیلاب کی صورتحال میں ابتدائی طبی امداد\n• ایمرجنسی وسائل اور امداد\n\nمیں سیلاب سے متعلق امداد میں آپ کی کیسے مدد کر سکتا ہوں؟';
   } else if (/[\u0900-\u097F]/.test(userMessage)) {
     // Hindi
     return '⚠️ मैं केवल बाढ़ सहायता और प्राथमिक चिकित्सा आपात स्थितियों में सहायता कर सकता हूं। कृपया निम्नलिखित से संबंधित प्रश्न पूछें:\n\n• बाढ़ सुरक्षा और निकासी\n• बाढ़ स्थितियों में प्राथमिक चिकित्सा\n• आपातकालीन संसाधन और राहत\n\nमैं बाढ़ से संबंधित सहायता में आपकी कैसे मदद कर सकता हूं?';
+  } else if (/[\u0A00-\u0A7F]/.test(userMessage)) {
+    // Punjabi
+    return '⚠️ ਮੈਂ ਸਿਰਫ਼ ਹੜ੍ਹ ਸਹਾਇਤਾ ਅਤੇ ਪਹਿਲੀ ਸਹਾਇਤਾ ਐਮਰਜੈਂਸੀ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਕਿਰਪਾ ਕਰਕੇ ਇਹਨਾਂ ਨਾਲ ਸਬੰਧਤ ਸਵਾਲ ਪੁੱਛੋ:\n\n• ਹੜ੍ਹ ਦੀ ਸੁਰੱਖਿਆ ਅਤੇ ਕੱਢਣਾ\n• ਹੜ੍ਹ ਦੀਆਂ ਸਥਿਤੀਆਂ ਵਿੱਚ ਪਹਿਲੀ ਸਹਾਇਤਾ\n• ਐਮਰਜੈਂਸੀ ਸਰੋਤ ਅਤੇ ਰਾਹਤ\n\nਮੈਂ ਹੜ੍ਹ ਨਾਲ ਸਬੰਧਤ ਸਹਾਇਤਾ ਵਿੱਚ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?';
   } else if (/[áéíóúñ]/i.test(userMessage)) {
     // Spanish
     return '⚠️ Solo puedo ayudar con emergencias de ayuda por inundaciones y primeros auxilios. Por favor, haga preguntas relacionadas con:\n\n• Seguridad contra inundaciones y evacuación\n• Primeros auxilios en situaciones de inundación\n• Recursos de emergencia y ayuda\n\n¿Cómo puedo ayudarlo con asistencia relacionada con inundaciones?';
