@@ -1,42 +1,14 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Mistral } from '@mistralai/mistralai';  // ✅ FIXED IMPORT
 import { SYSTEM_PROMPT, getEmergencyPrompt, detectEmergency } from '../prompts/promptService';
 
-export class AIService {
-  constructor(apiKey, model = 'models/gemini-1.5-flash') {
+export class MistralService {
+  constructor(apiKey, model = 'mistral-large-latest') {
     if (!apiKey) {
-      throw new Error('API key is required for AIService');
+      throw new Error('API key is required for MistralService');
     }
 
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ 
-      model,
-      generationConfig: {
-        temperature: 1.0,         // ✅ Maximum creativity
-        topK: 64,                  // ✅ More token variety
-        topP: 0.99,                // ✅ Maximum diversity
-        maxOutputTokens: 1024,
-      },
-    });
-    this.chat = null;
-    this.messageCount = 0;
-    this. conversationLanguage = null;
-    this.conversationHistory = []; // ✅ Track full conversation
-  }
-
-  async initializeChat() {
-    console.log('🔄 Initializing new chat session...');
-    
-    // ✅ Start completely fresh - no pre-loaded history
-    this.chat = this.model.startChat({
-      history: [],
-      generationConfig: {
-        temperature: 1.0,
-        topK: 64,
-        topP: 0.99,
-        maxOutputTokens: 1024,
-      },
-    });
-    
+    this.client = new Mistral({ apiKey });  // ✅ FIXED: Use Mistral, not MistralClient
+    this.model = model;
     this.messageCount = 0;
     this.conversationLanguage = null;
     this.conversationHistory = [];
@@ -54,7 +26,7 @@ export class AIService {
       'Bengali': /[\u0980-\u09FF]/,
       'Thai': /[\u0E00-\u0E7F]/,
       'Korean': /[\uAC00-\uD7AF]/,
-      'Japanese': /[\u3040-\u309F\u30A0-\u30FF]/,
+      'Japanese': /[\u3040-\u309F\u30A0-\u30FF]/
     };
 
     if (/[áéíóúñ¿¡]/i.test(text)) return 'Spanish';
@@ -77,38 +49,16 @@ export class AIService {
     const isEmergency = detectEmergency(userMessage);
     
     try {
-      if (! this.chat) {
-        await this.initializeChat();
-      }
-
-      // Detect language
       const detectedLang = this.detectLanguage(userMessage);
       this.conversationLanguage = detectedLang;
       console.log('🌍 Detected language:', detectedLang);
 
-      // ✅ Build context-aware prompt with conversation history
-      let contextPrompt = '';
-      
-      // Only include last 3 exchanges to prevent repetition
-      const recentHistory = this.conversationHistory.slice(-6); // Last 3 Q&A pairs
-      if (recentHistory.length > 0) {
-        contextPrompt = 'Previous conversation:\n';
-        recentHistory.forEach((entry, index) => {
-          contextPrompt += `${entry.role}: ${entry.content}\n`;
-        });
-        contextPrompt += '\n';
-      }
-
-      // ✅ Create dynamic system instruction based on message count
       let systemInstruction = '';
       if (this.messageCount === 0) {
-        // First message - introduce yourself
         systemInstruction = `You are a Flood Aid Assistant. This is your FIRST interaction with this user.  Introduce yourself warmly and explain how you can help.  Respond in ${detectedLang}. `;
       } else if (this.messageCount === 1) {
-        // Second message - be helpful and detailed
         systemInstruction = `This is the user's SECOND question. They are engaging with you.  Provide detailed, helpful information.  Respond in ${detectedLang}.`;
       } else {
-        // Ongoing conversation - vary your responses
         systemInstruction = `This is message #${this.messageCount + 1} in an ongoing conversation.  IMPORTANT: 
 - Do NOT repeat previous answers
 - If the user asks a similar question, provide DIFFERENT details or a different angle
@@ -117,7 +67,16 @@ export class AIService {
 - Respond in ${detectedLang}`;
       }
 
-      // ✅ Build the complete prompt
+      let contextPrompt = '';
+      const recentHistory = this.conversationHistory.slice(-6);
+      if (recentHistory.length > 0) {
+        contextPrompt = 'Previous conversation:\n';
+        recentHistory.forEach((entry) => {
+          contextPrompt += `${entry.role}: ${entry.content}\n`;
+        });
+        contextPrompt += '\n';
+      }
+
       let fullPrompt = `${SYSTEM_PROMPT}
 
 ${systemInstruction}
@@ -135,7 +94,6 @@ CRITICAL INSTRUCTIONS:
 
 Your response in ${detectedLang}:`;
 
-      // ✅ Add emergency context if needed
       if (isEmergency) {
         console.log('🚨 Emergency detected! ');
         const emergencyContext = getEmergencyPrompt(userMessage);
@@ -150,69 +108,49 @@ User's EMERGENCY message: "${userMessage}"
 Provide immediate, actionable help in ${detectedLang}:`;
       }
 
-      console.log('📤 Sending to Gemini (length:', fullPrompt.length, 'chars)');
+      console.log('📤 Sending to Mistral...');
 
-      // ✅ Send message
-      const result = await this.chat.sendMessage(fullPrompt);
-      const response = await result.response;
-      let text = response.text();
+      // ✅ FIXED: Correct API call format
+      const chatResponse = await this.client.chat.complete({
+        model: this.model,
+        messages: [
+          { role: 'system', content: fullPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        temperature: 0.7,
+        maxTokens: 800,
+      });
 
-      // ✅ Store in conversation history
+      const text = chatResponse.choices[0]. message.content;
+
       this.conversationHistory.push(
         { role: 'user', content: userMessage },
         { role: 'assistant', content: text }
       );
 
-      // ✅ Keep only last 10 exchanges (20 messages)
       if (this.conversationHistory.length > 20) {
         this.conversationHistory = this.conversationHistory.slice(-20);
-      }
-
-      // Verify response language
-      const responseLang = this.detectLanguage(text);
-      console.log('📥 Response language detected:', responseLang);
-
-      // If wrong language and not English, try to fix
-      if (responseLang !== detectedLang && detectedLang !== 'English' && !text.match(/[\u0600-\u06FF\u0900-\u097F\u0A00-\u0A7F]/)) {
-        console. warn(`⚠️ Response in ${responseLang}, expected ${detectedLang}. Requesting translation...`);
-        
-        const translationPrompt = `Translate this EXACT message to ${detectedLang}.  Keep the same meaning and structure.  Use ${detectedLang} script only:
-
-"${text}"
-
-Translation in ${detectedLang}:`;
-        
-        const retryResult = await this.chat. sendMessage(translationPrompt);
-        const retryResponse = await retryResult.response;
-        text = retryResponse.text();
-        
-        console.log('🔄 Translation attempt completed');
       }
 
       this.messageCount++;
       console. log('✅ Response delivered');
       console.log('📊 Total messages in session:', this.messageCount);
-      console.log('📚 Conversation history length:', this.conversationHistory.length);
 
       if (! text || text.trim(). length === 0) {
-        console.warn('⚠️ Empty response from Gemini');
+        console.warn('⚠️ Empty response from Mistral');
         return this.getLocalizedErrorMessage('empty', detectedLang);
       }
 
       return text;
 
     } catch (error) {
-      console.error('❌ Gemini AI Service Error:', {
+      console.error('❌ Mistral AI Service Error:', {
         message: error.message,
         code: error.code,
-        status: error.status,
+        status: error.status
       });
       
-      if (error.message?. includes('SAFETY')) {
-        return this.getLocalizedErrorMessage('safety', this.conversationLanguage);
-      }
-      
-      if (error.message?.includes('quota') || error.message?.includes('429')) {
+      if (error.message?. includes('quota') || error.message?.includes('429')) {
         return this.getLocalizedErrorMessage('quota', this.conversationLanguage);
       }
 
@@ -231,15 +169,7 @@ Translation in ${detectedLang}:`;
         'Hindi': 'क्षमा करें, मैं उत्तर नहीं दे सका। कृपया पुनः प्रयास करें या प्रश्न अलग तरीके से पूछें।',
         'Punjabi': 'ਮਾਫ਼ ਕਰਨਾ, ਮੈਂ ਜਵਾਬ ਨਹੀਂ ਦੇ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਸਵਾਲ ਵੱਖਰੇ ਤਰੀਕੇ ਨਾਲ ਪੁੱਛੋ।',
         'Arabic': 'عذراً، لم أتمكن من الإجابة. يرجى المحاولة مرة أخرى أو طرح السؤال بطريقة مختلفة.',
-        'Spanish': 'Lo siento, no pude generar una respuesta.  Intenta de nuevo o reformula tu pregunta.',
         'default': 'I apologize, but I could not generate a response. Please try again or rephrase your question.'
-      },
-      'safety': {
-        'Urdu': '⚠️ حساس مواد کا پتہ چلا۔ فوری مدد کے لیے اپنی مقامی ایمرجنسی سروس کو کال کریں: 1122',
-        'Hindi': '⚠️ संवेदनशील सामग्री का पता चला। तत्काल सहायता के लिए अपनी स्थानीय आपातकालीन सेवा पर कॉल करें: 112',
-        'Punjabi': '⚠️ ਸੰਵੇਦਨਸ਼ੀਲ ਸਮੱਗਰੀ ਦਾ ਪਤਾ ਲੱਗਾ। ਤੁਰੰਤ ਸਹਾਇਤਾ ਲਈ ਆਪਣੀ ਸਥਾਨਕ ਐਮਰਜੈਂਸੀ ਸੇਵਾ ਨੂੰ ਕਾਲ ਕਰੋ।',
-        'Arabic': '⚠️ تم اكتشاف محتوى حساس. اتصل بخدمة الطوارئ المحلية للحصول على مساعدة فورية: 112',
-        'default': '⚠️ Sensitive content detected. Call your local emergency service for immediate help.'
       },
       'quota': {
         'Urdu': '⚠️ سروس عارضی طور پر دستیاب نہیں ہے۔ براہ کرم کچھ دیر بعد دوبارہ کوشش کریں۔',
@@ -262,10 +192,9 @@ Translation in ${detectedLang}:`;
 
   resetChat() {
     console.log('🔄 Resetting chat session');
-    this.chat = null;
     this.messageCount = 0;
     this.conversationLanguage = null;
-    this. conversationHistory = [];
+    this.conversationHistory = [];
   }
 
   getChatHistory() {
