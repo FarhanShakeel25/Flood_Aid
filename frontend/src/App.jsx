@@ -1,8 +1,8 @@
-import { Header } from "./components/Header/Header";
-import HeroSection from "./components/Header/Hero";
-import Footer from "./components/Header/Footer";
-import StatsSection from "./components/Header/StatsSection";
-import FloodAidChatbot from "./components/FloodAidChatbot/FloodAidChatbot";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Home from './Pages/HomePage';
+import Contact from './Pages/ContactPage';
+import FloodAidChatbot from './components/FloodAidChatbot';
+import './styles/globals.css';
 
 function App() {
   const handleEmergency = (message) => {
@@ -10,20 +10,23 @@ function App() {
   };
 
   return (
-    <>
-      <Header />
-      <HeroSection />
-      <StatsSection />
-      <Footer />
-      
-      <FloodAidChatbot
-        apiKey={import.meta.env.VITE_MISTRAL_API_KEY}
-        model="mistral-large-latest"
-        aiProvider="mistral"
-        position="bottom-right"
-        onEmergency={handleEmergency}
-      />
-    </>
+    <Router>
+      <div className="app">
+        <Routes>
+          {/* Remove Layout wrapper */}
+          <Route path="/" element={<Home />} />
+          <Route path="/contact" element={<Contact />} />
+        </Routes>
+        
+        <FloodAidChatbot
+          apiKey={import.meta.env.VITE_MISTRAL_API_KEY}
+          model="mistral-large-latest"
+          aiProvider="mistral"
+          position="bottom-right"
+          onEmergency={handleEmergency}
+        />
+      </div>
+    </Router>
   );
 }
 
