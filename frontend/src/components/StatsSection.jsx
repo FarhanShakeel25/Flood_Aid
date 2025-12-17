@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import '../../styles/StatsSection.css';
+import '../styles/StatsSection.css';
 
 export function StatsSection() {
   const [stats, setStats] = useState(null);

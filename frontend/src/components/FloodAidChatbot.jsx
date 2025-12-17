@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, AlertTriangle, Globe, Mic, MicOff } from 'lucide-react';
-import { AIService } from '../../services/ai/aiService';
-import { MistralService } from '../../services/ai/mistralService';
-import { isRelevantQuery, detectEmergency, getRedirectMessage } from '../../services/prompts/promptService';
-import '../../styles/chatbot/chatbot.css';
+import { AIService } from '../services/ai/aiService';
+import { MistralService } from '../services/ai/mistralService';
+import { isRelevantQuery, detectEmergency, getRedirectMessage } from '../services/prompts/promptService';
+import '../styles/chatbot.css';
 
 /**
  * Improved FloodAidChatbot
