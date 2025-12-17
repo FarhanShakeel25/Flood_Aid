@@ -1,14 +1,15 @@
-// pages/Contact.jsx
+import Header from "../components/Header";
 import ContactForm from "../components/contact";
+import Footer from "../components/Footer";
 
 const Contact = () => {
   return (
-    <div className="contact-page-container">
-      <div className="contact-hero">
-        <h1>Emergency Contact & Support</h1>
-        <p>Get immediate assistance or report flood situations</p>
-      </div>
-      <ContactForm />
+    <div className="contact-page">
+      <Header />
+      <main className="contact-main">
+        <ContactForm />
+      </main>
+      <Footer />
     </div>
   );
 };
