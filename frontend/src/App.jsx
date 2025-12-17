@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './Pages/HomePage';
 import Contact from './Pages/ContactPage';
+import Donations from './components/donations'; // Add this import
 import FloodAidChatbot from './components/FloodAidChatbot';
 import './styles/globals.css';
 
@@ -13,9 +14,10 @@ function App() {
     <Router>
       <div className="app">
         <Routes>
-          {/* Remove Layout wrapper */}
           <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/donate" element={<Donations />} /> {/* Add this route */}
         </Routes>
         
         <FloodAidChatbot

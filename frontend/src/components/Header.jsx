@@ -13,6 +13,11 @@ export function Header() {
     setMobileMenuOpen(false);
   };
 
+  const handleDonateClick = () => {
+    navigate('/donate');
+    setMobileMenuOpen(false);
+  };
+
   return (
     <header className="header">
       <div className="header-container">
@@ -26,7 +31,13 @@ export function Header() {
             <Link to="/" className="nav-link">Home</Link>
             <a href="#alerts" className="nav-link">Alerts</a>
             <a href="#centers" className="nav-link">Relief Centers</a>
-            <a href="#donate" className="nav-link">Donate</a>
+            <button 
+              className="nav-link donate-btn"  // Changed from <a> to <button>
+              onClick={handleDonateClick}      // Added click handler
+              style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit'}}
+            >
+              Donate
+            </button>
             <a href="#volunteer" className="nav-link">Volunteer</a>
             <a href="#dashboard" className="nav-link">Dashboard</a>
             <button 
@@ -69,13 +80,16 @@ export function Header() {
               >
                 Relief Centers
               </a>
-              <a 
-                href="#donate" 
+              <button 
                 className="nav-link"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => {
+                  handleDonateClick();
+                  setMobileMenuOpen(false);
+                }}
+                style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', width: '100%', textAlign: 'left', padding: '10px 0', color: '#333'}}
               >
                 Donate
-              </a>
+              </button>
               <a 
                 href="#volunteer" 
                 className="nav-link"
