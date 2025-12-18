@@ -1,12 +1,17 @@
 import React from 'react';
-import '../styles/Hero.css'; // import hero-specific styles
+import '../styles/Hero.css'; // Import hero-specific styles
+
+// Step 1: Import the local image from your assets folder
+// The '../' moves up from 'components' to 'src', then into 'assets'
+import floodImage from '../assets/flood.jpeg';
 
 export function HeroSection() {
   return (
     <section id="home" className="hero-section">
       <div className="hero-container">
         <div className="hero-grid">
-          <div>
+          {/* Left Column: Information & Actions */}
+          <div className="content-side">
             <div className="emergency-alert">
               <svg className="alert-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
@@ -53,16 +58,18 @@ export function HeroSection() {
             </div>
           </div>
 
+          {/* Right Column: Visuals & Floating UI */}
           <div className="image-section">
             <div className="image-container">
+              {/* Step 2: Use the variable name 'floodImage' in the src attribute */}
               <img
-                src="https://images.unsplash.com/photo-1657069343999-39722b95f1d8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmbG9vZCUyMHJlbGllZiUyMGhlbHB8ZW58MXx8fHwxNzYyMTg0ODY4fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+                src={floodImage}
                 alt="Flood relief operations"
                 className="hero-image"
               />
             </div>
             
-            {/* Floating card */}
+            {/* Floating card - Represents the "Data Structure" flow */}
             <div className="floating-card">
               <div className="card-content">
                 <div className="card-info">
