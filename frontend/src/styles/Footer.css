@@ -72,6 +72,7 @@
   font-size: 1.125rem;
   font-weight: 600;
   margin-bottom: 1rem;
+  color: white;
 }
 
 .links-list {
@@ -184,7 +185,7 @@
 .brand-text {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #1e293b; /* Slate-800 */
+  color: white;
   letter-spacing: -0.02em;
 }
 
