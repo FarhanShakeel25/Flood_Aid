@@ -1,281 +1,182 @@
+/* --- Production Stats Section Styles --- */
+
+:root {
+  /* Adjusted for a slower, more elegant 'Pop' */
+  --ease-pop: cubic-bezier(0.22, 1, 0.36, 1); 
+  /* Adjusted for a slow-build 'Running' bar */
+  --ease-run: cubic-bezier(0.45, 0, 0.55, 1);
+  --bg-subtle: radial-gradient(circle at top left, #f8fafc 0%, #f1f5f9 100%);
+}
+
 .stats-section {
-  padding: 4rem 0;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 30px 0;
+  background: var(--bg-subtle);
+  overflow: hidden; 
 }
 
 .stats-container {
-  max-width: 80rem;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 24px;
 }
 
-@media (min-width: 640px) {
-  .stats-container {
-    padding: 0 1.5rem;
-  }
+/* Header Entrance - Slower fade */
+.stats-header-area {
+  text-align: center;
+  margin-bottom: 60px;
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 1.2s var(--ease-pop);
+  margin-top: 20px;
 }
 
-@media (min-width: 1024px) {
-  .stats-container {
-    padding: 0 2rem;
-  }
+.is-visible .stats-header-area {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .stats-title {
-  text-align: center;
   color: #1e3a8a;
-  font-size: 2.25rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
 }
 
-.stats-subtitle {
-  text-align: center;
-  color: #6b7280;
-  font-size: 1.125rem;
-  margin-bottom: 3rem;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(1, 1fr);
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-@media (min-width: 768px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2rem;
-  }
-}
-
+/* --- THE SLOW POP-UP ENTRANCE --- */
 .stat-card {
   background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
-  cursor: pointer;
-  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  
+  /* Initial State */
+  opacity: 0;
+  transform: translateY(180px) scale(0.85);
+  
+  /* Increased duration from 0.8s to 1.4s for slow-motion effect */
+  transition: 
+    transform 1.4s var(--ease-pop), 
+    opacity 1.2s ease-out;
+}
+
+.is-visible .stat-card {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  transform: translateY(-12px) scale(1.02) !important;
+  box-shadow: 0 25px 50px -12px rgba(30, 58, 138, 0.15);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
 }
 
-.stat-card-blue {
-  border-top: 4px solid #3b82f6;
-}
-
-.stat-card-green {
-  border-top: 4px solid #10b981;
-}
-
-.stat-card-orange {
-  border-top: 4px solid #f59e0b;
-}
-
-.stat-card-purple {
-  border-top: 4px solid #8b5cf6;
-}
-
-.stat-header {
+/* Card UI Styling */
+.card-top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
+  align-items: center;
+  margin-bottom: 24px;
 }
 
-.stat-icon-container {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
+.card-icon {
+  font-size: 2rem;
+  background: #f8fafc;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 12px;
 }
 
-.stat-card-blue .stat-icon-container {
-  background-color: #dbeafe;
-  color: #3b82f6;
-}
-
-.stat-card-green .stat-icon-container {
-  background-color: #d1fae5;
+/* Live Pill with Pulse */
+.live-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
   color: #10b981;
+  background: #d1fae5;
+  padding: 4px 12px;
+  border-radius: 20px;
+  position: relative;
 }
 
-.stat-card-orange .stat-icon-container {
-  background-color: #fef3c7;
-  color: #f59e0b;
+.live-pill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  box-shadow: 0 0 0 2px #10b981;
+  animation: live-pulse 2s infinite;
 }
 
-.stat-card-purple .stat-icon-container {
-  background-color: #ede9fe;
-  color: #8b5cf6;
-}
-
-.stat-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.stat-change {
-  display: flex;
-  align-items: center;
-}
-
-.change-indicator {
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-}
-
-.change-indicator.positive {
-  background-color: #d1fae5;
-  color: #065f46;
-}
-
-.change-indicator.negative {
-  background-color: #fee2e2;
-  color: #991b1b;
+@keyframes live-pulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.5); opacity: 0; }
 }
 
 .stat-value {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 0.5rem;
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
 }
 
 .stat-label {
-  color: #6b7280;
-  font-size: 0.875rem;
-  margin-bottom: 1.5rem;
+  color: #64748b;
+  font-weight: 500;
+  margin: 4px 0 24px;
 }
 
-.stat-progress {
-  margin-top: 1rem;
-}
-
-.progress-bar {
+/* --- THE SLOW RUNNING PROGRESS BAR --- */
+.progress-track {
   width: 100%;
-  height: 0.5rem;
-  background-color: #e5e7eb;
-  border-radius: 0.25rem;
+  height: 12px;
+  background: #f1f5f9;
+  border-radius: 20px;
   overflow: hidden;
-  margin-bottom: 0.5rem;
+  margin-bottom: 12px;
+  position: relative;
 }
 
 .progress-fill {
   height: 100%;
-  border-radius: 0.25rem;
-  transition: width 0.5s ease-in-out;
+  width: 0%; 
+  border-radius: 20px;
+  /* Visual Running Transition - Slower duration (3.5s) */
+  transition: width 3.5s var(--ease-run);
+  position: relative;
 }
 
-.stat-card-blue .progress-fill {
-  background-color: #3b82f6;
+.card-blue .progress-fill { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.card-green .progress-fill { background: linear-gradient(90deg, #10b981, #34d399); }
+.card-orange .progress-fill { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.card-purple .progress-fill { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+/* Shine effect */
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: bar-shine 3s infinite linear;
 }
 
-.stat-card-green .progress-fill {
-  background-color: #10b981;
+@keyframes bar-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
-.stat-card-orange .progress-fill {
-  background-color: #f59e0b;
-}
-
-.stat-card-purple .progress-fill {
-  background-color: #8b5cf6;
-}
-
-.progress-text {
+.progress-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75rem;
-  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #94a3b8;
 }
 
-/* Loading Skeletons */
-.stat-card.loading {
-  animation: pulse 2s infinite;
-}
-
-.stat-skeleton-icon {
-  width: 3rem;
-  height: 3rem;
-  background-color: #e5e7eb;
-  border-radius: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.stat-skeleton-value {
-  width: 60%;
-  height: 2rem;
-  background-color: #e5e7eb;
-  border-radius: 0.375rem;
-  margin-bottom: 0.5rem;
-}
-
-.stat-skeleton-label {
-  width: 40%;
-  height: 1rem;
-  background-color: #e5e7eb;
-  border-radius: 0.375rem;
-  margin-bottom: 1.5rem;
-}
-
-.stat-skeleton-progress {
-  width: 100%;
-  height: 0.5rem;
-  background-color: #e5e7eb;
-  border-radius: 0.25rem;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.stats-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.last-updated {
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.live-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: #10b981;
-  font-weight: 600;
-}
-
-.live-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  background-color: #10b981;
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
+@media (max-width: 768px) {
+  .stat-card { transform: translateY(120px) scale(0.9); padding: 24px; }
+  .stat-value { font-size: 1.8rem; }
 }
