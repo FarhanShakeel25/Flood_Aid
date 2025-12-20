@@ -2,20 +2,19 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../styles/globals.css";
-import "../styles/Header.css";
-import logo from "../assets/logo.png";
+import '../styles/Header.css'
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleEmergencyClick = () => {
-    navigate("/contact");
+    navigate('/contact');
     setMobileMenuOpen(false);
   };
 
   const handleDonateClick = () => {
-    navigate("/donate");
+    navigate('/donate');
     setMobileMenuOpen(false);
   };
 
@@ -24,42 +23,26 @@ export function Header() {
       <div className="header-container">
         <div className="header-main">
           <div className="logo-area">
-            {/* Replaced 🔔 with the imported logo image */}
-            <div className="logo-image-wrapper">
-              <img src={logo} alt="Flood Aid Logo" className="header-logo" />
-            </div>
-            <Link to="/" className="logo-text">
-              Flood Relief System
-            </Link>
+            <div className="logo-icon">🔔</div>
+            <Link to="/" className="logo-text">Flood Relief System</Link>
           </div>
 
           <nav className="nav-desktop">
-            <Link to="/" className="nav-link">
-              Home
-            </Link>
-            <a href="#alerts" className="nav-link">
-              Alerts
-            </a>
-            <a href="#centers" className="nav-link">
-              Relief Centers
-            </a>
-            <button
-              className="nav-link donate-btn" // Changed from <a> to <button>
-              onClick={handleDonateClick} // Added click handler
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                fontSize: "inherit",
-              }}
+            <Link to="/" className="nav-link">Home</Link>
+            <a href="#alerts" className="nav-link">Alerts</a>
+            <a href="#centers" className="nav-link">Relief Centers</a>
+            <button 
+              className="nav-link donate-btn"  // Changed from <a> to <button>
+              onClick={handleDonateClick}      // Added click handler
+              style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit'}}
             >
               Donate
             </button>
-            <a href="#dashboard" className="nav-link">
-              Dashboard
-            </a>
-            <button className="btn-emergency" onClick={handleEmergencyClick}>
+            <a href="#dashboard" className="nav-link">Dashboard</a>
+            <button 
+              className="btn-emergency"
+              onClick={handleEmergencyClick}
+            >
               Emergency Contact
             </button>
           </nav>
@@ -75,55 +58,55 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="nav-mobile-container">
             <nav className="nav-mobile">
-              <Link
-                to="/"
+              <Link 
+                to="/" 
                 className="nav-link"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Home
               </Link>
-              <a
-                href="#alerts"
+              <a 
+                href="#alerts" 
                 className="nav-link"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Alerts
               </a>
-              <a
-                href="#centers"
+              <a 
+                href="#centers" 
                 className="nav-link"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Relief Centers
               </a>
-              <button
+              <button 
                 className="nav-link"
                 onClick={() => {
                   handleDonateClick();
                   setMobileMenuOpen(false);
                 }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  fontSize: "inherit",
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "10px 0",
-                  color: "#333",
-                }}
+                style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', width: '100%', textAlign: 'left', padding: '10px 0', color: '#333'}}
               >
                 Donate
               </button>
-              <a
-                href="#dashboard"
+              <a 
+                href="#volunteer" 
+                className="nav-link"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Volunteer
+              </a>
+              <a 
+                href="#dashboard" 
                 className="nav-link"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Dashboard
               </a>
-              <button className="btn-emergency" onClick={handleEmergencyClick}>
+              <button 
+                className="btn-emergency"
+                onClick={handleEmergencyClick}
+              >
                 Emergency Contact
               </button>
             </nav>
