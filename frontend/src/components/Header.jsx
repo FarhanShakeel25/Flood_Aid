@@ -38,6 +38,7 @@ export function Header() {
             >
               Donate
             </button>
+            <a href="#volunteer" className="nav-link">Volunteer</a>
             <a href="#dashboard" className="nav-link">Dashboard</a>
             <button 
               className="btn-emergency"
