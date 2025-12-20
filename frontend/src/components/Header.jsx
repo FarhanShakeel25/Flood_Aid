@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../styles/globals.css";
 import "../styles/Header.css";
-import logo from "../assets/logo.png";
+import logo from "../assets/Logo.png";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
