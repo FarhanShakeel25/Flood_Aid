@@ -162,6 +162,13 @@
   transform: translateY(var(--parallax-y));
 }
 
+.btn-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: inline-block;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: white;
