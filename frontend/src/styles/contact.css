@@ -274,7 +274,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
-
 @media (max-width: 480px) {
   .submit-btn {
     width: 100%;
