@@ -284,19 +284,7 @@ const Donations = () => {
                     {errors.amount && <div className="error-message">{errors.amount}</div>}
                   </div>
                   
-                  <div className="form-group checkbox-group">
-                    <input
-                      type="checkbox"
-                      id="isRecurring"
-                      name="isRecurring"
-                      checked={donationData.isRecurring}
-                      onChange={handleInputChange}
-                      disabled={isSubmitting}
-                    />
-                    <label htmlFor="isRecurring">
-                      Make this a monthly recurring donation
-                    </label>
-                  </div>
+                  
                 </div>
               ) : (
                 <div className="goods-donation">
