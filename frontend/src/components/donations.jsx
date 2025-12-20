@@ -13,8 +13,8 @@ const Donations = () => {
     // Common fields
     donorName: '',
     email: '',
-    contact: '',
-    donorAccountNumber: '',
+    contact: '', // Mobile number is now required
+    donorAccountNumber: '', // Account number for money donations only
     
     // Money donation fields
     amount: '',
@@ -35,8 +35,11 @@ const Donations = () => {
     const newErrors = {};
     
     // Common validations
-    if (!donationData.donorAccountNumber.trim()) {
-      newErrors.donorAccountNumber = 'Account number is required';
+    if (donationType === 'money') {
+      // Account number required only for money donations
+      if (!donationData.donorAccountNumber.trim()) {
+        newErrors.donorAccountNumber = 'Account number is required for monetary donations';
+      }
     }
     
     if (!donationData.email.trim()) {
@@ -45,12 +48,19 @@ const Donations = () => {
       newErrors.email = 'Please enter a valid email';
     }
     
+    // Mobile number validation - NOW REQUIRED
+    if (!donationData.contact.trim()) {
+      newErrors.contact = 'Mobile number is required';
+    } else if (!/^[+]?[0-9\s\-\(\)]{10,}$/.test(donationData.contact)) {
+      newErrors.contact = 'Please enter a valid mobile number';
+    }
+    
     // Money donation validations
     if (donationType === 'money') {
       if (!donationData.amount || donationData.amount <= 0) {
         newErrors.amount = 'Please enter a valid donation amount';
       } else if (donationData.amount > 1000000) {
-        newErrors.amount = 'Maximum donation amount is ₹10,00,000';
+        newErrors.amount = 'Maximum donation amount is RS 10,00,000';
       }
     }
     
@@ -83,6 +93,13 @@ const Donations = () => {
   const handleDonationTypeChange = (type) => {
     setDonationType(type);
     setErrors({});
+    // Clear account number when switching to goods donation
+    if (type === 'goods') {
+      setDonationData(prev => ({
+        ...prev,
+        donorAccountNumber: ''
+      }));
+    }
   };
 
   const quickAmounts = [500, 1000, 2000, 5000, 10000];
@@ -103,10 +120,10 @@ const Donations = () => {
       // Prepare payload according to C# class structure
       const payload = {
         donationType: donationType === 'money' ? 0 : 1, // 0: Money, 1: Goods (based on DonationType enum)
-        donorAccountNumber: donationData.donorAccountNumber,
+        donorAccountNumber: donationType === 'money' ? donationData.donorAccountNumber : null, // Only for money
         donorName: donationData.donorName || null,
         email: donationData.email,
-        contact: donationData.contact || null,
+        contact: donationData.contact, // Now required
         
         // Conditional fields
         ...(donationType === 'money' && {
@@ -153,18 +170,18 @@ const Donations = () => {
           });
           
           // Reset form
-          if (donationType === 'goods') {
-            setDonationData({
-              donorName: '',
-              email: '',
-              contact: '',
-              donorAccountNumber: '',
-              itemName: '',
-              quantity: 1,
-              itemCondition: 'new',
-              description: ''
-            });
-          }
+          setDonationData({
+            donorName: '',
+            email: '',
+            contact: '', // Keep field but clear value
+            donorAccountNumber: '', // Clear account number
+            amount: '',
+            isRecurring: false,
+            itemName: '',
+            quantity: 1,
+            itemCondition: 'new',
+            description: ''
+          });
         }
       } else {
         setSubmitStatus({
@@ -193,15 +210,15 @@ const Donations = () => {
           
           <div className="impact-stats">
             <div className="stat-item">
-              <span className="stat-number">₹500</span>
+              <span className="stat-number">RS 500</span>
               <span className="stat-label">Feeds a family for 3 days</span>
             </div>
             <div className="stat-item">
-              <span className="stat-number">₹1000</span>
+              <span className="stat-number">RS 1000</span>
               <span className="stat-label">Provides emergency medical kit</span>
             </div>
             <div className="stat-item">
-              <span className="stat-number">₹5000</span>
+              <span className="stat-number">RS 5000</span>
               <span className="stat-label">Supports temporary shelter</span>
             </div>
           </div>
@@ -243,14 +260,14 @@ const Donations = () => {
                         className={`amount-btn ${donationData.amount == amount ? 'selected' : ''}`}
                         onClick={() => setDonationData(prev => ({ ...prev, amount }))}
                       >
-                        ₹{amount.toLocaleString('en-IN')}
+                        RS {amount.toLocaleString('en-IN')}
                       </button>
                     ))}
                   </div>
                   
                   <div className="form-group">
                     <label htmlFor="amount">
-                      Custom Amount (₹) <span className="required">*</span>
+                      Custom Amount (RS ) <span className="required">*</span>
                     </label>
                     <input
                       type="number"
@@ -389,7 +406,9 @@ const Donations = () => {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="contact">Contact Number (Optional)</label>
+                  <label htmlFor="contact">
+                    Mobile Number <span className="required">*</span>
+                  </label>
                   <input
                     type="tel"
                     id="contact"
@@ -397,35 +416,40 @@ const Donations = () => {
                     value={donationData.contact}
                     onChange={handleInputChange}
                     placeholder="+91 98765 43210"
+                    className={errors.contact ? 'error' : ''}
                     disabled={isSubmitting}
                   />
+                  {errors.contact && <div className="error-message">{errors.contact}</div>}
                 </div>
                 
-                <div className="form-group">
-                  <label htmlFor="donorAccountNumber">
-                    Account Number <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="donorAccountNumber"
-                    name="donorAccountNumber"
-                    value={donationData.donorAccountNumber}
-                    onChange={handleInputChange}
-                    placeholder="Enter your account number"
-                    className={errors.donorAccountNumber ? 'error' : ''}
-                    disabled={isSubmitting}
-                  />
-                  {errors.donorAccountNumber && (
-                    <div className="error-message">{errors.donorAccountNumber}</div>
-                  )}
-                </div>
+                {donationType === 'money' && (
+                  <div className="form-group">
+                    <label htmlFor="donorAccountNumber">
+                      Account Number <span className="required">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="donorAccountNumber"
+                      name="donorAccountNumber"
+                      value={donationData.donorAccountNumber}
+                      onChange={handleInputChange}
+                      placeholder="Enter your account number"
+                      className={errors.donorAccountNumber ? 'error' : ''}
+                      disabled={isSubmitting}
+                    />
+                    {errors.donorAccountNumber && (
+                      <div className="error-message">{errors.donorAccountNumber}</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="form-footer">
               <p className="disclaimer">
                 By submitting this form, you agree that your donation will be used for flood relief efforts.
-                All transactions are secure and processed through Stripe.
+                {donationType === 'money' && ' All transactions are secure and processed through Stripe.'}
+                {donationType === 'goods' && ' Our team will contact you within 24 hours for goods collection details.'}
               </p>
               
               <button
@@ -448,14 +472,29 @@ const Donations = () => {
           </form>
           
           <div className="security-info">
-            <h4>💳 Secure Payment</h4>
-            <p>All monetary donations are processed securely through Stripe</p>
-            
-            <h4>📦 Goods Collection</h4>
-            <p>Our team will contact you for goods pickup details</p>
-            
-            <h4>📄 Receipt</h4>
-            <p>A donation receipt will be emailed to you immediately</p>
+            {donationType === 'money' ? (
+              <>
+                <h4>💳 Secure Payment</h4>
+                <p>All monetary donations are processed securely through Stripe</p>
+                
+                <h4>📄 Tax Benefits</h4>
+                <p>All donations are eligible for tax deductions under Section 80G</p>
+                
+                <h4>🔒 Data Protection</h4>
+                <p>Your financial information is encrypted and secure</p>
+              </>
+            ) : (
+              <>
+                <h4>📦 Goods Collection</h4>
+                <p>Our team will contact you within 24 hours for pickup details</p>
+                
+                <h4>✅ Accepted Items</h4>
+                <p>Food, clothing, medicines, blankets, and other essentials</p>
+                
+                <h4>📍 Drop-off Points</h4>
+                <p>Multiple collection centers available across the city</p>
+              </>
+            )}
           </div>
         </div>
       </main>
