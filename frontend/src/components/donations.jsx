@@ -170,7 +170,7 @@ const Donations = () => {
         }
       } else {
         // For OtherSupplies donations
-        const response = await fetch('pk_test_51SgKaO0HsGoNt3VVLxZYmoF1gdd1gRsvuOhH0dW6jMcfa89Grm6C3qEAFxj2bkcnd8Ci9ElIXdnaHHiwqoZmHQ5I00gpJUIIJO', {
+        const response = await fetch('/api/donation/create-supplies', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
