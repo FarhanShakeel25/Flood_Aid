@@ -132,7 +132,7 @@ export const isRelevantQuery = (message) => {
   ];
   
   const lowerMessage = message.toLowerCase();
-  return relevantKeywords.some(keyword => lowerMessage.includes(keyword. toLowerCase()));
+  return relevantKeywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
 };
 
 // Multilingual emergency detection

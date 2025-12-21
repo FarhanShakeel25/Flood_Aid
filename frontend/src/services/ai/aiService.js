@@ -19,7 +19,7 @@ export class AIService {
     });
     this.chat = null;
     this.messageCount = 0;
-    this. conversationLanguage = null;
+    this.conversationLanguage = null;
     this.conversationHistory = []; // ✅ Track full conversation
   }
 
@@ -77,7 +77,7 @@ export class AIService {
     const isEmergency = detectEmergency(userMessage);
     
     try {
-      if (! this.chat) {
+      if (!this.chat) {
         await this.initializeChat();
       }
 
@@ -174,7 +174,7 @@ Provide immediate, actionable help in ${detectedLang}:`;
 
       // If wrong language and not English, try to fix
       if (responseLang !== detectedLang && detectedLang !== 'English' && !text.match(/[\u0600-\u06FF\u0900-\u097F\u0A00-\u0A7F]/)) {
-        console. warn(`⚠️ Response in ${responseLang}, expected ${detectedLang}. Requesting translation...`);
+        console.warn(`⚠️ Response in ${responseLang}, expected ${detectedLang}. Requesting translation...`);
         
         const translationPrompt = `Translate this EXACT message to ${detectedLang}.  Keep the same meaning and structure.  Use ${detectedLang} script only:
 
@@ -182,7 +182,7 @@ Provide immediate, actionable help in ${detectedLang}:`;
 
 Translation in ${detectedLang}:`;
         
-        const retryResult = await this.chat. sendMessage(translationPrompt);
+        const retryResult = await this.chat.sendMessage(translationPrompt);
         const retryResponse = await retryResult.response;
         text = retryResponse.text();
         
@@ -190,11 +190,11 @@ Translation in ${detectedLang}:`;
       }
 
       this.messageCount++;
-      console. log('✅ Response delivered');
+      console.log('✅ Response delivered');
       console.log('📊 Total messages in session:', this.messageCount);
       console.log('📚 Conversation history length:', this.conversationHistory.length);
 
-      if (! text || text.trim(). length === 0) {
+      if (!text || text.trim().length === 0) {
         console.warn('⚠️ Empty response from Gemini');
         return this.getLocalizedErrorMessage('empty', detectedLang);
       }
@@ -208,7 +208,7 @@ Translation in ${detectedLang}:`;
         status: error.status,
       });
       
-      if (error.message?. includes('SAFETY')) {
+      if (error.message?.includes('SAFETY')) {
         return this.getLocalizedErrorMessage('safety', this.conversationLanguage);
       }
       
@@ -265,7 +265,7 @@ Translation in ${detectedLang}:`;
     this.chat = null;
     this.messageCount = 0;
     this.conversationLanguage = null;
-    this. conversationHistory = [];
+    this.conversationHistory = [];
   }
 
   getChatHistory() {
