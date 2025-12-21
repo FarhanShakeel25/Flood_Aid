@@ -9,8 +9,8 @@ const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes in milliseconds
 let pingInterval = null;
 
 export const startKeepAlive = () => {
-  // Only start if we're in production (Vercel)
-  if (import.meta.env.MODE !== 'production' || pingInterval) {
+  // Start if API base is configured (both dev and prod)
+  if (pingInterval) {
     return;
   }
 
@@ -20,10 +20,10 @@ export const startKeepAlive = () => {
     return;
   }
 
-  // Initial ping
+  // Initial ping immediately
   pingBackend();
 
-  // Set up interval
+  // Set up interval (ping every 10 minutes)
   pingInterval = setInterval(pingBackend, PING_INTERVAL);
 
   console.log('✅ Backend keep-alive started (pings every 10 minutes)');
