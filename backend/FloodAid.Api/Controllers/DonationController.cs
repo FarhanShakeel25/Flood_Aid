@@ -27,6 +27,41 @@ namespace FloodAid.Api.Controllers
             StripeConfiguration.ApiKey = _configuration["Stripe:ApiKey"];
         }
 
+        [HttpGet("session/{id}")]
+        public async Task<IActionResult> GetSessionDetails([FromRoute] string id)
+        {
+            try
+            {
+                var service = new SessionService();
+                var session = await service.GetAsync(id, new SessionGetOptions
+                {
+                    Expand = new List<string> { "line_items" }
+                });
+
+                long amountTotal = session.AmountTotal ?? 0;
+                string currency = session.Currency ?? "pkr";
+
+                return Ok(new
+                {
+                    id = session.Id,
+                    amount = (decimal)amountTotal / 100m,
+                    currency,
+                    paymentStatus = session.PaymentStatus,
+                    email = session.CustomerEmail
+                });
+            }
+            catch (StripeException sex)
+            {
+                _logger.LogError(sex, "Stripe error retrieving session {SessionId}", id);
+                return NotFound(new { error = "Session not found" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error retrieving session {SessionId}", id);
+                return StatusCode(500, new { error = "Failed to retrieve session" });
+            }
+        }
+
         [HttpPost("create-session")]
         public async Task<IActionResult> CreateCheckoutSession([FromBody] CashDonationRequest request)
         {
