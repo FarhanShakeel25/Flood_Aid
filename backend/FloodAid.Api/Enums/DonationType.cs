@@ -3,9 +3,6 @@
     public enum DonationType
     {
         Cash,
-        Food,
-        MedicalSupplies,
-        Clothes,
         OtherSupplies
     }
 }

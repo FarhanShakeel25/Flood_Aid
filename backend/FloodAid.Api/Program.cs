@@ -1,70 +1,55 @@
 using FloodAid.Api.Models;
+using Stripe;
 
-namespace FloodAid.Api
+var builder = WebApplication.CreateBuilder(args);
+
+// Configure Stripe (move to appsettings.json in production)
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"] 
+    ?? "STRIPE_TEST_SECRET_PLACEHOLDER";
+
+// Add CORS policy
+builder.Services.AddCors(options =>
 {
-    static class Program
-    {
-        static void Main(string[] args)
-        {
+    options.AddPolicy("AllowAll", x =>
+        x.AllowAnyOrigin()
+         .AllowAnyHeader()
+         .AllowAnyMethod());
+});
 
-            var builder = WebApplication.CreateBuilder(args);
+// Add services
+builder.Services.AddOpenApi();
+builder.Services.AddControllers();
 
-            // Add CORS policy before builder.Build()
-            builder.Services.AddCors(options =>
-            {
-                options.AddPolicy("AllowAll", x =>
-                    x.AllowAnyOrigin()
-                     .AllowAnyHeader()
-                     .AllowAnyMethod());
-            });
+var app = builder.Build();
 
-            // Add services to the container.
-            builder.Services.AddOpenApi();
+// Apply CORS
+app.UseCors("AllowAll");
 
-            var app = builder.Build();
-
-            // Apply CORS after builder.Build(), before endpoints
-            app.UseCors("AllowAll");
-
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.MapOpenApi();
-            }
-
-            app.UseHttpsRedirection();
-
-
-            List<Donation> Donations = new();
-            var donation1 = new Donation(Enums.DonationType.Cash, "PK7666tgww")
-            {
-                DonationAmount = 2000,
-                DonorName = "Ali"
-            };
-            Donations.Add(donation1);
-
-            app.MapGet("/api/donations",() =>
-            {
-                return Donations;
-            });
-
-
-            // Dummy endpoint for frontend testing
-            app.MapGet("/api/dummy", () =>
-            {
-                var donors = new[]
-                {
-                    new { id = 1, name = "Ali", bloodGroup = "A+", city = "Lahore" },
-                    new { id = 2, name = "Sara", bloodGroup = "B+", city = "Karachi" },
-                    new { id = 3, name = "Omar", bloodGroup = "O-", city = "Islamabad" }
-                };
-
-                return donors;
-            });
-            app.Run();
-        }
-    }
+// Configure HTTP pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
 }
+
+app.UseHttpsRedirection();
+
+// Map controllers
+app.MapControllers();
+
+
+// Keep dummy endpoint if needed for testing
+app.MapGet("/api/dummy", () =>
+{
+    var donors = new[]
+    {
+        new { id = 1, name = "Ali", bloodGroup = "A+", city = "Lahore" },
+        new { id = 2, name = "Sara", bloodGroup = "B+", city = "Karachi" },
+        new { id = 3, name = "Omar", bloodGroup = "O-", city = "Islamabad" }
+    };
+    return donors;
+});
+
+app.Run();
 
 
 
