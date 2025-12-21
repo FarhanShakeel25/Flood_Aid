@@ -13,11 +13,15 @@ namespace FloodAid.Api.Models
             DonorAccountNumber = accountnumber;
             DonationDate = DateTime.Now;
             Status = DonationStatus.Pending;
+            ReceiptId = Guid.NewGuid().ToString();
         }
 
+        public string ReceiptId { get; set; }
         public decimal? DonationAmount { get; set; }
         public int? Quantity { get; set; }
         public string? DonorName { get; set; }
+        public string? DonorEmail { get; set; }
+        public string? SuppliesDescription { get; set; }
 
         [Required]
         public string DonorAccountNumber { get; set; }
