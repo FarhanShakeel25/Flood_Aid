@@ -19,6 +19,11 @@ namespace FloodAid.Api.Services
         public async Task SendDonationConfirmationAsync(string toEmail, string donorName, decimal amount, string receiptId)
         {
             var smtpHost = _configuration["Email:SmtpHost"];
+            var smtpUser = _configuration["Email:SmtpUser"];
+            var fromEmail = _configuration["Email:FromEmail"];
+            
+            _logger.LogInformation("EmailService called: host={Host}, user={User}, from={From}", 
+                smtpHost ?? "NULL", smtpUser ?? "NULL", fromEmail ?? "NULL");
             
             // If SmtpHost is empty, log to console (development mode)
             if (string.IsNullOrWhiteSpace(smtpHost))
