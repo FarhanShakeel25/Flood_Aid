@@ -84,6 +84,12 @@ namespace FloodAid.Api
 
                 return donors;
             });
+
+            // Health check endpoint for Render monitoring
+            app.MapGet("/health", () => new { status = "ok", timestamp = DateTime.UtcNow })
+                .WithName("HealthCheck")
+                .WithOpenApi();
+
             app.Run();
         }
     }
