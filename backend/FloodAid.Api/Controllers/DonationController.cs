@@ -53,8 +53,8 @@ namespace FloodAid.Api.Controllers
                         },
                     },
                     Mode = "payment",
-                    SuccessUrl = $"{Request.Scheme}://{Request.Host}/success?session_id={{CHECKOUT_SESSION_ID}}",
-                    CancelUrl = $"{Request.Scheme}://{Request.Host}/cancel",
+                    SuccessUrl = "https://flood-aid-94zg.vercel.app/success?session_id={CHECKOUT_SESSION_ID}",
+                    CancelUrl = "https://flood-aid-94zg.vercel.app/cancel",
                     CustomerEmail = request.Email,
                     Metadata = new Dictionary<string, string>
                     {

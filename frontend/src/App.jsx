@@ -1,7 +1,9 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './Pages/HomePage';
 import Contact from './Pages/ContactPage';
-import Donations from './components/donations'; // Add this import
+import Donations from './components/donations';
+import SuccessPage from './Pages/SuccessPage';
+import CancelPage from './Pages/CancelPage';
 import FloodAidChatbot from './components/FloodAidChatbot';
 import './styles/globals.css';
 
@@ -17,7 +19,9 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/home" element={<Home />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/donate" element={<Donations />} /> {/* Add this route */}
+          <Route path="/donate" element={<Donations />} />
+          <Route path="/success" element={<SuccessPage />} />
+          <Route path="/cancel" element={<CancelPage />} />
         </Routes>
         
         <FloodAidChatbot
