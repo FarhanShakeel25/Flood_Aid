@@ -46,6 +46,7 @@ namespace FloodAid.Api.Services
                         _configuration["Email:SmtpPassword"]
                     ),
                     EnableSsl = true,
+                    Timeout = 5000, // Fail fast to avoid blocking donation flow
                 };
 
                 var mailMessage = new System.Net.Mail.MailMessage
