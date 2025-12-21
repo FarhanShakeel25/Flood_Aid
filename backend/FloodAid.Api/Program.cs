@@ -3,9 +3,14 @@ using Stripe;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Stripe (move to appsettings.json in production)
-StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"] 
-    ?? "STRIPE_TEST_SECRET_PLACEHOLDER";
+// Configure Stripe (require configuration or environment variable; no hardcoded fallback)
+var stripeSecretKey = builder.Configuration["Stripe:SecretKey"];
+if (string.IsNullOrWhiteSpace(stripeSecretKey))
+{
+    throw new InvalidOperationException(
+        "Stripe secret key is not configured. Set 'Stripe:SecretKey' in configuration or environment variables.");
+}
+StripeConfiguration.ApiKey = stripeSecretKey;
 
 // Add CORS policy
 builder.Services.AddCors(options =>

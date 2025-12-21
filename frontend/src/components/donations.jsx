@@ -84,7 +84,13 @@ const Donations = () => {
     // Account Number
     if (!donationData.accountNumber.trim()) {
       newErrors.accountNumber = 'Account number is required';
-    } else if (!/^[\d\s-]{6,30}$/.test(donationData.accountNumber.trim())) {
+    } else if (
+      // Accepts generic bank/financial account identifiers as 6–30 characters
+      // containing only digits, spaces, and hyphens. This lenient pattern allows
+      // users to enter numbers in common formatted forms (e.g. with spaces or dashes)
+      // while still rejecting obviously invalid, very short, or overly long values.
+      !/^[\d\s-]{6,30}$/.test(donationData.accountNumber.trim())
+    ) {
       newErrors.accountNumber = 'Please enter a valid account number';
     }
 
@@ -438,7 +444,9 @@ const Donations = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="contact">Contact Number (Optional)</label>
+                  <label htmlFor="contact">
+                    Contact Number <span className="required">*</span>
+                  </label>
                   <input
                     type="tel"
                     id="contact"
