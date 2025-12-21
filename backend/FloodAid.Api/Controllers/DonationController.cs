@@ -66,8 +66,8 @@ namespace FloodAid.Api.Controllers
                 var service = new SessionService();
                 Session session = await service.CreateAsync(options);
 
-                // Send email confirmation
-                await _emailService.SendDonationConfirmationAsync(
+                // Fire-and-forget email so checkout is not blocked by SMTP delays
+                _ = _emailService.SendDonationConfirmationAsync(
                     request.Email,
                     request.Name,
                     request.Amount,
@@ -95,8 +95,7 @@ namespace FloodAid.Api.Controllers
                     SuppliesDescription = request.Description
                 };
 
-                // Send email confirmation
-                await _emailService.SendDonationConfirmationAsync(
+                _ = _emailService.SendDonationConfirmationAsync(
                     request.Email,
                     request.Name,
                     0,
