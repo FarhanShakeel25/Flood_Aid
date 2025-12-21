@@ -27,6 +27,9 @@ namespace FloodAid.Api
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
 
+            // Register HttpClientFactory for EmailService
+            builder.Services.AddHttpClient();
+
             // Register EmailService
             builder.Services.AddScoped<IEmailService, EmailService>();
 

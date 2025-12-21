@@ -9,24 +9,26 @@ namespace FloodAid.Api.Services
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<EmailService> _logger;
+        private readonly HttpClient _httpClient;
 
-        public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+        public EmailService(IConfiguration configuration, ILogger<EmailService> logger, IHttpClientFactory httpClientFactory)
         {
             _configuration = configuration;
             _logger = logger;
+            _httpClient = httpClientFactory.CreateClient();
         }
 
         public async Task SendDonationConfirmationAsync(string toEmail, string donorName, decimal amount, string receiptId)
         {
-            var smtpHost = _configuration["Email:SmtpHost"];
-            var smtpUser = _configuration["Email:SmtpUser"];
+            var brevoApiKey = _configuration["Email:BrevoApiKey"];
             var fromEmail = _configuration["Email:FromEmail"];
+            var fromName = _configuration["Email:FromName"];
             
-            _logger.LogInformation("EmailService called: host={Host}, user={User}, from={From}", 
-                smtpHost ?? "NULL", smtpUser ?? "NULL", fromEmail ?? "NULL");
+            _logger.LogInformation("EmailService called: apiKey={ApiKeySet}, from={From}", 
+                !string.IsNullOrWhiteSpace(brevoApiKey) ? "SET" : "NULL", fromEmail ?? "NULL");
             
-            // If SmtpHost is empty, log to console (development mode)
-            if (string.IsNullOrWhiteSpace(smtpHost))
+            // If API key is empty, log to console (development mode)
+            if (string.IsNullOrWhiteSpace(brevoApiKey))
             {
                 _logger.LogInformation(
                     "=== EMAIL CONFIRMATION (Console Mode) ===" +
@@ -40,30 +42,15 @@ namespace FloodAid.Api.Services
                 return;
             }
 
-            // Production: Send actual email via SMTP
+            // Production: Send via Brevo API (works over HTTPS, not blocked by Render)
             try
             {
-                using var client = new System.Net.Mail.SmtpClient(smtpHost)
+                var emailPayload = new
                 {
-                    Port = int.Parse(_configuration["Email:SmtpPort"] ?? "587"),
-                    Credentials = new System.Net.NetworkCredential(
-                        _configuration["Email:SmtpUser"],
-                        _configuration["Email:SmtpPassword"]
-                    ),
-                    UseDefaultCredentials = false,
-                    DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network,
-                    EnableSsl = true,
-                    Timeout = 5000, // Fail fast to avoid blocking donation flow
-                };
-
-                var mailMessage = new System.Net.Mail.MailMessage
-                {
-                    From = new System.Net.Mail.MailAddress(
-                        _configuration["Email:FromEmail"] ?? "noreply@floodaid.com",
-                        _configuration["Email:FromName"] ?? "Flood Aid"
-                    ),
-                    Subject = "Thank you for your donation - Flood Aid",
-                    Body = $@"
+                    sender = new { name = fromName ?? "Flood Aid", email = fromEmail ?? "noreply@floodaid.com" },
+                    to = new[] { new { email = toEmail, name = donorName } },
+                    subject = "Thank you for your donation - Flood Aid",
+                    htmlContent = $@"
                         <html>
                         <body>
                             <h2>Thank you for your generous donation!</h2>
@@ -75,13 +62,27 @@ namespace FloodAid.Api.Services
                             <p>Best regards,<br/>Flood Aid Team</p>
                         </body>
                         </html>
-                    ",
-                    IsBodyHtml = true,
+                    "
                 };
-                mailMessage.To.Add(toEmail);
 
-                await client.SendMailAsync(mailMessage);
-                _logger.LogInformation("Email sent successfully to {ToEmail}", toEmail);
+                var request = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email")
+                {
+                    Content = JsonContent.Create(emailPayload)
+                };
+                request.Headers.Add("api-key", brevoApiKey);
+                request.Headers.Add("accept", "application/json");
+
+                var response = await _httpClient.SendAsync(request);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("Email sent successfully to {ToEmail} via Brevo API", toEmail);
+                }
+                else
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Brevo API error: {StatusCode} - {Error}", response.StatusCode, errorBody);
+                }
             }
             catch (Exception ex)
             {
