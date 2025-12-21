@@ -138,29 +138,27 @@ const Donations = () => {
 
       if (donationType === 'Cash') {
         // For Cash donations: call Stripe session creation endpoint (Instruction #4)
-        const response = await fetch('pk_test_51SgKaO0HsGoNt3VVLxZYmoF1gdd1gRsvuOhH0dW6jMcfa89Grm6C3qEAFxj2bkcnd8Ci9ElIXdnaHHiwqoZmHQ5I00gpJUIIJO', {
+        const apiUrl = `${import.meta.env.VITE_API_BASE}/api/donation/create-session`;
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            name: donationData.donorName,
+            email: donationData.email,
+            amount: parseFloat(donationData.amount)
+          })
         });
 
         const result = await response.json();
 
         if (response.ok) {
-          if (result.sessionId) {
-            // Redirect to Stripe Checkout for Cash donations
-            const stripe = await stripePromise;
-            const { error } = await stripe.redirectToCheckout({
-              sessionId: result.sessionId
-            });
-            
-            if (error) {
-              throw new Error(error.message);
-            }
+          if (result.url) {
+            // Redirect to Stripe Checkout using the session URL
+            window.location.assign(result.url);
           } else {
-            throw new Error('No Stripe session ID received');
+            throw new Error('No Stripe session URL received');
           }
         } else {
           setSubmitStatus({
@@ -170,12 +168,17 @@ const Donations = () => {
         }
       } else {
         // For OtherSupplies donations
-        const response = await fetch('/api/donation/create-supplies', {
+        const apiUrl = `${import.meta.env.VITE_API_BASE}/api/donation/create-supplies`;
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            name: donationData.donorName,
+            email: donationData.email,
+            description: donationData.supplyDetails
+          })
         });
 
         const result = await response.json();
