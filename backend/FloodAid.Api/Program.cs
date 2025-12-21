@@ -1,6 +1,4 @@
 using FloodAid.Api.Models;
-using FloodAid.Api.Services;
-using System.Text.Json.Serialization;
 
 namespace FloodAid.Api
 {
@@ -11,50 +9,31 @@ namespace FloodAid.Api
 
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-            builder.Services.AddControllers()
-                .AddJsonOptions(options =>
-                {
-                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                });
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-
-            // Add Email Service
-            builder.Services.AddScoped<IEmailService, EmailService>();
-
-            // Add CORS
+            // Add CORS policy before builder.Build()
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowFrontend",
-                    policy =>
-                    {
-                        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
-                              .AllowAnyHeader()
-                              .AllowAnyMethod()
-                              .AllowCredentials();
-                    });
+                options.AddPolicy("AllowAll", x =>
+                    x.AllowAnyOrigin()
+                     .AllowAnyHeader()
+                     .AllowAnyMethod());
             });
 
+            // Add services to the container.
+            builder.Services.AddOpenApi();
+
             var app = builder.Build();
+
+            // Apply CORS after builder.Build(), before endpoints
+            app.UseCors("AllowAll");
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-                // Skip HTTPS redirect in development
+                app.MapOpenApi();
             }
-            else
-            {
-                // Use HTTPS redirect in production
-                app.UseHttpsRedirection();
-            }
-            app.UseCors("AllowFrontend");
 
-            app.UseAuthorization();
+            app.UseHttpsRedirection();
 
-            app.MapControllers();
 
             List<Donation> Donations = new();
             var donation1 = new Donation(Enums.DonationType.Cash, "PK7666tgww")

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import Header from './Header';
-import Footer from './Footer';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 import '../styles/donations.css';
 
 // Initialize Stripe with public key
@@ -73,6 +73,8 @@ const Donations = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -112,11 +114,6 @@ const Donations = () => {
     setSubmitStatus(null);
     
     try {
-      const parseJsonSafe = async (response) => {
-        const text = await response.text();
-        if (!text) return {};
-        try { return JSON.parse(text); } catch { return { raw: text }; }
-      };
       // Prepare payload according to backend DTO structure (Instruction #3)
       const payload = {
         donationType: donationType === 'Cash' ? 'Cash' : 'OtherSupplies', // Use string values as per enum
@@ -141,7 +138,7 @@ const Donations = () => {
 
       if (donationType === 'Cash') {
         // For Cash donations: call Stripe session creation endpoint (Instruction #4)
-        const response = await fetch(`${import.meta.env.VITE_API_BASE}/api/donation/create-session`, {
+        const response = await fetch('pk_test_51SgKaO0HsGoNt3VVLxZYmoF1gdd1gRsvuOhH0dW6jMcfa89Grm6C3qEAFxj2bkcnd8Ci9ElIXdnaHHiwqoZmHQ5I00gpJUIIJO', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -149,22 +146,21 @@ const Donations = () => {
           body: JSON.stringify(payload)
         });
 
-        const result = await parseJsonSafe(response);
+        const result = await response.json();
 
         if (response.ok) {
-          if (result.url) {
-            // New Stripe.js approach: redirect via URL from backend
-            window.location.assign(result.url);
-            return;
-          }
           if (result.sessionId) {
-            // Fallback: no redirectToCheckout in latest Stripe.js; show guidance
-            setSubmitStatus({
-              success: true,
-              message: 'Payment session created. Redirect URL not provided by server. Please contact support.'
+            // Redirect to Stripe Checkout for Cash donations
+            const stripe = await stripePromise;
+            const { error } = await stripe.redirectToCheckout({
+              sessionId: result.sessionId
             });
+            
+            if (error) {
+              throw new Error(error.message);
+            }
           } else {
-            throw new Error('No payment URL or session ID received');
+            throw new Error('No Stripe session ID received');
           }
         } else {
           setSubmitStatus({
@@ -174,7 +170,7 @@ const Donations = () => {
         }
       } else {
         // For OtherSupplies donations
-        const response = await fetch(`${import.meta.env.VITE_API_BASE}/api/donation/create-supplies`, {
+        const response = await fetch('/api/donation/create-supplies', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -182,7 +178,7 @@ const Donations = () => {
           body: JSON.stringify(payload)
         });
 
-        const result = await parseJsonSafe(response);
+        const result = await response.json();
 
         if (response.ok) {
           // Show confirmation after successful POST for OtherSupplies (Instruction #5)

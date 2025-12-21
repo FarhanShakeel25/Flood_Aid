@@ -27,10 +27,10 @@ function getCountryCodeFromNavigator() {
   try {
     const locale = (navigator.language || navigator.userLanguage || '').toUpperCase();
     const parts = locale.split(/[-_]/);
-    if (parts.length === 2 && parts[1].length === 2) return parts[1];
+    if (parts.length === 2 && parts[1]. length === 2) return parts[1];
     const resolved = Intl?.DateTimeFormat()?.resolvedOptions()?.locale;
     if (resolved) {
-      const p = resolved.toUpperCase().split(/[-_]/);
+      const p = resolved.toUpperCase(). split(/[-_]/);
       if (p.length === 2) return p[1];
     }
   } catch (e) {
@@ -43,8 +43,8 @@ function getLocalizedEmergencyNumber() {
   const cc = getCountryCodeFromNavigator();
   if (cc && EMERGENCY_MAP[cc]) return EMERGENCY_MAP[cc];
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    if (tz.includes('Pakistan') || tz.includes('Asia/Karachi')) return EMERGENCY_MAP.PK;
+    const tz = Intl.DateTimeFormat().resolvedOptions(). timeZone || '';
+    if (tz.includes('Pakistan') || tz.includes('Asia/Karachi')) return EMERGENCY_MAP. PK;
   } catch (e) {}
   return '112';
 }
@@ -93,11 +93,11 @@ const FloodAidChatbot = ({
     if (apiKey) {
       try {
         if (aiProvider === 'mistral') {
-          console.log('🤖 Initializing Mistral AI...');
+          console.log('🤖 Initializing Mistral AI.. .');
           aiServiceRef.current = new MistralService(apiKey, model);
           console.log('✅ Mistral AI initialized');
         } else {
-          console.log('🤖 Initializing Google Gemini...');
+          console.log('🤖 Initializing Google Gemini.. .');
           aiServiceRef.current = new AIService(apiKey, model);
           console.log('✅ Gemini AI initialized');
         }
@@ -124,8 +124,8 @@ const FloodAidChatbot = ({
         setIsListening(true);
       };
 
-      recognitionRef.current.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
+      recognitionRef. current. onresult = (event) => {
+        const transcript = event. results[0][0].transcript;
         console.log('🎤 Recognized:', transcript);
         setInputValue(transcript);
       };
@@ -164,7 +164,7 @@ const FloodAidChatbot = ({
   }, [messages, isOpen]);
 
   const toggleVoiceInput = () => {
-    if (!recognitionRef.current) {
+    if (! recognitionRef.current) {
       alert('🎤 Speech recognition is not supported in your browser.\n\nPlease use:\n• Google Chrome\n• Microsoft Edge\n• Safari (iOS/macOS)');
       return;
     }
@@ -211,7 +211,7 @@ const FloodAidChatbot = ({
     setInputValue('');
     setIsLoading(true);
 
-    if (!isRelevantQuery(prompt)) {
+    if (! isRelevantQuery(prompt)) {
       const redirect = {
         id: `r-${Date.now()}`,
         role: 'assistant',
@@ -231,7 +231,7 @@ const FloodAidChatbot = ({
       }
     }
 
-    if (!aiServiceRef.current) {
+    if (! aiServiceRef.current) {
       console.warn('AI service not initialized; cannot fetch response.');
       sendSystemErrorMessage('AI service unavailable');
       setIsLoading(false);
@@ -241,7 +241,7 @@ const FloodAidChatbot = ({
     try {
       const response = await aiServiceRef.current.getChatResponse(messages, prompt);
 
-      if (!response || (typeof response === 'string' && response.trim().length === 0)) {
+      if (! response || (typeof response === 'string' && response.trim(). length === 0)) {
         console.warn('AI service returned empty response:', response);
         sendSystemErrorMessage('AI returned no response');
         setIsLoading(false);
@@ -254,12 +254,12 @@ const FloodAidChatbot = ({
         content: typeof response === 'string' ? response : String(response),
         timestamp: new Date()
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [... prev, assistantMessage]);
     } catch (err) {
       console.error('Error while getting AI response:', err);
 
       let shortDetail = 'unexpected_error';
-      if (err?.message) shortDetail = err.message;
+      if (err?. message) shortDetail = err.message;
       if (err?.response?.status) shortDetail = `status_${err.response.status}`;
 
       sendSystemErrorMessage(shortDetail);
@@ -285,7 +285,7 @@ const FloodAidChatbot = ({
       }
     ]);
     try {
-      aiServiceRef.current?.resetChat?.();
+      aiServiceRef.current?.resetChat?. ();
     } catch (e) {
       console.warn('resetChat failed:', e);
     }
@@ -293,7 +293,7 @@ const FloodAidChatbot = ({
 
   return (
     <div className={`chatbot-container ${position}`}>
-      {!isOpen && (
+      {! isOpen && (
         <button onClick={() => setIsOpen(true)} className="chatbot-toggle-btn" aria-label="Open Flood Aid Chat">
           <MessageCircle size={24} />
           <span className="pulse-ring" />
@@ -324,7 +324,7 @@ const FloodAidChatbot = ({
 
           <div className="chatbot-messages" aria-live="polite">
             {messages.map((m) => (
-              <div key={m.id} className={`message-container ${m.role} ${m.isEmergency ? 'emergency' : ''}`}>
+              <div key={m.id} className={`message-container ${m.role} ${m.isEmergency ?  'emergency' : ''}`}>
                 <div className="message-content">
                   {String(m.content).split('\n').map((line, i, arr) => (
                     <React.Fragment key={i}>

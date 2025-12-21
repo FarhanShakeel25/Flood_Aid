@@ -121,7 +121,7 @@ Provide immediate, actionable help in ${detectedLang}:`;
         maxTokens: 800,
       });
 
-      const text = chatResponse.choices[0].message.content;
+      const text = chatResponse.choices[0]. message.content;
 
       this.conversationHistory.push(
         { role: 'user', content: userMessage },
@@ -133,10 +133,10 @@ Provide immediate, actionable help in ${detectedLang}:`;
       }
 
       this.messageCount++;
-      console.log('✅ Response delivered');
+      console. log('✅ Response delivered');
       console.log('📊 Total messages in session:', this.messageCount);
 
-      if (!text || text.trim().length === 0) {
+      if (! text || text.trim(). length === 0) {
         console.warn('⚠️ Empty response from Mistral');
         return this.getLocalizedErrorMessage('empty', detectedLang);
       }
@@ -150,7 +150,7 @@ Provide immediate, actionable help in ${detectedLang}:`;
         status: error.status
       });
       
-      if (error.message?.includes('quota') || error.message?.includes('429')) {
+      if (error.message?. includes('quota') || error.message?.includes('429')) {
         return this.getLocalizedErrorMessage('quota', this.conversationLanguage);
       }
 
