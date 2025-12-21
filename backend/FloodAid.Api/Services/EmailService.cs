@@ -45,6 +45,8 @@ namespace FloodAid.Api.Services
                         _configuration["Email:SmtpUser"],
                         _configuration["Email:SmtpPassword"]
                     ),
+                    UseDefaultCredentials = false,
+                    DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network,
                     EnableSsl = true,
                     Timeout = 5000, // Fail fast to avoid blocking donation flow
                 };
