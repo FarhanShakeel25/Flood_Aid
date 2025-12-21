@@ -9,18 +9,36 @@ const SuccessPage = () => {
   const sessionId = searchParams.get('session_id');
   const [loading, setLoading] = useState(true);
   const [donationDetails, setDonationDetails] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Simulate fetching donation details
-    // In a real app, you'd verify the session with your backend
-    setTimeout(() => {
-      setDonationDetails({
-        amount: 'PKR 1000',
-        date: new Date().toLocaleDateString(),
-        receiptId: sessionId?.substring(0, 12) || 'N/A'
-      });
-      setLoading(false);
-    }, 1000);
+    const fetchSession = async () => {
+      if (!sessionId) {
+        setError('Missing checkout session.');
+        setLoading(false);
+        return;
+      }
+      try {
+        const apiUrl = `${import.meta.env.VITE_API_BASE}/api/donation/session/${sessionId}`;
+        const res = await fetch(apiUrl);
+        if (!res.ok) {
+          throw new Error('Failed to retrieve session details');
+        }
+        const data = await res.json();
+        const formattedAmount = `PKR ${Number(data.amount).toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
+        setDonationDetails({
+          amount: formattedAmount,
+          date: new Date().toLocaleDateString(),
+          receiptId: (data.id || sessionId).substring(0, 12)
+        });
+      } catch (e) {
+        setError('Could not load donation details.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSession();
   }, [sessionId]);
 
   return (
@@ -43,6 +61,8 @@ const SuccessPage = () => {
 
           {loading ? (
             <p>Loading details...</p>
+          ) : error ? (
+            <p style={{ color: 'red' }}>{error}</p>
           ) : (
             <div style={{
               backgroundColor: 'white',
