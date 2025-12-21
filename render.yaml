@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: floodaid-api
+    runtime: docker
+    repo: https://github.com/FarhanShakeel25/Flood_Aid
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Stripe__ApiKey
+        sync: false
+      - key: Email__SmtpHost
+        value: smtp-relay.brevo.com
+      - key: Email__SmtpPort
+        value: 587
+      - key: Email__SmtpUser
+        sync: false
+      - key: Email__SmtpPassword
+        sync: false
+      - key: Email__FromEmail
+        sync: false
+      - key: Email__FromName
+        value: Flood Aid

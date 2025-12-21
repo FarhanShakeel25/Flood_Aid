@@ -1,4 +1,6 @@
 using FloodAid.Api.Models;
+using FloodAid.Api.Services;
+using System.Text.Json.Serialization;
 
 namespace FloodAid.Api
 {
@@ -18,8 +20,20 @@ namespace FloodAid.Api
                      .AllowAnyMethod());
             });
 
+            // Add controllers
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                });
+
+            // Register EmailService
+            builder.Services.AddScoped<IEmailService, EmailService>();
+
             // Add services to the container.
             builder.Services.AddOpenApi();
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
 
@@ -30,9 +44,18 @@ namespace FloodAid.Api
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
+                app.UseSwagger();
+                app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
+            // Disable HTTPS redirect in development
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
+
+            // Map controllers
+            app.MapControllers();
 
 
             List<Donation> Donations = new();
