@@ -1,16 +1,23 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
 import Home from './Pages/HomePage';
 import Contact from './Pages/ContactPage';
 import Donations from './components/donations';
 import SuccessPage from './Pages/SuccessPage';
 import CancelPage from './Pages/CancelPage';
 import FloodAidChatbot from './components/FloodAidChatbot';
+import { startKeepAlive } from './services/keepAliveService';
 import './styles/globals.css';
 
 function App() {
   const handleEmergency = (message) => {
     console.log('🚨 EMERGENCY DETECTED:', message);
   };
+
+  // Start backend keep-alive on app load
+  useEffect(() => {
+    startKeepAlive();
+  }, []);
 
   return (
     <Router>
