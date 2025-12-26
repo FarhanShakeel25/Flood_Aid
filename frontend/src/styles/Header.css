@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-/* header.css */
-.header {
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
-  position: sticky; /* keeps header at top */
-  top: 0;
-  z-index: 50;
-  width: 100%;
-}
-
-.header-container {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 1rem;
-=======
 /* styles/Header.css - FINAL VERSION */
 
 :root {
@@ -69,103 +53,10 @@ body {
   margin: 0 auto;
   padding: 0 20px;
   height: 100%;
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
 }
 
 .header-main {
   display: flex;
-<<<<<<< HEAD
-  justify-content: space-between; /* main container: logo left, nav right */
-  align-items: center;
-  height: 64px;
-}
-
-.logo-area {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.logo-icon {
-  width: 40px;
-  height: 40px;
-  background: #2563eb;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-.logo-text {
-  color: #1e3a8a;
-  font-weight: 500;
-}
-
-/* Desktop navigation */
-.nav-desktop {
-  display: none;
-}
-
-@media (min-width: 768px) {
-  .nav-desktop {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    margin-left: auto;   /* <-- pushes links to the right */
-  }
-}
-
-
-@media (min-width: 768px) {
-  .nav-desktop {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-  }
-}
-
-.nav-link {
-  color: #374151;
-  transition: 0.2s;
-}
-
-.nav-link:hover {
-  color: #2563eb;
-}
-
-.btn-emergency {
-  background: #2563eb;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-}
-
-.menu-btn {
-  padding: 0.5rem;
-  background: none;
-  border: none;
-  font-size: 24px;
-}
-
-@media (min-width: 768px) {
-  .menu-btn {
-    display: none;
-  }
-}
-
-.nav-mobile-container {
-  border-top: 1px solid #e5e7eb;
-  padding: 1rem 0;
-}
-
-.nav-mobile {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-=======
   align-items: center;
   justify-content: space-between;
   height: 100%;
@@ -516,4 +407,3 @@ font-size: 1.15rem;
     width: 100%;
   }
 }
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03

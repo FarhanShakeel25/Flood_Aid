@@ -8,29 +8,13 @@ import '../styles/donations.css';
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const Donations = () => {
-<<<<<<< HEAD
-  const [donationType, setDonationType] = useState('money');
-=======
   // Updated to use "Cash" and "OtherSupplies" as per requirements
   const [donationType, setDonationType] = useState('Cash');
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
   const [donationData, setDonationData] = useState({
     // Common fields
     donorName: '',
     email: '',
     contact: '',
-<<<<<<< HEAD
-    donorAccountNumber: '',
-    
-    // Money donation fields
-    amount: '',
-    isRecurring: false,
-    
-    // Goods donation fields
-    itemName: '',
-    quantity: 1,
-    itemCondition: 'new',
-=======
     
     // Cash donation fields
     amount: '',
@@ -38,7 +22,6 @@ const Donations = () => {
     // OtherSupplies donation fields
     supplyDetails: '', // Replaces itemName
     quantity: 1,
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
     description: ''
   });
   
@@ -49,41 +32,13 @@ const Donations = () => {
   const validateForm = () => {
     const newErrors = {};
     
-<<<<<<< HEAD
-    // Common validations
-    if (!donationData.donorAccountNumber.trim()) {
-      newErrors.donorAccountNumber = 'Account number is required';
-    }
-    
-    if (!donationData.email.trim()) {
-      newErrors.email = 'Email is required for receipt';
-=======
     // Email validation - required for all donation types
     if (!donationData.email.trim()) {
       newErrors.email = 'Email is required';
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donationData.email)) {
       newErrors.email = 'Please enter a valid email';
     }
     
-<<<<<<< HEAD
-    // Money donation validations
-    if (donationType === 'money') {
-      if (!donationData.amount || donationData.amount <= 0) {
-        newErrors.amount = 'Please enter a valid donation amount';
-      } else if (donationData.amount > 1000000) {
-        newErrors.amount = 'Maximum donation amount is ₹10,00,000';
-      }
-    }
-    
-    // Goods donation validations
-    if (donationType === 'goods') {
-      if (!donationData.itemName.trim()) {
-        newErrors.itemName = 'Item name is required';
-      }
-      if (!donationData.quantity || donationData.quantity <= 0) {
-        newErrors.quantity = 'Please enter valid quantity';
-=======
     // Mobile number validation - required for all donation types
     if (!donationData.contact.trim()) {
       newErrors.contact = 'Mobile number is required';
@@ -106,7 +61,6 @@ const Donations = () => {
       }
       if (!donationData.quantity || donationData.quantity <= 0) {
         newErrors.quantity = 'Please enter valid quantity (must be > 0)';
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
       }
     }
     
@@ -129,8 +83,6 @@ const Donations = () => {
   const handleDonationTypeChange = (type) => {
     setDonationType(type);
     setErrors({});
-<<<<<<< HEAD
-=======
     // Clear specific fields when switching donation types
     if (type === 'OtherSupplies') {
       setDonationData(prev => ({
@@ -145,7 +97,6 @@ const Donations = () => {
         description: ''
       }));
     }
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
   };
 
   const quickAmounts = [500, 1000, 2000, 5000, 10000];
@@ -163,79 +114,6 @@ const Donations = () => {
     setSubmitStatus(null);
     
     try {
-<<<<<<< HEAD
-      // Prepare payload according to C# class structure
-      const payload = {
-        donationType: donationType === 'money' ? 0 : 1, // 0: Money, 1: Goods (based on DonationType enum)
-        donorAccountNumber: donationData.donorAccountNumber,
-        donorName: donationData.donorName || null,
-        email: donationData.email,
-        contact: donationData.contact || null,
-        
-        // Conditional fields
-        ...(donationType === 'money' && {
-          donationAmount: parseFloat(donationData.amount),
-          isRecurring: donationData.isRecurring
-        }),
-        
-        ...(donationType === 'goods' && {
-          quantity: parseInt(donationData.quantity),
-          itemName: donationData.itemName,
-          itemCondition: donationData.itemCondition,
-          description: donationData.description || null
-        })
-      };
-
-      // Call backend API
-      const response = await fetch('/api/donation/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        if (donationType === 'money' && result.sessionId) {
-          // Redirect to Stripe Checkout for money donations
-          const stripe = await stripePromise;
-          const { error } = await stripe.redirectToCheckout({
-            sessionId: result.sessionId
-          });
-          
-          if (error) {
-            throw new Error(error.message);
-          }
-        } else {
-          // For goods donations or if no Stripe redirect needed
-          setSubmitStatus({
-            success: true,
-            message: 'Thank you for your donation! You will receive a confirmation email shortly.',
-            receiptId: result.receiptId
-          });
-          
-          // Reset form
-          if (donationType === 'goods') {
-            setDonationData({
-              donorName: '',
-              email: '',
-              contact: '',
-              donorAccountNumber: '',
-              itemName: '',
-              quantity: 1,
-              itemCondition: 'new',
-              description: ''
-            });
-          }
-        }
-      } else {
-        setSubmitStatus({
-          success: false,
-          message: result.message || 'Submission failed. Please try again.'
-        });
-=======
       // Prepare payload according to backend DTO structure (Instruction #3)
       const payload = {
         donationType: donationType === 'Cash' ? 'Cash' : 'OtherSupplies', // Use string values as per enum
@@ -329,7 +207,6 @@ const Donations = () => {
             message: result.message || 'Submission failed. Please try again.'
           });
         }
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
       }
     } catch (error) {
       setSubmitStatus({
@@ -352,17 +229,6 @@ const Donations = () => {
           
           <div className="impact-stats">
             <div className="stat-item">
-<<<<<<< HEAD
-              <span className="stat-number">₹500</span>
-              <span className="stat-label">Feeds a family for 3 days</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-number">₹1000</span>
-              <span className="stat-label">Provides emergency medical kit</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-number">₹5000</span>
-=======
               <span className="stat-number">RS 500</span>
               <span className="stat-label">Feeds a family for 3 days</span>
             </div>
@@ -372,17 +238,12 @@ const Donations = () => {
             </div>
             <div className="stat-item">
               <span className="stat-number">RS 5000</span>
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
               <span className="stat-label">Supports temporary shelter</span>
             </div>
           </div>
         </div>
 
         <div className="donation-form-wrapper">
-<<<<<<< HEAD
-          {submitStatus && (
-            <div className={`status-message ${submitStatus.success ? 'success' : 'error'}`}>
-=======
           {submitStatus && submitStatus.success && donationType === 'OtherSupplies' && (
             <div className={`status-message ${submitStatus.success ? 'success' : 'error'}`}>
               <div className="confirmation-message">
@@ -398,25 +259,12 @@ const Donations = () => {
 
           {submitStatus && !submitStatus.success && (
             <div className="status-message error">
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
               {submitStatus.message}
             </div>
           )}
 
           <div className="donation-type-selector">
             <button
-<<<<<<< HEAD
-              className={`type-btn ${donationType === 'money' ? 'active' : ''}`}
-              onClick={() => handleDonationTypeChange('money')}
-            >
-              💰 Monetary Donation
-            </button>
-            <button
-              className={`type-btn ${donationType === 'goods' ? 'active' : ''}`}
-              onClick={() => handleDonationTypeChange('goods')}
-            >
-              📦 Goods Donation
-=======
               className={`type-btn ${donationType === 'Cash' ? 'active' : ''}`}
               onClick={() => handleDonationTypeChange('Cash')}
               type="button"
@@ -429,7 +277,6 @@ const Donations = () => {
               type="button"
             >
               📦 Other Supplies Donation
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
             </button>
           </div>
 
@@ -437,12 +284,8 @@ const Donations = () => {
             <div className="form-section">
               <h3>Donation Details</h3>
               
-<<<<<<< HEAD
-              {donationType === 'money' ? (
-=======
               {/* Show only relevant fields based on donation type (Instruction #1) */}
               {donationType === 'Cash' ? (
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                 <div className="money-donation">
                   <div className="quick-amounts">
                     {quickAmounts.map(amount => (
@@ -452,22 +295,14 @@ const Donations = () => {
                         className={`amount-btn ${donationData.amount == amount ? 'selected' : ''}`}
                         onClick={() => setDonationData(prev => ({ ...prev, amount }))}
                       >
-<<<<<<< HEAD
-                        ₹{amount.toLocaleString('en-IN')}
-=======
                         RS {amount.toLocaleString('en-IN')}
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                       </button>
                     ))}
                   </div>
                   
                   <div className="form-group">
                     <label htmlFor="amount">
-<<<<<<< HEAD
-                      Custom Amount (₹) <span className="required">*</span>
-=======
                       Donation Amount (RS) <span className="required">*</span>
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                     </label>
                     <input
                       type="number"
@@ -476,56 +311,18 @@ const Donations = () => {
                       value={donationData.amount}
                       onChange={handleInputChange}
                       placeholder="Enter amount in rupees"
-<<<<<<< HEAD
-                      min="10"
-                      max="1000000"
-=======
                       min="1"
                       step="0.01"
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                       className={errors.amount ? 'error' : ''}
                       disabled={isSubmitting}
                     />
                     {errors.amount && <div className="error-message">{errors.amount}</div>}
-<<<<<<< HEAD
-                  </div>
-                  
-                  <div className="form-group checkbox-group">
-                    <input
-                      type="checkbox"
-                      id="isRecurring"
-                      name="isRecurring"
-                      checked={donationData.isRecurring}
-                      onChange={handleInputChange}
-                      disabled={isSubmitting}
-                    />
-                    <label htmlFor="isRecurring">
-                      Make this a monthly recurring donation
-                    </label>
-=======
                     <p className="field-note">Enter amount greater than 0</p>
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                   </div>
                 </div>
               ) : (
                 <div className="goods-donation">
                   <div className="form-group">
-<<<<<<< HEAD
-                    <label htmlFor="itemName">
-                      Item Name <span className="required">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="itemName"
-                      name="itemName"
-                      value={donationData.itemName}
-                      onChange={handleInputChange}
-                      placeholder="e.g., Rice, Blankets, Medicines"
-                      className={errors.itemName ? 'error' : ''}
-                      disabled={isSubmitting}
-                    />
-                    {errors.itemName && <div className="error-message">{errors.itemName}</div>}
-=======
                     <label htmlFor="supplyDetails">
                       Supply Details <span className="required">*</span>
                     </label>
@@ -540,7 +337,6 @@ const Donations = () => {
                       disabled={isSubmitting}
                     />
                     {errors.supplyDetails && <div className="error-message">{errors.supplyDetails}</div>}
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                   </div>
                   
                   <div className="form-row">
@@ -560,26 +356,7 @@ const Donations = () => {
                         disabled={isSubmitting}
                       />
                       {errors.quantity && <div className="error-message">{errors.quantity}</div>}
-<<<<<<< HEAD
-                    </div>
-                    
-                    <div className="form-group">
-                      <label htmlFor="itemCondition">Condition</label>
-                      <select
-                        id="itemCondition"
-                        name="itemCondition"
-                        value={donationData.itemCondition}
-                        onChange={handleInputChange}
-                        disabled={isSubmitting}
-                      >
-                        <option value="new">New</option>
-                        <option value="like-new">Like New</option>
-                        <option value="good">Good</option>
-                        <option value="usable">Usable</option>
-                      </select>
-=======
                       <p className="field-note">Enter quantity greater than 0</p>
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                     </div>
                   </div>
                   
@@ -590,11 +367,7 @@ const Donations = () => {
                       name="description"
                       value={donationData.description}
                       onChange={handleInputChange}
-<<<<<<< HEAD
-                      placeholder="Provide details about the items..."
-=======
                       placeholder="Provide details about the supplies..."
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                       rows="3"
                       disabled={isSubmitting}
                     />
@@ -640,13 +413,9 @@ const Donations = () => {
               
               <div className="form-row">
                 <div className="form-group">
-<<<<<<< HEAD
-                  <label htmlFor="contact">Contact Number (Optional)</label>
-=======
                   <label htmlFor="contact">
                     Mobile Number <span className="required">*</span>
                   </label>
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                   <input
                     type="tel"
                     id="contact"
@@ -654,30 +423,6 @@ const Donations = () => {
                     value={donationData.contact}
                     onChange={handleInputChange}
                     placeholder="+91 98765 43210"
-<<<<<<< HEAD
-                    disabled={isSubmitting}
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="donorAccountNumber">
-                    Account Number <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="donorAccountNumber"
-                    name="donorAccountNumber"
-                    value={donationData.donorAccountNumber}
-                    onChange={handleInputChange}
-                    placeholder="Enter your account number"
-                    className={errors.donorAccountNumber ? 'error' : ''}
-                    disabled={isSubmitting}
-                  />
-                  {errors.donorAccountNumber && (
-                    <div className="error-message">{errors.donorAccountNumber}</div>
-                  )}
-                </div>
-=======
                     className={errors.contact ? 'error' : ''}
                     disabled={isSubmitting}
                   />
@@ -685,19 +430,14 @@ const Donations = () => {
                 </div>
                 
                 {/* Removed donorAccountNumber field as AccountNumber is generated by backend */}
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
               </div>
             </div>
 
             <div className="form-footer">
               <p className="disclaimer">
                 By submitting this form, you agree that your donation will be used for flood relief efforts.
-<<<<<<< HEAD
-                All transactions are secure and processed through Stripe.
-=======
                 {donationType === 'Cash' && ' All transactions are secure and processed through Stripe.'}
                 {donationType === 'OtherSupplies' && ' Our team will contact you within 24 hours for collection details.'}
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
               </p>
               
               <button
@@ -710,11 +450,7 @@ const Donations = () => {
                     <span className="spinner"></span>
                     Processing...
                   </>
-<<<<<<< HEAD
-                ) : donationType === 'money' ? (
-=======
                 ) : donationType === 'Cash' ? (
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                   'Proceed to Payment'
                 ) : (
                   'Submit Donation'
@@ -724,16 +460,6 @@ const Donations = () => {
           </form>
           
           <div className="security-info">
-<<<<<<< HEAD
-            <h4>💳 Secure Payment</h4>
-            <p>All monetary donations are processed securely through Stripe</p>
-            
-            <h4>📦 Goods Collection</h4>
-            <p>Our team will contact you for goods pickup details</p>
-            
-            <h4>📄 Receipt</h4>
-            <p>A donation receipt will be emailed to you immediately</p>
-=======
             {donationType === 'Cash' ? (
               <>
                 <h4>💳 Secure Payment</h4>
@@ -757,7 +483,6 @@ const Donations = () => {
                 <p>Multiple collection centers available across the city</p>
               </>
             )}
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
           </div>
         </div>
       </main>

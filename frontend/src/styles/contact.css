@@ -274,10 +274,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
 @media (max-width: 480px) {
   .submit-btn {
     width: 100%;
