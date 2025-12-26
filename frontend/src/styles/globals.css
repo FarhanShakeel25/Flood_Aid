@@ -8,3 +8,47 @@ button {
   cursor: pointer;
   font-family: inherit;
 }
+/* Add to frontend/src/styles/globals.css */
+
+/* Admin Panel Floating Button */
+.admin-fab {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 24px;
+  z-index: 999;
+  transition: all 0.3s ease;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.admin-fab:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: scale(1.1) rotate(10deg);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+.admin-fab:active {
+  transform: scale(0.95);
+}
+
+/* Responsive */
+@media (max-width:  768px) {
+  .admin-fab {
+    bottom:  70px;
+    right: 15px;
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+}

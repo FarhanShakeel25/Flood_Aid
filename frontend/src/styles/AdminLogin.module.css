@@ -1,0 +1,145 @@
+/* frontend/src/styles/AdminLogin. module.css */
+.loginContainer {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem;
+}
+
+.loginBox {
+  background: white;
+  border-radius: 16px;
+  box-shadow:  0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 420px;
+  padding: 2. 5rem;
+}
+
+.loginHeader {
+  text-align:  center;
+  margin-bottom:  2rem;
+}
+
+.logo {
+  font-size:  3rem;
+  margin-bottom: 1rem;
+}
+
+.loginHeader h1 {
+  font-size: 1.75rem;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+}
+
+.loginHeader p {
+  color: #64748b;
+  font-size: 0.938rem;
+  margin:  0;
+}
+
+.errorAlert {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #fee2e2;
+  border-left: 4px solid #dc2626;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.errorAlert span {
+  font-size: 1. 25rem;
+}
+
+.errorAlert p {
+  margin: 0;
+  color:  #dc2626;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.loginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formGroup label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.formGroup input {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.938rem;
+  transition: all 0.2s;
+}
+
+.formGroup input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.loginBtn {
+  padding: 0.875rem 1.5rem;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight:  600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 0.5rem;
+}
+
+.loginBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.loginBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.loginBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loginFooter {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.testCredentials {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.813rem;
+  color: #475569;
+  text-align: center;
+  margin:  0;
+  line-height: 1.6;
+}
+
+.testCredentials strong {
+  color: #1e293b;
+  display: block;
+  margin-bottom: 0.5rem;
+}

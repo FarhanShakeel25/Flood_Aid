@@ -27,10 +27,10 @@ function getCountryCodeFromNavigator() {
   try {
     const locale = (navigator.language || navigator.userLanguage || '').toUpperCase();
     const parts = locale.split(/[-_]/);
-    if (parts.length === 2 && parts[1]. length === 2) return parts[1];
+    if (parts.length === 2 && parts[1].length === 2) return parts[1];
     const resolved = Intl?.DateTimeFormat()?.resolvedOptions()?.locale;
     if (resolved) {
-      const p = resolved.toUpperCase(). split(/[-_]/);
+      const p = resolved.toUpperCase().split(/[-_]/);
       if (p.length === 2) return p[1];
     }
   } catch (e) {
@@ -43,9 +43,9 @@ function getLocalizedEmergencyNumber() {
   const cc = getCountryCodeFromNavigator();
   if (cc && EMERGENCY_MAP[cc]) return EMERGENCY_MAP[cc];
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions(). timeZone || '';
-    if (tz.includes('Pakistan') || tz.includes('Asia/Karachi')) return EMERGENCY_MAP. PK;
-  } catch (e) {}
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (tz.includes('Pakistan') || tz.includes('Asia/Karachi')) return EMERGENCY_MAP.PK;
+  } catch (e) { }
   return '112';
 }
 
@@ -124,8 +124,8 @@ const FloodAidChatbot = ({
         setIsListening(true);
       };
 
-      recognitionRef. current. onresult = (event) => {
-        const transcript = event. results[0][0].transcript;
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
         console.log('🎤 Recognized:', transcript);
         setInputValue(transcript);
       };
@@ -133,7 +133,7 @@ const FloodAidChatbot = ({
       recognitionRef.current.onerror = (event) => {
         console.error('🎤 Speech recognition error:', event.error);
         setIsListening(false);
-        
+
         if (event.error === 'not-allowed') {
           alert('🎤 Microphone access denied. Please enable microphone permissions in your browser settings.');
         } else if (event.error === 'no-speech') {
@@ -164,7 +164,7 @@ const FloodAidChatbot = ({
   }, [messages, isOpen]);
 
   const toggleVoiceInput = () => {
-    if (! recognitionRef.current) {
+    if (!recognitionRef.current) {
       alert('🎤 Speech recognition is not supported in your browser.\n\nPlease use:\n• Google Chrome\n• Microsoft Edge\n• Safari (iOS/macOS)');
       return;
     }
@@ -211,7 +211,7 @@ const FloodAidChatbot = ({
     setInputValue('');
     setIsLoading(true);
 
-    if (! isRelevantQuery(prompt)) {
+    if (!isRelevantQuery(prompt)) {
       const redirect = {
         id: `r-${Date.now()}`,
         role: 'assistant',
@@ -231,7 +231,7 @@ const FloodAidChatbot = ({
       }
     }
 
-    if (! aiServiceRef.current) {
+    if (!aiServiceRef.current) {
       console.warn('AI service not initialized; cannot fetch response.');
       sendSystemErrorMessage('AI service unavailable');
       setIsLoading(false);
@@ -241,7 +241,7 @@ const FloodAidChatbot = ({
     try {
       const response = await aiServiceRef.current.getChatResponse(messages, prompt);
 
-      if (! response || (typeof response === 'string' && response.trim(). length === 0)) {
+      if (!response || (typeof response === 'string' && response.trim().length === 0)) {
         console.warn('AI service returned empty response:', response);
         sendSystemErrorMessage('AI returned no response');
         setIsLoading(false);
@@ -254,12 +254,12 @@ const FloodAidChatbot = ({
         content: typeof response === 'string' ? response : String(response),
         timestamp: new Date()
       };
-      setMessages((prev) => [... prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
       console.error('Error while getting AI response:', err);
 
       let shortDetail = 'unexpected_error';
-      if (err?. message) shortDetail = err.message;
+      if (err?.message) shortDetail = err.message;
       if (err?.response?.status) shortDetail = `status_${err.response.status}`;
 
       sendSystemErrorMessage(shortDetail);
@@ -285,7 +285,7 @@ const FloodAidChatbot = ({
       }
     ]);
     try {
-      aiServiceRef.current?.resetChat?. ();
+      aiServiceRef.current?.resetChat?.();
     } catch (e) {
       console.warn('resetChat failed:', e);
     }
@@ -293,7 +293,7 @@ const FloodAidChatbot = ({
 
   return (
     <div className={`chatbot-container ${position}`}>
-      {! isOpen && (
+      {!isOpen && (
         <button onClick={() => setIsOpen(true)} className="chatbot-toggle-btn" aria-label="Open Flood Aid Chat">
           <MessageCircle size={24} />
           <span className="pulse-ring" />
@@ -324,14 +324,43 @@ const FloodAidChatbot = ({
 
           <div className="chatbot-messages" aria-live="polite">
             {messages.map((m) => (
-              <div key={m.id} className={`message-container ${m.role} ${m.isEmergency ?  'emergency' : ''}`}>
+              <div key={m.id} className={`message-container ${m.role} ${m.isEmergency ? 'emergency' : ''}`}>
                 <div className="message-content">
-                  {String(m.content).split('\n').map((line, i, arr) => (
-                    <React.Fragment key={i}>
-                      {line}
-                      {i < arr.length - 1 && <br />}
-                    </React.Fragment>
-                  ))}
+                  {/* Custom Markdown Renderer */}
+                  {String(m.content).split('\n').map((line, i) => {
+                    // Check for Headings (###)
+                    if (line.startsWith('### ')) {
+                      return <h4 key={i} className="msg-heading">{line.replace('### ', '')}</h4>;
+                    }
+                    if (line.startsWith('## ')) {
+                      return <h3 key={i} className="msg-heading">{line.replace('## ', '')}</h3>;
+                    }
+
+                    // Check for lists
+                    let content = line;
+                    let isListItem = false;
+                    if (line.trim().startsWith('•') || line.trim().startsWith('- ')) {
+                      isListItem = true;
+                      content = line.replace(/^[•-]\s*/, '');
+                    }
+
+                    // Bold Parsing (**text**)
+                    const parts = content.split(/(\*\*.*?\*\*)/g);
+
+                    return (
+                      <div key={i} className={`msg-line ${isListItem ? 'msg-list-item' : ''}`}>
+                        {isListItem && <span className="msg-bullet">•</span>}
+                        <span>
+                          {parts.map((part, j) => {
+                            if (part.startsWith('**') && part.endsWith('**')) {
+                              return <strong key={j}>{part.slice(2, -2)}</strong>;
+                            }
+                            return part;
+                          })}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="message-time">
                   {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -362,8 +391,8 @@ const FloodAidChatbot = ({
           <div className="chatbot-input-container">
             {/* Language Selector */}
             <div className="language-selector">
-              <select 
-                value={selectedLanguage} 
+              <select
+                value={selectedLanguage}
                 onChange={(e) => setSelectedLanguage(e.target.value)}
                 className="language-dropdown"
                 title="Select voice input language"
@@ -376,15 +405,33 @@ const FloodAidChatbot = ({
 
             {/* Input Area */}
             <div className="chatbot-input">
-              <input
-                type="text"
+              <textarea
                 className="chatbot-input-field"
                 placeholder="Ask about flood aid...  🎤 or click mic to speak"
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  // Auto-resize textarea based on content
+                  e.target.style.height = '44px'; // Reset to single line height
+                  if (e.target.scrollHeight > 44) {
+                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                  }
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
                 disabled={isLoading}
                 aria-label="Type your message"
+                rows={1}
+                style={{
+                  resize: 'none',
+                  overflow: 'hidden',
+                  height: '44px',
+                  maxHeight: '120px'
+                }}
               />
 
               {/* Mic Button */}

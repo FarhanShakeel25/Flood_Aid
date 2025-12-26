@@ -4,7 +4,7 @@
 
 /* Container */
 .chatbot-container {
-  position: fixed ! important;
+  position: fixed !important;
   z-index: 999999 !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -12,7 +12,7 @@
 }
 
 .chatbot-container.bottom-right {
-  bottom: 20px ! important;
+  bottom: 20px !important;
   right: 20px !important;
 }
 
@@ -63,12 +63,14 @@
     transform: scale(1);
     opacity: 1;
   }
+
   50% {
     transform: scale(1.3);
-    opacity: 0. 5;
+    opacity: 0.5;
   }
+
   100% {
-    transform: scale(1. 5);
+    transform: scale(1.5);
     opacity: 0;
   }
 }
@@ -90,8 +92,9 @@
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(30px) scale(0. 95);
+    transform: translateY(30px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -106,7 +109,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0. 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .chatbot-header-title {
@@ -192,6 +195,7 @@
 .message-container {
   display: flex;
   flex-direction: column;
+  margin-bottom: 0.5rem;
 }
 
 .message-container.user {
@@ -210,6 +214,10 @@
   word-wrap: break-word;
   line-height: 1.4;
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  /* Added for markdown spacing */
 }
 
 .message-container.user .message-content {
@@ -252,7 +260,7 @@
   height: 8px;
   background: #cbd5e0;
   border-radius: 50%;
-  animation: bounce 1. 4s infinite;
+  animation: bounce 1.4s infinite;
 }
 
 .typing-indicator span:nth-child(2) {
@@ -264,9 +272,13 @@
 }
 
 @keyframes bounce {
-  0%, 60%, 100% {
+
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
   }
+
   30% {
     transform: translateY(-10px);
   }
@@ -287,9 +299,12 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
   }
+
   50% {
     box-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
   }
@@ -380,10 +395,13 @@
 }
 
 @keyframes pulse-mic {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.7;
     transform: scale(1.1);
@@ -434,7 +452,7 @@
     height: calc(100vh - 120px);
     border-radius: 16px;
   }
-  
+
   .chatbot-toggle-btn {
     width: 52px;
     height: 52px;
@@ -456,7 +474,7 @@
 
 /* Smooth Animations */
 * {
-  transition:background 0.2s ease, color 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 /* Focus States for Accessibility */
@@ -469,6 +487,7 @@ input:focus-visible {
   outline: 2px solid #667eea;
   outline-offset: -2px;
 }
+
 /* Provider Badge */
 .chatbot-badges {
   display: flex;
@@ -513,12 +532,21 @@ input:focus-visible {
   height: 8px;
   background: #ef4444;
   border-radius: 50%;
-  animation: pulse-dot 1. 5s ease-in-out infinite;
+  animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0. 5; transform: scale(1. 2); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
 }
 
 /* Footer */
@@ -545,4 +573,52 @@ input:focus-visible {
 
 .chatbot-voice-btn.listening:hover {
   transform: scale(1.05);
+}
+
+/* ========================================
+   MARKDOWN & FORMATTING STYLES (NEW)
+   ======================================== */
+
+.msg-heading {
+  margin: 0.5rem 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: inherit;
+}
+
+.msg-line {
+  min-height: 1.25em;
+  /* Ensure empty lines take space */
+}
+
+.msg-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  padding-left: 0.5rem;
+}
+
+.msg-bullet {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.message-container.assistant .msg-heading {
+  color: #1e40af;
+  /* Blue-800 for assistant headings */
+}
+
+.message-container.emergency .msg-heading {
+  color: #991b1b;
+  /* Red-800 for emergency headings */
+}
+
+strong {
+  font-weight: 700;
+  color: inherit;
+  background: rgba(255, 255, 0, 0.1);
+  /* Subtle highlight */
+  padding: 0 2px;
+  border-radius: 2px;
 }
