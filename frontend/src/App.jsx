@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Link, Navigate, useNavigate } from 'react-router-dom';
 import Home from './Pages/HomePage';
@@ -91,10 +92,25 @@ function AdminButton() {
 function AppContent() {
   const location = useLocation();
 
+=======
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import Home from './Pages/HomePage';
+import Contact from './Pages/ContactPage';
+import Donations from './components/donations';
+import SuccessPage from './Pages/SuccessPage';
+import CancelPage from './Pages/CancelPage';
+import FloodAidChatbot from './components/FloodAidChatbot';
+import { startKeepAlive } from './services/keepAliveService';
+import './styles/globals.css';
+
+function App() {
+>>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
   const handleEmergency = (message) => {
     console.log('🚨 EMERGENCY DETECTED:', message);
   };
 
+<<<<<<< HEAD
   return (
     <div className="app">
       <Routes>
@@ -160,6 +176,33 @@ function App() {
           <AppContent />
         </ThemeProvider>
       </AdminAuthProvider>
+=======
+  // Start backend keep-alive on app load
+  useEffect(() => {
+    startKeepAlive();
+  }, []);
+
+  return (
+    <Router>
+      <div className="app">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/donate" element={<Donations />} />
+          <Route path="/success" element={<SuccessPage />} />
+          <Route path="/cancel" element={<CancelPage />} />
+        </Routes>
+        
+        <FloodAidChatbot
+          apiKey={import.meta.env.VITE_MISTRAL_API_KEY}
+          model="mistral-large-latest"
+          aiProvider="mistral"
+          position="bottom-right"
+          onEmergency={handleEmergency}
+        />
+      </div>
+>>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
     </Router>
   );
 }
