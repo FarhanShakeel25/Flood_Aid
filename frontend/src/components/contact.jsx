@@ -310,8 +310,4 @@ const ContactForm = () => {
   );
 };
 
-<<<<<<< HEAD
 export default ContactForm;
-=======
-export default ContactForm;
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
