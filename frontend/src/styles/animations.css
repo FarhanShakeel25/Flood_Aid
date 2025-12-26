@@ -1,0 +1,221 @@
+/* Professional Animations for Admin Panel */
+
+/* Fade in animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Slide up animation */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Slide down animation */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Scale in animation */
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Shimmer loading animation */
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+/* Party popper animation */
+@keyframes partyPopper {
+    0% {
+        transform: scale(0) rotate(0deg);
+        opacity: 0;
+    }
+
+    50% {
+        transform: scale(1.2) rotate(180deg);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1) rotate(360deg);
+        opacity: 1;
+    }
+}
+
+/* Realistic Confetti Explosion from Bottom */
+@keyframes confettiExplosion {
+    0% {
+        bottom: 0%;
+        opacity: 0;
+        transform: translateX(0) translateY(0) rotate(0deg) scale(0);
+    }
+
+    10% {
+        opacity: 1;
+        transform: translateX(calc(var(--random-x, 0) * 1vw)) translateY(-20vh) rotate(180deg) scale(1);
+    }
+
+    30% {
+        opacity: 1;
+        transform: translateX(calc(var(--random-x, 0) * 2vw)) translateY(-60vh) rotate(360deg) scale(1);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translateX(calc(var(--random-x, 0) * 2.5vw)) translateY(-80vh) rotate(540deg) scale(0.9);
+    }
+
+    70% {
+        opacity: 0.8;
+        transform: translateX(calc(var(--random-x, 0) * 3vw)) translateY(-40vh) rotate(720deg) scale(0.8);
+    }
+
+    100% {
+        bottom: -10%;
+        opacity: 0;
+        transform: translateX(calc(var(--random-x, 0) * 3.5vw)) translateY(100vh) rotate(1080deg) scale(0.6);
+    }
+}
+
+/* Pulse animation */
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* Apply animations to common elements */
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+}
+
+.animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+}
+
+.animate-scale-in {
+    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Card hover effects */
+.admin-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* Button hover effects */
+.admin-button {
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.admin-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.admin-button:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* Stagger animation for lists */
+.stagger-item {
+    animation: slideUp 0.4s ease-out backwards;
+}
+
+.stagger-item:nth-child(1) {
+    animation-delay: 0.05s;
+}
+
+.stagger-item:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.stagger-item:nth-child(3) {
+    animation-delay: 0.15s;
+}
+
+.stagger-item:nth-child(4) {
+    animation-delay: 0.2s;
+}
+
+.stagger-item:nth-child(5) {
+    animation-delay: 0.25s;
+}
+
+.stagger-item:nth-child(6) {
+    animation-delay: 0.3s;
+}
+
+.stagger-item:nth-child(7) {
+    animation-delay: 0.35s;
+}
+
+.stagger-item:nth-child(8) {
+    animation-delay: 0.4s;
+}

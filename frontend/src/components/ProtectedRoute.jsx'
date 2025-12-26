@@ -1,0 +1,42 @@
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAdminAuth } from '../context/AdminAuthContext';
+
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAdminAuth();
+
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '2rem',
+          borderRadius: '16px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
+          <p style={{ margin: 0, fontSize: '1.125rem', color: '#64748b' }}>
+            Loading...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, redirect to login
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  // If authenticated, render the protected content
+  return children;
+}
+
+export default ProtectedRoute;
