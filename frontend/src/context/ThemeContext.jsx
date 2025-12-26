@@ -16,8 +16,8 @@ export const ThemeProvider = ({ children }) => {
 
     useEffect(() => {
         localStorage.setItem('floodaid_theme', theme);
-        // Apply theme class to document element
-        document.documentElement.setAttribute('data-theme', theme);
+        // Removed global attribute setting to support Admin-only theme scope
+        // document.documentElement.setAttribute('data-theme', theme);
     }, [theme]);
 
     useEffect(() => {

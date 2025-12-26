@@ -14,7 +14,18 @@ const AdminSettings = () => {
     });
 
     const handleSave = (section) => {
-        alert(`${section} settings saved successfully!`);
+        if (section === 'Security') {
+            if (!profile.newPassword) {
+                alert("Please enter a new password.");
+                return;
+            }
+            // Save new password to localStorage (overrides config)
+            localStorage.setItem('floodaid_admin_password', profile.newPassword);
+            setProfile(prev => ({ ...prev, currentPassword: '', newPassword: '' }));
+            alert("Password updated successfully! using new password on next login.");
+        } else {
+            alert(`${section} settings saved successfully!`);
+        }
     };
 
     return (
@@ -205,11 +216,15 @@ const AdminSettings = () => {
                         <input
                             type="password"
                             placeholder="Current Password"
+                            value={profile.currentPassword}
+                            onChange={(e) => setProfile({ ...profile, currentPassword: e.target.value })}
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '0.75rem' }}
                         />
                         <input
                             type="password"
                             placeholder="New Password"
+                            value={profile.newPassword}
+                            onChange={(e) => setProfile({ ...profile, newPassword: e.target.value })}
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '0.75rem' }}
                         />
                         <button

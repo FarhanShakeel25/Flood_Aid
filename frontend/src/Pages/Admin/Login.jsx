@@ -57,10 +57,8 @@ function AdminLogin() {
             // Generate new OTP
             const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
             localStorage.setItem('floodaid_mock_otp', mockOtp);
-            console.log('==========================================');
-            console.log(`🔐 NEW OTP: ${mockOtp}`);
-            console.log('==========================================');
-            alert(`New OTP sent! (Test Code: ${mockOtp})`);
+            console.log('📧 New OTP generated');
+            // alert removed for security
         } catch (err) {
             setError('Failed to resend OTP');
         } finally {
@@ -163,9 +161,7 @@ function AdminLogin() {
                             <p className="otp-text">
                                 An authentication code has been sent to <strong>{email}</strong>.
                             </p>
-                            <div className="otp-info">
-                                ℹ️ Check your browser console (F12) for the mock OTP code.
-                            </div>
+                            {/* Information removed for security */}
                         </div>
 
                         <div className="form-group">
