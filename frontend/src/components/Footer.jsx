@@ -42,7 +42,7 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="3contact" className="footer-link">
+                <a href="#contact" className="footer-link">
                   Contact
                 </a>
               </li>
