@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Eye, Download, Filter } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import TransactionReceipt from '../../components/Admin/TransactionReceipt';
 import ExportFilterModal from '../../components/Admin/ExportFilterModal';
 import '../../styles/AdminTables.css';
@@ -76,7 +77,19 @@ const AdminDonations = () => {
                 styles: { fontSize: 9, cellPadding: 3 },
             });
 
-            doc.save(`donations_report_${new Date().toISOString().split('T')[0]}.pdf`);
+            doc.save(`donations_report.pdf`);
+        } else if (criteria.format === 'xlsx') {
+            const ws = XLSX.utils.json_to_sheet(dataToExport.map(d => ({
+                'Transaction ID': d.id,
+                'Donor': d.donor,
+                'Amount': d.amount,
+                'Date': d.date,
+                'Method': d.method,
+                'Status': d.status
+            })));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Donations");
+            XLSX.writeFile(wb, `donations_report_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
     };
 

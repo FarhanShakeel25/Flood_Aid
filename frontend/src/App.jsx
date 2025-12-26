@@ -1,13 +1,15 @@
-<<<<<<< HEAD
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Link, Navigate, useNavigate } from 'react-router-dom';
 import Home from './Pages/HomePage';
 import Contact from './Pages/ContactPage';
 import Donations from './components/donations';
+import SuccessPage from './Pages/SuccessPage';
+import CancelPage from './Pages/CancelPage';
 import FloodAidChatbot from './components/FloodAidChatbot';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { startKeepAlive } from './services/keepAliveService';
 import './styles/globals.css';
 import './styles/scrollbar.css';
 import './styles/animations.css';
@@ -92,25 +94,10 @@ function AdminButton() {
 function AppContent() {
   const location = useLocation();
 
-=======
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
-import Home from './Pages/HomePage';
-import Contact from './Pages/ContactPage';
-import Donations from './components/donations';
-import SuccessPage from './Pages/SuccessPage';
-import CancelPage from './Pages/CancelPage';
-import FloodAidChatbot from './components/FloodAidChatbot';
-import { startKeepAlive } from './services/keepAliveService';
-import './styles/globals.css';
-
-function App() {
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
   const handleEmergency = (message) => {
     console.log('🚨 EMERGENCY DETECTED:', message);
   };
 
-<<<<<<< HEAD
   return (
     <div className="app">
       <Routes>
@@ -119,6 +106,8 @@ function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/donate" element={<Donations />} />
+        <Route path="/success" element={<SuccessPage />} />
+        <Route path="/cancel" element={<CancelPage />} />
 
         {/* ===== ADMIN ROUTES ===== */}
         <Route path="/admin/login" element={<AdminLogin />} />
@@ -139,11 +128,6 @@ function App() {
             </AdminLayout>
           </ProtectedRoute>
         } >
-          {/* Nested routes need to be handled carefully with v6. 
-               The above structure implies /admin/* will match the parent, 
-               and inside AdminLayout we render <Outlet /> or just children if manually handled.
-               Refined approach below:
-           */}
           <Route path="*" element={<Navigate to="/admin" />} />
         </Route>
       </Routes>
@@ -169,6 +153,13 @@ function App() {
 // MAIN APP COMPONENT
 // ============================================================================
 function App() {
+  // Start backend keep-alive on app load
+  useEffect(() => {
+    if (typeof startKeepAlive === 'function') {
+      startKeepAlive();
+    }
+  }, []);
+
   return (
     <Router>
       <AdminAuthProvider>
@@ -176,33 +167,6 @@ function App() {
           <AppContent />
         </ThemeProvider>
       </AdminAuthProvider>
-=======
-  // Start backend keep-alive on app load
-  useEffect(() => {
-    startKeepAlive();
-  }, []);
-
-  return (
-    <Router>
-      <div className="app">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/donate" element={<Donations />} />
-          <Route path="/success" element={<SuccessPage />} />
-          <Route path="/cancel" element={<CancelPage />} />
-        </Routes>
-        
-        <FloodAidChatbot
-          apiKey={import.meta.env.VITE_MISTRAL_API_KEY}
-          model="mistral-large-latest"
-          aiProvider="mistral"
-          position="bottom-right"
-          onEmergency={handleEmergency}
-        />
-      </div>
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
     </Router>
   );
 }

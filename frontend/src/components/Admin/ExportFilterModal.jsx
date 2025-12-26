@@ -138,37 +138,52 @@ const ExportFilterModal = ({ isOpen, onClose, onExport }) => {
                             onClick={() => setFormat('pdf')}
                             style={{
                                 flex: 1,
-                                padding: '1rem',
+                                padding: '0.75rem',
                                 border: `2px solid ${format === 'pdf' ? '#3b82f6' : '#e2e8f0'}`,
                                 borderRadius: '12px',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                gap: '0.5rem',
+                                gap: '0.25rem',
                                 background: format === 'pdf' ? '#eff6ff' : 'white'
                             }}
                         >
-                            <span style={{ fontWeight: 600, color: '#0f172a' }}>PDF Document</span>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Best for printing</span>
+                            <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>PDF</span>
+                        </div>
+                        <div
+                            onClick={() => setFormat('xlsx')}
+                            style={{
+                                flex: 1,
+                                padding: '0.75rem',
+                                border: `2px solid ${format === 'xlsx' ? '#3b82f6' : '#e2e8f0'}`,
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                background: format === 'xlsx' ? '#eff6ff' : 'white'
+                            }}
+                        >
+                            <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>Excel</span>
                         </div>
                         <div
                             onClick={() => setFormat('csv')}
                             style={{
                                 flex: 1,
-                                padding: '1rem',
+                                padding: '0.75rem',
                                 border: `2px solid ${format === 'csv' ? '#3b82f6' : '#e2e8f0'}`,
                                 borderRadius: '12px',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                gap: '0.5rem',
+                                gap: '0.25rem',
                                 background: format === 'csv' ? '#eff6ff' : 'white'
                             }}
                         >
-                            <span style={{ fontWeight: 600, color: '#0f172a' }}>CSV / Excel</span>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Best for analysis</span>
+                            <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>CSV</span>
                         </div>
                     </div>
                 </div>
