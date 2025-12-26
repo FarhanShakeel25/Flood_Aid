@@ -27,17 +27,10 @@ function getCountryCodeFromNavigator() {
   try {
     const locale = (navigator.language || navigator.userLanguage || '').toUpperCase();
     const parts = locale.split(/[-_]/);
-<<<<<<< HEAD
     if (parts.length === 2 && parts[1].length === 2) return parts[1];
     const resolved = Intl?.DateTimeFormat()?.resolvedOptions()?.locale;
     if (resolved) {
       const p = resolved.toUpperCase().split(/[-_]/);
-=======
-    if (parts.length === 2 && parts[1]. length === 2) return parts[1];
-    const resolved = Intl?.DateTimeFormat()?.resolvedOptions()?.locale;
-    if (resolved) {
-      const p = resolved.toUpperCase(). split(/[-_]/);
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
       if (p.length === 2) return p[1];
     }
   } catch (e) {
@@ -50,15 +43,9 @@ function getLocalizedEmergencyNumber() {
   const cc = getCountryCodeFromNavigator();
   if (cc && EMERGENCY_MAP[cc]) return EMERGENCY_MAP[cc];
   try {
-<<<<<<< HEAD
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
     if (tz.includes('Pakistan') || tz.includes('Asia/Karachi')) return EMERGENCY_MAP.PK;
   } catch (e) { }
-=======
-    const tz = Intl.DateTimeFormat().resolvedOptions(). timeZone || '';
-    if (tz.includes('Pakistan') || tz.includes('Asia/Karachi')) return EMERGENCY_MAP. PK;
-  } catch (e) {}
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
   return '112';
 }
 
@@ -137,13 +124,8 @@ const FloodAidChatbot = ({
         setIsListening(true);
       };
 
-<<<<<<< HEAD
       recognitionRef.current.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-=======
-      recognitionRef. current. onresult = (event) => {
-        const transcript = event. results[0][0].transcript;
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
         console.log('🎤 Recognized:', transcript);
         setInputValue(transcript);
       };
@@ -151,11 +133,7 @@ const FloodAidChatbot = ({
       recognitionRef.current.onerror = (event) => {
         console.error('🎤 Speech recognition error:', event.error);
         setIsListening(false);
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
         if (event.error === 'not-allowed') {
           alert('🎤 Microphone access denied. Please enable microphone permissions in your browser settings.');
         } else if (event.error === 'no-speech') {
@@ -186,11 +164,7 @@ const FloodAidChatbot = ({
   }, [messages, isOpen]);
 
   const toggleVoiceInput = () => {
-<<<<<<< HEAD
     if (!recognitionRef.current) {
-=======
-    if (! recognitionRef.current) {
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
       alert('🎤 Speech recognition is not supported in your browser.\n\nPlease use:\n• Google Chrome\n• Microsoft Edge\n• Safari (iOS/macOS)');
       return;
     }
@@ -237,11 +211,7 @@ const FloodAidChatbot = ({
     setInputValue('');
     setIsLoading(true);
 
-<<<<<<< HEAD
     if (!isRelevantQuery(prompt)) {
-=======
-    if (! isRelevantQuery(prompt)) {
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
       const redirect = {
         id: `r-${Date.now()}`,
         role: 'assistant',
@@ -261,11 +231,7 @@ const FloodAidChatbot = ({
       }
     }
 
-<<<<<<< HEAD
     if (!aiServiceRef.current) {
-=======
-    if (! aiServiceRef.current) {
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
       console.warn('AI service not initialized; cannot fetch response.');
       sendSystemErrorMessage('AI service unavailable');
       setIsLoading(false);
@@ -275,11 +241,7 @@ const FloodAidChatbot = ({
     try {
       const response = await aiServiceRef.current.getChatResponse(messages, prompt);
 
-<<<<<<< HEAD
       if (!response || (typeof response === 'string' && response.trim().length === 0)) {
-=======
-      if (! response || (typeof response === 'string' && response.trim(). length === 0)) {
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
         console.warn('AI service returned empty response:', response);
         sendSystemErrorMessage('AI returned no response');
         setIsLoading(false);
@@ -292,20 +254,12 @@ const FloodAidChatbot = ({
         content: typeof response === 'string' ? response : String(response),
         timestamp: new Date()
       };
-<<<<<<< HEAD
       setMessages((prev) => [...prev, assistantMessage]);
-=======
-      setMessages((prev) => [... prev, assistantMessage]);
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
     } catch (err) {
       console.error('Error while getting AI response:', err);
 
       let shortDetail = 'unexpected_error';
-<<<<<<< HEAD
       if (err?.message) shortDetail = err.message;
-=======
-      if (err?. message) shortDetail = err.message;
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
       if (err?.response?.status) shortDetail = `status_${err.response.status}`;
 
       sendSystemErrorMessage(shortDetail);
@@ -331,11 +285,7 @@ const FloodAidChatbot = ({
       }
     ]);
     try {
-<<<<<<< HEAD
       aiServiceRef.current?.resetChat?.();
-=======
-      aiServiceRef.current?.resetChat?. ();
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
     } catch (e) {
       console.warn('resetChat failed:', e);
     }
@@ -343,11 +293,7 @@ const FloodAidChatbot = ({
 
   return (
     <div className={`chatbot-container ${position}`}>
-<<<<<<< HEAD
       {!isOpen && (
-=======
-      {! isOpen && (
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
         <button onClick={() => setIsOpen(true)} className="chatbot-toggle-btn" aria-label="Open Flood Aid Chat">
           <MessageCircle size={24} />
           <span className="pulse-ring" />
@@ -378,7 +324,6 @@ const FloodAidChatbot = ({
 
           <div className="chatbot-messages" aria-live="polite">
             {messages.map((m) => (
-<<<<<<< HEAD
               <div key={m.id} className={`message-container ${m.role} ${m.isEmergency ? 'emergency' : ''}`}>
                 <div className="message-content">
                   {/* Custom Markdown Renderer */}
@@ -416,16 +361,6 @@ const FloodAidChatbot = ({
                       </div>
                     );
                   })}
-=======
-              <div key={m.id} className={`message-container ${m.role} ${m.isEmergency ?  'emergency' : ''}`}>
-                <div className="message-content">
-                  {String(m.content).split('\n').map((line, i, arr) => (
-                    <React.Fragment key={i}>
-                      {line}
-                      {i < arr.length - 1 && <br />}
-                    </React.Fragment>
-                  ))}
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                 </div>
                 <div className="message-time">
                   {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -456,13 +391,8 @@ const FloodAidChatbot = ({
           <div className="chatbot-input-container">
             {/* Language Selector */}
             <div className="language-selector">
-<<<<<<< HEAD
               <select
                 value={selectedLanguage}
-=======
-              <select 
-                value={selectedLanguage} 
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
                 onChange={(e) => setSelectedLanguage(e.target.value)}
                 className="language-dropdown"
                 title="Select voice input language"
@@ -475,7 +405,6 @@ const FloodAidChatbot = ({
 
             {/* Input Area */}
             <div className="chatbot-input">
-<<<<<<< HEAD
               <textarea
                 className="chatbot-input-field"
                 placeholder="Ask about flood aid...  🎤 or click mic to speak"
@@ -503,17 +432,6 @@ const FloodAidChatbot = ({
                   height: '44px',
                   maxHeight: '120px'
                 }}
-=======
-              <input
-                type="text"
-                className="chatbot-input-field"
-                placeholder="Ask about flood aid...  🎤 or click mic to speak"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={isLoading}
-                aria-label="Type your message"
->>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
               />
 
               {/* Mic Button */}
