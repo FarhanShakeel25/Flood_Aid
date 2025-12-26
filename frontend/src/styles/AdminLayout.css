@@ -2,13 +2,19 @@
 
 /* Variables */
 :root {
-  --admin-sidebar-bg: #0f172a; /* slate-900 */
-  --admin-sidebar-text: #94a3b8; /* slate-400 */
-  --admin-sidebar-hover: #1e293b; /* slate-800 */
-  --admin-sidebar-active: #2563eb; /* blue-600 */
+  --admin-sidebar-bg: #0f172a;
+  /* slate-900 */
+  --admin-sidebar-text: #94a3b8;
+  /* slate-400 */
+  --admin-sidebar-hover: #1e293b;
+  /* slate-800 */
+  --admin-sidebar-active: #2563eb;
+  /* blue-600 */
   --admin-header-bg: #ffffff;
-  --admin-bg: #f8fafc; /* slate-50 */
-  --admin-text-main: #334155; /* slate-700 */
+  --admin-bg: #f8fafc;
+  /* slate-50 */
+  --admin-text-main: #334155;
+  /* slate-700 */
 }
 
 /* Layout Container */
@@ -40,7 +46,8 @@
   display: flex;
   align-items: center;
   padding: 0 1.5rem;
-  background-color: #020617; /* slate-950 */
+  background-color: #020617;
+  /* slate-950 */
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -175,8 +182,40 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* Prevent flex overflow */
+  min-width: 0;
+  /* Prevent flex overflow */
+  overflow-x: hidden;
+  /* Fix vulnerability in size (overflow) */
 }
+
+/* ... existing logic ... */
+
+/* Dark Mode Scoped to Admin Container */
+.admin-container[data-theme="dark"] {
+  --admin-bg: #0f172a;
+  --admin-header-bg: #1e293b;
+  --admin-text-main: #f8fafc;
+  --admin-sidebar-bg: #020617;
+  color: var(--admin-text-main);
+}
+
+.admin-container[data-theme="dark"] .admin-header {
+  border-bottom-color: #334155;
+}
+
+.admin-container[data-theme="dark"] .page-title {
+  color: #f8fafc;
+}
+
+.admin-container[data-theme="dark"] .toggle-btn {
+  color: #cbd5e1;
+}
+
+.admin-container[data-theme="dark"] .toggle-btn:hover {
+  background-color: #334155;
+  color: white;
+}
+
 
 .admin-header {
   height: 64px;
@@ -189,7 +228,8 @@
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
-.header-left, .header-right {
+.header-left,
+.header-right {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -233,11 +273,11 @@
     height: 100%;
     transform: translateX(-100%);
   }
-  
+
   .admin-sidebar.mobile-open {
     transform: translateX(0);
   }
-  
+
   .desktop-only {
     display: none;
   }

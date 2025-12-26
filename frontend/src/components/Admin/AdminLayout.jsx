@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
     LayoutDashboard,
     Users,
@@ -41,8 +42,10 @@ const AdminLayout = ({ children }) => {
         { path: '/admin/settings', icon: Settings, label: 'Settings' },
     ];
 
+    const { theme } = useTheme();
+
     return (
-        <div className="admin-container">
+        <div className="admin-container" data-theme={theme}>
             {/* Mobile Overlay */}
             {isMobileMenuOpen && (
                 <div

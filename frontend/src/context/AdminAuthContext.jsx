@@ -26,10 +26,11 @@ export const AdminAuthProvider = ({ children }) => {
 
   // Step 1: Verify Credentials
   const verifyCredentials = async (identifier, password) => {
-    // Use credentials from config file
+    // Use credentials from config file or localStorage override
     const validEmail = ADMIN_CREDENTIALS.email;
     const validUsername = ADMIN_CREDENTIALS.username;
-    const validPassword = ADMIN_CREDENTIALS.password;
+    // Check for custom password (reset by admin)
+    const validPassword = localStorage.getItem('floodaid_admin_password') || ADMIN_CREDENTIALS.password;
 
     const isIdentifierValid = identifier === validEmail || identifier === validUsername;
     const isPasswordValid = password === validPassword;
@@ -38,14 +39,14 @@ export const AdminAuthProvider = ({ children }) => {
       setTempEmail(validEmail); // Always store the email for OTP purposes
       setAuthStep('otp');
 
-      // Generate a mock OTP and log it (simulating email send)
+      // Generate a mock OTP (simulating email send)
       const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
       localStorage.setItem('floodaid_mock_otp', mockOtp);
 
-      console.log('==========================================');
-      console.log(`🔐 SECURITY ALERT: Your Login OTP is: ${mockOtp}`);
-      console.log('==========================================');
-      alert(`OTP sent to ${validEmail}. (Test Code: ${mockOtp})`);
+      // SECURITY: In production, this would be sent via Email/SMS.
+      // For development, we rely on the internal mock OTP or Master OTP (123456).
+      // We do NOT alert it to the user.
+      console.log('📧 OTP Generated internally. (Check backend/email service)');
 
       return { success: true, nextStep: 'otp' };
     } else {
