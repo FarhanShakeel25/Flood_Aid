@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* header.css */
 .header {
   background: white;
@@ -12,10 +13,68 @@
   max-width: 1120px;
   margin: 0 auto;
   padding: 0 1rem;
+=======
+/* styles/Header.css - FINAL VERSION */
+
+:root {
+  --header-height: 80px;
+  /* Glassy Backgrounds */
+  --header-bg-initial: rgba(255, 255, 255, 0.8); 
+  --header-bg-scrolled: rgba(255, 255, 255, 0.65); 
+  --header-border: rgba(255, 255, 255, 0.3);
+  
+  /* Shadows */
+  --shadow-soft: 0 4px 30px rgba(0, 0, 0, 0.05);
+  
+  /* Colors */
+  --color-primary: #0066cc;
+  --color-primary-dark: #004c99;
+  --color-emergency: #e63946;
+  --color-emergency-hover: #c92a36;
+  --color-text: #1f2937;
+  --color-text-light: #4b5563;
+  
+  --transition-speed: 0.3s;
+}
+
+/* 1. Prevent Hero Section Overlap */
+body {
+  padding-top: var(--header-height);
+}
+
+/* --- Base Header Layout --- */
+
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--header-height);
+  z-index: 1000;
+  
+  /* FLUID MOTION & BLUR SETTINGS */
+  background-color: var(--header-bg-initial);
+  backdrop-filter: blur(12px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), 
+              background-color 0.3s ease, 
+              padding 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+.header-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 100%;
+>>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
 }
 
 .header-main {
   display: flex;
+<<<<<<< HEAD
   justify-content: space-between; /* main container: logo left, nav right */
   align-items: center;
   height: 64px;
@@ -106,3 +165,355 @@
   flex-direction: column;
   gap: 1rem;
 }
+=======
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+}
+
+/* --- Scroll States --- */
+
+.header.scrolled {
+  background-color: var(--header-bg-scrolled);
+  box-shadow: var(--shadow-soft);
+  height: 70px; /* Slight shrink on scroll */
+}
+
+
+
+/* To this: */
+.header.scrolled-down {
+  transform: translateY(0); /* Keep it at the top */
+}
+
+/* --- Logo Styling --- */
+
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  z-index: 1002;
+  transition: transform 0.2s ease;
+}
+
+.logo-area:hover {
+  transform: scale(1.02);
+}
+
+.logo-image-wrapper {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.5);
+}
+
+.header-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.logo-text {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* --- Desktop Navigation --- */
+
+.nav-desktop {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.nav-link {
+  position: relative;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-light);
+  text-decoration: none;
+  padding: 8px 4px;
+  transition: color var(--transition-speed);
+}
+
+.nav-link:hover {
+  color: var(--color-primary);
+}
+
+/* Modern Hover Effect (Center Out) */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 2.5px;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(90deg, var(--color-primary), #4facfe);
+  border-radius: 4px;
+  transform: scaleX(0); 
+  transform-origin: center;
+  transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  transform: scaleX(1);
+}
+
+.nav-link.active {
+  color: var(--color-primary);
+}
+
+/* --- Buttons --- */
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: 20px;
+}
+
+.btn-donate {
+  background: transparent;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: 8px 24px;
+  border-radius: 50px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-donate:hover {
+  background: var(--color-primary);
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* --- Emergency Button (Pulse Animation Restored) --- */
+
+.btn-emergency {
+  background-color: var(--color-emergency);
+  color: white;
+  border: none;
+  padding: 10px 26px;
+  border-radius: 50px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  
+  /* The Pulse Animation */
+  animation: pulse-soft 2s infinite;
+  box-shadow: 0 4px 14px rgba(230, 57, 70, 0.3);
+}
+
+.btn-emergency:hover {
+  background-color: var(--color-emergency-hover);
+  transform: translateY(-2px);
+}
+
+@keyframes pulse-soft {
+  0% { box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(230, 57, 70, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(230, 57, 70, 0); }
+}
+
+/* --- Mobile Menu Toggle --- */
+
+.menu-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 32px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 1002;
+  padding: 0;
+}
+
+.menu-btn .bar {
+  width: 100%;
+  height: 3px;
+  background-color: var(--color-text);
+  border-radius: 10px;
+  transition: all 0.3s ease-in-out;
+  transform-origin: 2px;
+}
+
+.menu-btn.active .bar:nth-child(1) { transform: rotate(45deg); }
+.menu-btn.active .bar:nth-child(2) { opacity: 0; transform: translateX(10px); }
+.menu-btn.active .bar:nth-child(3) { transform: rotate(-45deg); }
+
+/* --- Mobile Navigation Drawer --- */
+
+.nav-mobile-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1001;
+  visibility: hidden;
+  transition: visibility 0s linear 0.4s;
+}
+
+.nav-mobile-container.open {
+  pointer-events: auto;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+/* Dark Backdrop */
+.mobile-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(5px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.nav-mobile-container.open .mobile-backdrop { opacity: 1; }
+
+/* Drawer */
+.nav-mobile {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 80%;
+  max-width: 320px;
+  height: 100%;
+  background: white;
+  padding: 80px 25px 30px; /* Reduced top padding */
+  display: flex;
+  flex-direction: column;
+  
+  /* CRITICAL FIX: Allow scrolling inside the menu */
+  overflow-y: auto; 
+  gap: 10px;
+  
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+}
+
+.nav-mobile-container.open .nav-mobile { transform: translateX(0); }
+
+.mobile-link {
+font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  padding: 15px 12px; /* Added horizontal padding for a larger tap target */
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  flex-shrink: 0;
+  
+  /* Fluid Transition Setup */
+  transition: 
+    color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    border-bottom-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  border-radius: 8px; /* Slight round for the background highlight */
+  margin: 2px 0;
+}
+
+.mobile-link:hover, 
+.mobile-link.active {
+  color: var(--color-primary);
+  background-color: rgba(0, 102, 204, 0.05); /* Very light blue tint */
+  border-bottom-color: var(--color-primary);
+  /* Use a tiny scale instead of padding-left for a "pop" without shifting layout */
+  transform: translateX(5px); 
+}
+/* Staggered Entrance */
+.nav-mobile-container.open .mobile-link { opacity: 1; transform: translateX(0); }
+.nav-mobile-container.open .mobile-link:nth-child(1) { transition-delay: 0.1s; }
+.nav-mobile-container.open .mobile-link:nth-child(2) { transition-delay: 0.15s; }
+.nav-mobile-container.open .mobile-link:nth-child(3) { transition-delay: 0.2s; }
+.nav-mobile-container.open .mobile-link:nth-child(4) { transition-delay: 0.25s; }
+
+.mobile-actions {
+  margin-top: 20px; /* Replaced margin-top: auto to keep buttons attached to links */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 40px; /* Space at the very bottom of scroll */
+  flex-shrink: 0;
+}
+
+.nav-mobile-container.open .mobile-actions { opacity: 1; }
+
+.full-width {
+  width: 100%;
+  text-align: center;
+  padding: 14px;
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 900px) {
+  .nav-desktop { display: none; }
+  .menu-btn { display: flex; }
+}
+
+@media (max-width: 480px) {
+  .logo-text { font-size: 1.1rem; }
+  .nav-mobile { width: 85%; }
+}
+
+/* --- Mobile Menu Scroll & Visibility Fix --- */
+
+@media (max-width: 1023px) {
+  /* This targets the container that opens when you click the menu icon */
+  .nav-menu-mobile, 
+  .navbar-links { 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    
+    /* FIX: Allow scrolling if items exceed screen height */
+    max-height: 80vh; 
+    overflow-y: auto; 
+    padding: 2rem 0;
+    
+    /* Ensure internal buttons are visible */
+    width: 100%;
+  }
+
+  /* Force the buttons to show up in the mobile list */
+  .nav-buttons-mobile {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 1rem;
+    padding: 0 2rem;
+  }
+
+  /* If you have a 'hidden' class on the buttons for desktop, 
+     make sure it is overridden here */
+  .emergency-btn, .donate-btn {
+    display: flex !important; 
+    justify-content: center;
+    width: 100%;
+  }
+}
+>>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03

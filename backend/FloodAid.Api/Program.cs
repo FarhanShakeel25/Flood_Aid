@@ -1,4 +1,9 @@
 using FloodAid.Api.Models;
+<<<<<<< HEAD
+=======
+using FloodAid.Api.Services;
+using System.Text.Json.Serialization;
+>>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
 
 namespace FloodAid.Api
 {
@@ -18,8 +23,28 @@ namespace FloodAid.Api
                      .AllowAnyMethod());
             });
 
+<<<<<<< HEAD
             // Add services to the container.
             builder.Services.AddOpenApi();
+=======
+            // Add controllers
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                });
+
+            // Register HttpClientFactory for EmailService
+            builder.Services.AddHttpClient();
+
+            // Register EmailService
+            builder.Services.AddScoped<IEmailService, EmailService>();
+
+            // Add services to the container.
+            builder.Services.AddOpenApi();
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
+>>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
 
             var app = builder.Build();
 
@@ -30,9 +55,24 @@ namespace FloodAid.Api
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
+<<<<<<< HEAD
             }
 
             app.UseHttpsRedirection();
+=======
+                app.UseSwagger();
+                app.UseSwaggerUI();
+            }
+
+            // Disable HTTPS redirect in development
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
+
+            // Map controllers
+            app.MapControllers();
+>>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
 
 
             List<Donation> Donations = new();
@@ -61,6 +101,15 @@ namespace FloodAid.Api
 
                 return donors;
             });
+<<<<<<< HEAD
+=======
+
+            // Health check endpoint for Render monitoring
+            app.MapGet("/health", () => new { status = "ok", timestamp = DateTime.UtcNow })
+                .WithName("HealthCheck")
+                .WithOpenApi();
+
+>>>>>>> 8868d361101f8fe0eff829379a090558c56d7d03
             app.Run();
         }
     }
