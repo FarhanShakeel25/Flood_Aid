@@ -26,27 +26,22 @@ export const AdminAuthProvider = ({ children }) => {
 
   // Step 1: Verify Credentials
   const verifyCredentials = async (identifier, password) => {
-    // Use credentials from config file or localStorage override
-    const validEmail = ADMIN_CREDENTIALS.email;
-    const validUsername = ADMIN_CREDENTIALS.username;
-    // Check for custom password (reset by admin)
+    // Check for custom credentials in localStorage (overrides)
+    const storedEmail = localStorage.getItem('floodaid_admin_email') || ADMIN_CREDENTIALS.email;
+    const storedUsername = localStorage.getItem('floodaid_admin_username') || ADMIN_CREDENTIALS.username;
     const validPassword = localStorage.getItem('floodaid_admin_password') || ADMIN_CREDENTIALS.password;
 
-    const isIdentifierValid = identifier === validEmail || identifier === validUsername;
+    const isIdentifierValid = identifier === storedEmail || identifier === storedUsername;
     const isPasswordValid = password === validPassword;
 
     if (isIdentifierValid && isPasswordValid) {
-      setTempEmail(validEmail); // Always store the email for OTP purposes
+      setTempEmail(storedEmail);
       setAuthStep('otp');
 
-      // Generate a mock OTP (simulating email send)
+      // Generate a mock OTP
       const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
       localStorage.setItem('floodaid_mock_otp', mockOtp);
-
-      // SECURITY: In production, this would be sent via Email/SMS.
-      // For development, we rely on the internal mock OTP or Master OTP (123456).
-      // We do NOT alert it to the user.
-      console.log('📧 OTP Generated internally. (Check backend/email service)');
+      console.log('📧 OTP Generated internally.');
 
       return { success: true, nextStep: 'otp' };
     } else {
@@ -58,9 +53,13 @@ export const AdminAuthProvider = ({ children }) => {
   const verifyOTP = async (otp) => {
     const validOtp = localStorage.getItem('floodaid_mock_otp');
 
-    if (otp === validOtp || otp === OTP_CONFIG.masterOTP) { // Allow master OTP for dev
+    if (otp === validOtp || otp === OTP_CONFIG.masterOTP) {
+      // Load any existing profile data or use template
+      const existingData = localStorage.getItem('floodaid_admin');
+      const baseAdmin = existingData ? JSON.parse(existingData) : ADMIN_USER_TEMPLATE;
+
       const adminData = {
-        ...ADMIN_USER_TEMPLATE,
+        ...baseAdmin,
         loginTime: new Date().toISOString()
       };
 
@@ -68,12 +67,23 @@ export const AdminAuthProvider = ({ children }) => {
       setAuthStep('authenticated');
       localStorage.setItem('floodaid_admin', JSON.stringify(adminData));
       localStorage.setItem('floodaid_token', 'mock_jwt_token_' + Date.now());
-      localStorage.removeItem('floodaid_mock_otp'); // Clean up
+      localStorage.removeItem('floodaid_mock_otp');
 
       return { success: true };
     } else {
       throw new Error('Invalid OTP code');
     }
+  };
+
+  const updateProfile = (newData) => {
+    setAdmin(prev => {
+      const updated = { ...prev, ...newData };
+      localStorage.setItem('floodaid_admin', JSON.stringify(updated));
+      // Also update standalone fields for credential matching
+      if (newData.email) localStorage.setItem('floodaid_admin_email', newData.email);
+      if (newData.username) localStorage.setItem('floodaid_admin_username', newData.username);
+      return updated;
+    });
   };
 
   const logout = () => {
@@ -90,7 +100,8 @@ export const AdminAuthProvider = ({ children }) => {
     authStep,
     verifyCredentials,
     verifyOTP,
-    login: verifyCredentials, // Backward compatibility
+    updateProfile,
+    login: verifyCredentials,
     logout,
     isAuthenticated: !!admin && authStep === 'authenticated'
   };

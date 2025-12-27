@@ -103,8 +103,16 @@ const AdminLayout = ({ children }) => {
                 {/* User Profile */}
                 <div className="admin-profile">
                     <div className="profile-content">
-                        <div className="profile-avatar">
-                            {admin?.name?.charAt(0) || 'A'}
+                        <div className="profile-avatar overflow-hidden">
+                            {admin?.avatar ? (
+                                <img
+                                    src={admin.avatar}
+                                    alt="Profile"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                                />
+                            ) : (
+                                admin?.name?.charAt(0) || 'A'
+                            )}
                         </div>
                         {isSidebarOpen && (
                             <div className="profile-info">

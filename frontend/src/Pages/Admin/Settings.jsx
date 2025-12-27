@@ -1,17 +1,46 @@
-import React, { useState } from 'react';
-import { User, Sun, Moon, Type, Shield, Bell, Save } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Sun, Moon, Type, Shield, Bell, Save, Upload, Camera } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import '../../styles/AdminTables.css'; // Reusing for container/header styles
+import { useAdminAuth } from '../../context/AdminAuthContext';
+import '../../styles/AdminTables.css';
 
 const AdminSettings = () => {
     const { theme, toggleTheme, font, setFont } = useTheme();
+    const { admin, updateProfile } = useAdminAuth();
     const [notifications, setNotifications] = useState(true);
+    const fileInputRef = useRef(null);
+
     const [profile, setProfile] = useState({
-        name: 'Super Admin',
-        email: 'um180181@gmail.com',
+        name: admin?.name || 'Admin',
+        email: admin?.email || '',
+        avatar: admin?.avatar || '',
         currentPassword: '',
         newPassword: ''
     });
+
+    useEffect(() => {
+        if (admin) {
+            setProfile(prev => ({
+                ...prev,
+                name: admin.name,
+                email: admin.email,
+                avatar: admin.avatar || ''
+            }));
+        }
+    }, [admin]);
+
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result;
+                setProfile(prev => ({ ...prev, avatar: base64String }));
+                updateProfile({ avatar: base64String });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleSave = (section) => {
         if (section === 'Security') {
@@ -19,10 +48,16 @@ const AdminSettings = () => {
                 alert("Please enter a new password.");
                 return;
             }
-            // Save new password to localStorage (overrides config)
+            // Save new password to localStorage
             localStorage.setItem('floodaid_admin_password', profile.newPassword);
             setProfile(prev => ({ ...prev, currentPassword: '', newPassword: '' }));
-            alert("Password updated successfully! using new password on next login.");
+            alert("Password updated successfully! It will be required on your next login.");
+        } else if (section === 'Profile') {
+            updateProfile({
+                name: profile.name,
+                email: profile.email
+            });
+            alert("Profile updated successfully!");
         } else {
             alert(`${section} settings saved successfully!`);
         }
@@ -52,7 +87,74 @@ const AdminSettings = () => {
                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Profile Information</h3>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {/* Avatar Upload */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                            <div
+                                style={{
+                                    width: '100px',
+                                    height: '100px',
+                                    borderRadius: '50%',
+                                    background: '#f1f5f9',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    border: '3px solid #e2e8f0',
+                                    position: 'relative',
+                                    cursor: 'pointer'
+                                }}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                {profile.avatar ? (
+                                    <img src={profile.avatar} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <Camera size={32} color="#94a3b8" />
+                                )}
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    background: 'rgba(0,0,0,0.5)',
+                                    color: 'white',
+                                    fontSize: '0.7rem',
+                                    textAlign: 'center',
+                                    padding: '4px 0',
+                                    opacity: 0,
+                                    transition: 'opacity 0.2s'
+                                }}
+                                    className="hover-overlay"
+                                >
+                                    Change
+                                </div>
+                            </div>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileUpload}
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                            />
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                style={{
+                                    fontSize: '0.8rem',
+                                    padding: '0.4rem 1rem',
+                                    background: '#f1f5f9',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '20px',
+                                    color: '#475569',
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem'
+                                }}
+                            >
+                                <Upload size={14} /> Upload Photo
+                            </button>
+                        </div>
+
                         <div>
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500, color: '#64748b' }}>Full Name</label>
                             <input
@@ -68,8 +170,8 @@ const AdminSettings = () => {
                             <input
                                 type="email"
                                 value={profile.email}
-                                disabled
-                                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed' }}
+                                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                             />
                         </div>
                         <button
@@ -81,13 +183,16 @@ const AdminSettings = () => {
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '8px',
-                                fontWeight: 500,
+                                fontWeight: 600,
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                gap: '0.5rem'
+                                gap: '0.5rem',
+                                transition: 'all 0.2s'
                             }}
+                            onMouseEnter={(e) => e.target.style.background = '#2563eb'}
+                            onMouseLeave={(e) => e.target.style.background = '#3b82f6'}
                         >
                             <Save size={16} /> Save Changes
                         </button>
@@ -103,7 +208,6 @@ const AdminSettings = () => {
                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Appearance</h3>
                     </div>
 
-                    {/* Theme Switcher */}
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.75rem', fontSize: '0.875rem', fontWeight: 500, color: '#64748b' }}>Theme Preference</label>
                         <div style={{ display: 'flex', gap: '1rem' }}>
@@ -146,7 +250,6 @@ const AdminSettings = () => {
                         </div>
                     </div>
 
-                    {/* Font Selection */}
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                             <Type size={16} color="#64748b" />
@@ -171,7 +274,6 @@ const AdminSettings = () => {
                     </div>
                 </div>
 
-                {/* Notifications & Security */}
                 <div className="settings-card" style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem' }}>
                         <div style={{ padding: '0.5rem', background: '#fff1f2', borderRadius: '8px', color: '#e11d48' }}>
@@ -236,9 +338,12 @@ const AdminSettings = () => {
                                 color: '#0f172a',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '8px',
-                                fontWeight: 500,
-                                cursor: 'pointer'
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
                             }}
+                            onMouseEnter={(e) => e.target.style.background = '#f8fafc'}
+                            onMouseLeave={(e) => e.target.style.background = 'white'}
                         >
                             Update Password
                         </button>
