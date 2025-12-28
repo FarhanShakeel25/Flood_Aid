@@ -31,7 +31,7 @@ namespace FloodAid.Api.Models
         public string? SuppliesDescription { get; set; }
 
         [Required]
-        public string DonorAccountNumber { get; set; }
+        public string DonorAccountNumber { get; set; } = string.Empty;
 
         [Required]
         public DonationType DonationType { get; set; }
