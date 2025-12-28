@@ -1,8 +1,10 @@
 // frontend/src/context/AdminAuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { ADMIN_CREDENTIALS, OTP_CONFIG, ADMIN_USER_TEMPLATE } from '../config/adminCredentials';
 
 const AdminAuthContext = createContext(null);
+
+// Get API base URL from environment variable
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5055';
 
 export const AdminAuthProvider = ({ children }) => {
   const [admin, setAdmin] = useState(null);
@@ -13,66 +15,85 @@ export const AdminAuthProvider = ({ children }) => {
   useEffect(() => {
     // Check if admin is logged in on mount
     const storedAdmin = localStorage.getItem('floodaid_admin');
-    if (storedAdmin) {
+    const storedToken = localStorage.getItem('floodaid_token');
+    
+    if (storedAdmin && storedToken) {
       try {
         setAdmin(JSON.parse(storedAdmin));
         setAuthStep('authenticated');
       } catch (error) {
         localStorage.removeItem('floodaid_admin');
+        localStorage.removeItem('floodaid_token');
       }
     }
     setLoading(false);
   }, []);
 
-  // Step 1: Verify Credentials
+  // Step 1: Verify Credentials with Backend
   const verifyCredentials = async (identifier, password) => {
-    // Use credentials from config file or localStorage override
-    const validEmail = ADMIN_CREDENTIALS.email;
-    const validUsername = ADMIN_CREDENTIALS.username;
-    // Check for custom password (reset by admin)
-    const validPassword = localStorage.getItem('floodaid_admin_password') || ADMIN_CREDENTIALS.password;
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          identifier,
+          password
+        })
+      });
 
-    const isIdentifierValid = identifier === validEmail || identifier === validUsername;
-    const isPasswordValid = password === validPassword;
+      const data = await response.json();
 
-    if (isIdentifierValid && isPasswordValid) {
-      setTempEmail(validEmail); // Always store the email for OTP purposes
-      setAuthStep('otp');
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid credentials');
+      }
 
-      // Generate a mock OTP (simulating email send)
-      const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      localStorage.setItem('floodaid_mock_otp', mockOtp);
+      if (data.success && data.nextStep === 'otp') {
+        setTempEmail(identifier.includes('@') ? identifier : data.email);
+        setAuthStep('otp');
+        return { success: true, nextStep: 'otp', message: data.message };
+      }
 
-      // SECURITY: In production, this would be sent via Email/SMS.
-      // For development, we rely on the internal mock OTP or Master OTP (123456).
-      // We do NOT alert it to the user.
-      console.log('📧 OTP Generated internally. (Check backend/email service)');
-
-      return { success: true, nextStep: 'otp' };
-    } else {
-      throw new Error('Invalid username/email or password');
+      throw new Error('Unexpected response from server');
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
-  // Step 2: Verify OTP
+  // Step 2: Verify OTP with Backend
   const verifyOTP = async (otp) => {
-    const validOtp = localStorage.getItem('floodaid_mock_otp');
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: tempEmail,
+          otp
+        })
+      });
 
-    if (otp === validOtp || otp === OTP_CONFIG.masterOTP) { // Allow master OTP for dev
-      const adminData = {
-        ...ADMIN_USER_TEMPLATE,
-        loginTime: new Date().toISOString()
-      };
+      const data = await response.json();
 
-      setAdmin(adminData);
-      setAuthStep('authenticated');
-      localStorage.setItem('floodaid_admin', JSON.stringify(adminData));
-      localStorage.setItem('floodaid_token', 'mock_jwt_token_' + Date.now());
-      localStorage.removeItem('floodaid_mock_otp'); // Clean up
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid OTP');
+      }
 
-      return { success: true };
-    } else {
-      throw new Error('Invalid OTP code');
+      if (data.success && data.token && data.user) {
+        setAdmin(data.user);
+        setAuthStep('authenticated');
+        localStorage.setItem('floodaid_admin', JSON.stringify(data.user));
+        localStorage.setItem('floodaid_token', data.token);
+        return { success: true };
+      }
+
+      throw new Error('Unexpected response from server');
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      throw error;
     }
   };
 

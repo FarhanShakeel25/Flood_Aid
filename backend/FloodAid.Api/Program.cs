@@ -1,5 +1,8 @@
 using FloodAid.Api.Models;
 using FloodAid.Api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace FloodAid.Api
@@ -18,6 +21,32 @@ namespace FloodAid.Api
                      .AllowAnyHeader()
                      .AllowAnyMethod());
             });
+
+            // Configure JWT Authentication as per SRS Section 3.3.2
+            var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"];
+            
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtSettings["Issuer"],
+                    ValidAudience = jwtSettings["Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!)),
+                    ClockSkew = TimeSpan.Zero
+                };
+            });
+
+            builder.Services.AddAuthorization();
 
             // Add controllers
             builder.Services.AddControllers()
@@ -55,6 +84,10 @@ namespace FloodAid.Api
             {
                 app.UseHttpsRedirection();
             }
+
+            // Add Authentication & Authorization middleware
+            app.UseAuthentication();
+            app.UseAuthorization();
 
             // Map controllers
             app.MapControllers();
