@@ -33,4 +33,20 @@ namespace FloodAid.Api.Models.DTOs
     {
         public string RefreshToken { get; set; } = string.Empty;
     }
+
+    public class PasswordResetRequest
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class VerifyResetTokenRequest
+    {
+        public string Token { get; set; } = string.Empty;
+    }
+
+    public class ConfirmResetRequest
+    {
+        public string Token { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
 }

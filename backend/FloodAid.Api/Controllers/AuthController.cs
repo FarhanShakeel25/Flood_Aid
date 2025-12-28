@@ -31,10 +31,14 @@ namespace FloodAid.Api.Controllers
         private readonly TimeSpan _otpExpiry;
         private readonly TimeSpan _accessTokenExpiry;
         private readonly TimeSpan _refreshTokenLifetime;
+        private readonly TimeSpan _resetTokenExpiry;
+        private readonly TimeSpan _passwordCacheDuration;
 
         private const string OtpCachePrefix = "otp:";
         private const string AuthFailCachePrefix = "authfail:";
         private const string RefreshCachePrefix = "refresh:";
+        private const string ResetCachePrefix = "pwreset:";
+        private const string AdminPasswordCachePrefix = "adminpwd:";
 
         public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService, IDistributedCache cache)
         {
@@ -51,6 +55,8 @@ namespace FloodAid.Api.Controllers
             var accessMinutes = authSettings.GetValue<int?>("AccessTokenMinutes") ?? int.Parse(jwtSettings["ExpiryMinutes"] ?? "30");
             _accessTokenExpiry = TimeSpan.FromMinutes(accessMinutes);
             _refreshTokenLifetime = TimeSpan.FromDays(authSettings.GetValue<int?>("RefreshTokenDays") ?? 7);
+            _resetTokenExpiry = TimeSpan.FromMinutes(authSettings.GetValue<int?>("ResetTokenMinutes") ?? 60);
+            _passwordCacheDuration = TimeSpan.FromDays(authSettings.GetValue<int?>("PasswordCacheDays") ?? 30);
         }
 
         /// <summary>
@@ -65,7 +71,7 @@ namespace FloodAid.Api.Controllers
                 // Get admin user from configuration (in production, fetch from database)
                 var adminEmail = _configuration["AdminCredentials:Email"];
                 var adminUsername = _configuration["AdminCredentials:Username"];
-                var adminPasswordHash = _configuration["AdminCredentials:PasswordHash"];
+                var adminPasswordHash = await GetAdminPasswordHashAsync(adminEmail!);
 
                 if (string.IsNullOrEmpty(adminEmail) || string.IsNullOrEmpty(adminPasswordHash))
                 {
@@ -287,6 +293,88 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
+        /// Request a password reset link
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("reset/request")]
+        public async Task<IActionResult> RequestPasswordReset([FromBody] PasswordResetRequest request)
+        {
+            var adminEmail = _configuration["AdminCredentials:Email"];
+            var adminName = _configuration["AdminCredentials:Name"] ?? "Admin";
+
+            if (string.IsNullOrWhiteSpace(request.Email) || !string.Equals(request.Email, adminEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { Success = false, Message = "Account not found" });
+            }
+
+            var token = GenerateSecureToken();
+            var expiry = DateTimeOffset.UtcNow.Add(_resetTokenExpiry);
+
+            await SetResetTokenAsync(token, adminEmail!, expiry);
+            await _emailService.SendPasswordResetEmailAsync(adminEmail!, adminName, token, (int)_resetTokenExpiry.TotalMinutes);
+
+            return Ok(new { Success = true, Message = "Password reset email sent" });
+        }
+
+        /// <summary>
+        /// Verify password reset token validity
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("reset/verify")]
+        public async Task<IActionResult> VerifyPasswordReset([FromBody] VerifyResetTokenRequest request)
+        {
+            var tokenEntry = await GetResetTokenAsync(request.Token);
+            if (tokenEntry is null)
+            {
+                return BadRequest(new { Success = false, Message = "Invalid or expired token" });
+            }
+
+            if (DateTimeOffset.UtcNow > tokenEntry.Expiry)
+            {
+                await RemoveResetTokenAsync(request.Token);
+                return BadRequest(new { Success = false, Message = "Token expired" });
+            }
+
+            return Ok(new { Success = true, Message = "Token valid" });
+        }
+
+        /// <summary>
+        /// Confirm password reset and update admin password hash in cache
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("reset/confirm")]
+        public async Task<ActionResult<LoginResponse>> ConfirmPasswordReset([FromBody] ConfirmResetRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+            {
+                return BadRequest(new LoginResponse { Success = false, Message = "Password must be at least 8 characters" });
+            }
+
+            var tokenEntry = await GetResetTokenAsync(request.Token);
+            if (tokenEntry is null)
+            {
+                return BadRequest(new LoginResponse { Success = false, Message = "Invalid or expired token" });
+            }
+
+            if (DateTimeOffset.UtcNow > tokenEntry.Expiry)
+            {
+                await RemoveResetTokenAsync(request.Token);
+                return BadRequest(new LoginResponse { Success = false, Message = "Token expired" });
+            }
+
+            var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, workFactor: 11);
+            await SetAdminPasswordHashAsync(tokenEntry.Email, newHash);
+            await RemoveResetTokenAsync(request.Token);
+            await RecordSuccessAsync(tokenEntry.Email); // clear lockout state after reset
+
+            return Ok(new LoginResponse
+            {
+                Success = true,
+                Message = "Password reset successful. You can login with your new password."
+            });
+        }
+
+        /// <summary>
         /// Utility: Generate 6-digit OTP
         /// </summary>
         private string GenerateOTP()
@@ -395,6 +483,64 @@ namespace FloodAid.Api.Controllers
         private Task RemoveRefreshTokenAsync(string token)
         {
             return _cache.RemoveAsync($"{RefreshCachePrefix}{token}");
+        }
+
+        private Task SetResetTokenAsync(string token, string email, DateTimeOffset expiry)
+        {
+            var entry = new ResetTokenEntry { Email = email, Expiry = expiry };
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpiration = expiry
+            };
+
+            var payload = JsonSerializer.Serialize(entry, _jsonOptions);
+            return _cache.SetStringAsync($"{ResetCachePrefix}{token}", payload, options);
+        }
+
+        private async Task<ResetTokenEntry?> GetResetTokenAsync(string token)
+        {
+            var json = await _cache.GetStringAsync($"{ResetCachePrefix}{token}");
+            if (string.IsNullOrEmpty(json))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<ResetTokenEntry>(json, _jsonOptions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to deserialize reset token entry");
+                await RemoveResetTokenAsync(token);
+                return null;
+            }
+        }
+
+        private Task RemoveResetTokenAsync(string token)
+        {
+            return _cache.RemoveAsync($"{ResetCachePrefix}{token}");
+        }
+
+        private async Task<string> GetAdminPasswordHashAsync(string email)
+        {
+            var cached = await _cache.GetStringAsync($"{AdminPasswordCachePrefix}{email}");
+            if (!string.IsNullOrEmpty(cached))
+            {
+                return cached;
+            }
+
+            return _configuration["AdminCredentials:PasswordHash"] ?? string.Empty;
+        }
+
+        private Task SetAdminPasswordHashAsync(string email, string passwordHash)
+        {
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = _passwordCacheDuration
+            };
+
+            return _cache.SetStringAsync($"{AdminPasswordCachePrefix}{email}", passwordHash, options);
         }
 
         private async Task<(bool IsLockedOut, TimeSpan Remaining)> IsLockedOutAsync(string key)
@@ -527,6 +673,12 @@ namespace FloodAid.Api.Controllers
         }
 
         private class RefreshTokenEntry
+        {
+            public string Email { get; set; } = string.Empty;
+            public DateTimeOffset Expiry { get; set; }
+        }
+
+        private class ResetTokenEntry
         {
             public string Email { get; set; } = string.Empty;
             public DateTimeOffset Expiry { get; set; }
