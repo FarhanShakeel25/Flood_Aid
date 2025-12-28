@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using FloodAid.Api.Models;
 using FloodAid.Api.Models.DTOs;
+using FloodAid.Api.Services;
 using BCrypt.Net;
 
 namespace FloodAid.Api.Controllers
@@ -15,21 +16,23 @@ namespace FloodAid.Api.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
+        private readonly IEmailService _emailService;
         
         // In-memory storage for OTPs (in production, use Redis or database with expiration)
         private static readonly Dictionary<string, (string Otp, DateTime Expiry)> _otpStore = new();
 
-        public AuthController(IConfiguration configuration, ILogger<AuthController> logger)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService)
         {
             _configuration = configuration;
             _logger = logger;
+            _emailService = emailService;
         }
 
         /// <summary>
         /// Step 1: Verify admin credentials and send OTP
         /// </summary>
         [HttpPost("login")]
-        public ActionResult<LoginResponse> Login([FromBody] LoginRequest request)
+        public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
         {
             try
             {
@@ -78,8 +81,11 @@ namespace FloodAid.Api.Controllers
                 // Store OTP (in production, use Redis with TTL)
                 _otpStore[adminEmail] = (otp, expiry);
 
-                // TODO: Send OTP via email service
-                _logger.LogInformation($"OTP generated for {adminEmail}: {otp} (expires at {expiry})");
+                // Send OTP via email
+                var adminName = _configuration["AdminCredentials:Name"] ?? "Admin";
+                await _emailService.SendOtpEmailAsync(adminEmail, adminName, otp, 5);
+                
+                _logger.LogInformation("OTP generated and sent to {Email}", adminEmail);
 
                 return Ok(new LoginResponse
                 {
