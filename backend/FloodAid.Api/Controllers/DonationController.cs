@@ -7,6 +7,8 @@ using Stripe.Checkout;
 namespace FloodAid.Api.Controllers
 {
     [ApiController]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("donation")]
     [Route("api/donation")]
     public class DonationController : ControllerBase
     {

@@ -50,7 +50,20 @@ namespace FloodAid.Api
 
             builder.Services.AddAuthorization();
 
-            builder.Services.AddDistributedMemoryCache();
+            // Cache: use Redis if enabled, otherwise memory cache
+            var useRedis = builder.Configuration.GetValue<bool>("Cache:UseRedis");
+            if (useRedis)
+            {
+                builder.Services.AddStackExchangeRedisCache(options =>
+                {
+                    options.Configuration = builder.Configuration["Cache:Redis:ConnectionString"];
+                    options.InstanceName = "FloodAid:";
+                });
+            }
+            else
+            {
+                builder.Services.AddDistributedMemoryCache();
+            }
 
             // Rate limiting for auth endpoints
             var authRateLimitSection = builder.Configuration.GetSection("RateLimiting:Auth");
@@ -70,6 +83,23 @@ namespace FloodAid.Api
                             Window = TimeSpan.FromMinutes(authWindowMinutes),
                             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                             QueueLimit = authQueueLimit
+                        }));
+
+                // Rate limiting for donation endpoints (public)
+                var donationSection = builder.Configuration.GetSection("RateLimiting:Donation");
+                var donationPermitLimit = donationSection.GetValue<int?>("PermitLimit") ?? 10;
+                var donationWindowMinutes = donationSection.GetValue<int?>("WindowMinutes") ?? 1;
+                var donationQueueLimit = donationSection.GetValue<int?>("QueueLimit") ?? 0;
+
+                options.AddPolicy("donation", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = donationPermitLimit,
+                            Window = TimeSpan.FromMinutes(donationWindowMinutes),
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            QueueLimit = donationQueueLimit
                         }));
             });
 
