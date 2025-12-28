@@ -34,13 +34,13 @@ namespace FloodAid.Api.Models
         public string DonorAccountNumber { get; set; }
 
         [Required]
-        public DonationType DonationType { get; private set; }
+        public DonationType DonationType { get; set; }
         
         [Required]
-        public DateTime DonationDate{ get; private set; }
+        public DateTime DonationDate { get; set; }
 
         [Required]
-        public DonationStatus Status { get; private set; }
+        public DonationStatus Status { get; set; }
 
         public void Approved()
         {
