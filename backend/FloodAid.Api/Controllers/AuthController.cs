@@ -191,9 +191,8 @@ namespace FloodAid.Api.Controllers
                     });
                 }
 
-                // Check master OTP for development
-                var masterOtp = _configuration["AdminCredentials:MasterOTP"];
-                bool isOtpValid = request.Otp == otpEntry.Otp || request.Otp == masterOtp;
+                // Validate OTP
+                bool isOtpValid = request.Otp == otpEntry.Otp;
 
                 if (!isOtpValid)
                 {
@@ -685,12 +684,18 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Utility endpoint to hash a password (for setup only, remove in production)
+        /// Utility endpoint to hash a password (Development only)
         /// </summary>
         [AllowAnonymous]
         [HttpPost("hash-password")]
         public ActionResult<object> HashPassword([FromBody] string password)
         {
+            var env = _configuration.GetValue<string>("ASPNETCORE_ENVIRONMENT");
+            if (!string.Equals(env, "Development", StringComparison.OrdinalIgnoreCase))
+            {
+                return NotFound();
+            }
+
             if (string.IsNullOrEmpty(password))
             {
                 return BadRequest("Password is required");
