@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Net.Sockets;
 
 namespace FloodAid.Api.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/email")]
     public class DiagnosticsController : ControllerBase

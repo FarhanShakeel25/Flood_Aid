@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
+using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -10,6 +13,8 @@ using BCrypt.Net;
 
 namespace FloodAid.Api.Controllers
 {
+    [Authorize]
+    [EnableRateLimiting("auth")]
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
@@ -20,6 +25,10 @@ namespace FloodAid.Api.Controllers
         
         // In-memory storage for OTPs (in production, use Redis or database with expiration)
         private static readonly Dictionary<string, (string Otp, DateTime Expiry)> _otpStore = new();
+        private static readonly ConcurrentDictionary<string, (int FailCount, DateTimeOffset? LockoutUntil)> _authFailures = new();
+
+        private const int LockoutThreshold = 5;
+        private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
         public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService)
         {
@@ -31,6 +40,7 @@ namespace FloodAid.Api.Controllers
         /// <summary>
         /// Step 1: Verify admin credentials and send OTP
         /// </summary>
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
         {
@@ -50,11 +60,21 @@ namespace FloodAid.Api.Controllers
                     });
                 }
 
+                if (IsLockedOut(adminEmail, out var remaining))
+                {
+                    return StatusCode(423, new LoginResponse
+                    {
+                        Success = false,
+                        Message = $"Account locked. Try again in {remaining.TotalMinutes:F0} minutes"
+                    });
+                }
+
                 // Validate identifier (email or username)
                 bool isIdentifierValid = request.Identifier == adminEmail || request.Identifier == adminUsername;
                 
                 if (!isIdentifierValid)
                 {
+                    RecordFailure(adminEmail);
                     return Unauthorized(new LoginResponse 
                     { 
                         Success = false, 
@@ -67,12 +87,15 @@ namespace FloodAid.Api.Controllers
                 
                 if (!isPasswordValid)
                 {
+                    RecordFailure(adminEmail);
                     return Unauthorized(new LoginResponse 
                     { 
                         Success = false, 
                         Message = "Invalid credentials" 
                     });
                 }
+
+                RecordSuccess(adminEmail);
 
                 // Generate OTP
                 var otp = GenerateOTP();
@@ -108,14 +131,25 @@ namespace FloodAid.Api.Controllers
         /// <summary>
         /// Step 2: Verify OTP and generate JWT token
         /// </summary>
+        [AllowAnonymous]
         [HttpPost("verify-otp")]
         public ActionResult<LoginResponse> VerifyOTP([FromBody] VerifyOtpRequest request)
         {
             try
             {
+                if (IsLockedOut(request.Email, out var remaining))
+                {
+                    return StatusCode(423, new LoginResponse
+                    {
+                        Success = false,
+                        Message = $"Account locked. Try again in {remaining.TotalMinutes:F0} minutes"
+                    });
+                }
+
                 // Check if OTP exists and is not expired
                 if (!_otpStore.ContainsKey(request.Email))
                 {
+                    RecordFailure(request.Email);
                     return BadRequest(new LoginResponse 
                     { 
                         Success = false, 
@@ -129,6 +163,7 @@ namespace FloodAid.Api.Controllers
                 if (DateTime.UtcNow > expiry)
                 {
                     _otpStore.Remove(request.Email);
+                    RecordFailure(request.Email);
                     return BadRequest(new LoginResponse 
                     { 
                         Success = false, 
@@ -142,6 +177,7 @@ namespace FloodAid.Api.Controllers
 
                 if (!isOtpValid)
                 {
+                    RecordFailure(request.Email);
                     return BadRequest(new LoginResponse 
                     { 
                         Success = false, 
@@ -151,6 +187,7 @@ namespace FloodAid.Api.Controllers
 
                 // Remove used OTP
                 _otpStore.Remove(request.Email);
+                RecordSuccess(request.Email);
 
                 // Generate JWT token
                 var token = GenerateJwtToken(request.Email);
@@ -229,9 +266,49 @@ namespace FloodAid.Api.Controllers
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
+        private bool IsLockedOut(string key, out TimeSpan remaining)
+        {
+            remaining = TimeSpan.Zero;
+            if (_authFailures.TryGetValue(key, out var entry) && entry.LockoutUntil.HasValue)
+            {
+                var now = DateTimeOffset.UtcNow;
+                if (entry.LockoutUntil > now)
+                {
+                    remaining = entry.LockoutUntil.Value - now;
+                    return true;
+                }
+
+                _authFailures.TryRemove(key, out _); // lockout expired
+            }
+            return false;
+        }
+
+        private void RecordFailure(string key)
+        {
+            _authFailures.AddOrUpdate(key,
+                _ => (1, (DateTimeOffset?)null),
+                (_, existing) =>
+                {
+                    var count = existing.FailCount + 1;
+                    var lockout = existing.LockoutUntil;
+                    if (count >= LockoutThreshold)
+                    {
+                        lockout = DateTimeOffset.UtcNow.Add(LockoutDuration);
+                        _logger.LogWarning("Account locked for {Key} after {Count} failed attempts", key, count);
+                    }
+                    return (count, lockout);
+                });
+        }
+
+        private void RecordSuccess(string key)
+        {
+            _authFailures.TryRemove(key, out _);
+        }
+
         /// <summary>
         /// Utility endpoint to hash a password (for setup only, remove in production)
         /// </summary>
+        [AllowAnonymous]
         [HttpPost("hash-password")]
         public ActionResult<object> HashPassword([FromBody] string password)
         {
