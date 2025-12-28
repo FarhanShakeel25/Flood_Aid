@@ -30,8 +30,28 @@ namespace FloodAid.Api
             });
 
             // Configure PostgreSQL Database
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-                ?? "Host=localhost;Port=5432;Database=floodaid;Username=postgres;Password=postgres";
+            // Support both appsettings.json and DATABASE_URL environment variable (for Render)
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+                if (!string.IsNullOrEmpty(databaseUrl))
+                {
+                    // Convert DATABASE_URL to Npgsql connection string
+                    var uri = new Uri(databaseUrl);
+                    var username = uri.UserInfo.Split(':')[0];
+                    var password = uri.UserInfo.Split(':')[1];
+                    var host = uri.Host;
+                    var port = uri.Port;
+                    var database = uri.AbsolutePath.TrimStart('/');
+                    connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+                }
+                else
+                {
+                    connectionString = "Host=localhost;Port=5432;Database=floodaid;Username=postgres;Password=postgres";
+                }
+            }
+            
             builder.Services.AddDbContext<FloodAidContext>(options =>
                 options.UseNpgsql(connectionString));
 
@@ -188,11 +208,19 @@ namespace FloodAid.Api
 
             // Health check endpoint for Render monitoring
             app.MapGet("/health", () => new { status = "ok", timestamp = DateTime.UtcNow })
-                .WithName("HealthCheck")
-                .WithOpenApi();
+                .WithName("HealthCheck");
 
             // Initialize database with migrations and seed data
-            await app.InitializeDatabaseAsync(builder.Configuration);
+            try
+            {
+                await app.InitializeDatabaseAsync(builder.Configuration);
+            }
+            catch (Exception ex)
+            {
+                var logger = app.Services.GetRequiredService<ILogger<FloodAidContext>>();
+                logger.LogError(ex, "An error occurred while migrating or seeding the database.");
+                // Don't crash on startup if database initialization fails - it can be retried later
+            }
 
             app.Run();
         }
