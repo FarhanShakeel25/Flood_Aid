@@ -695,5 +695,32 @@ namespace FloodAid.Api.Controllers
             
             return Ok(new { PasswordHash = hash });
         }
+
+        /// <summary>
+        /// Development-only: Retrieve OTP from cache for testing.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpGet("otp/debug")]
+        public async Task<IActionResult> GetOtpForDebug([FromQuery] string email)
+        {
+            var env = _configuration.GetValue<string>("ASPNETCORE_ENVIRONMENT");
+            if (!string.Equals(env, "Development", StringComparison.OrdinalIgnoreCase))
+            {
+                return NotFound();
+            }
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return BadRequest(new { Success = false, Message = "Email is required" });
+            }
+
+            var otpEntry = await GetOtpAsync(email);
+            if (otpEntry is null)
+            {
+                return NotFound(new { Success = false, Message = "No OTP found for this email" });
+            }
+
+            return Ok(new { Success = true, Email = email, Otp = otpEntry.Otp, ExpiresAt = otpEntry.Expiry });
+        }
     }
 }
