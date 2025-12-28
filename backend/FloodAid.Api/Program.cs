@@ -1,7 +1,9 @@
+using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using FloodAid.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -25,6 +27,12 @@ namespace FloodAid.Api
                      .AllowAnyMethod()
                      .AllowCredentials());
             });
+
+            // Configure PostgreSQL Database
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+                ?? "Host=localhost;Port=5432;Database=floodaid;Username=postgres;Password=postgres";
+            builder.Services.AddDbContext<FloodAidContext>(options =>
+                options.UseNpgsql(connectionString));
 
             // Configure JWT Authentication as per SRS Section 3.3.2
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");

@@ -6,6 +6,14 @@ namespace FloodAid.Api.Models
 {
     public class HelpRequest
     {
+        // Parameterless constructor for EF Core
+        public HelpRequest()
+        {
+        }
+
+        [Key]
+        public int Id { get; set; }
+        
         public string? RequestorName { get; set; }
         public string? RequestorPhoneNumber { get; set; }
         public string? RequestorEmail { get; set; }
