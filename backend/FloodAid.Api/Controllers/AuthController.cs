@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Caching.Distributed;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FloodAid.Api.Models;
@@ -28,9 +29,12 @@ namespace FloodAid.Api.Controllers
         private readonly int _lockoutThreshold;
         private readonly TimeSpan _lockoutDuration;
         private readonly TimeSpan _otpExpiry;
+        private readonly TimeSpan _accessTokenExpiry;
+        private readonly TimeSpan _refreshTokenLifetime;
 
         private const string OtpCachePrefix = "otp:";
         private const string AuthFailCachePrefix = "authfail:";
+        private const string RefreshCachePrefix = "refresh:";
 
         public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService, IDistributedCache cache)
         {
@@ -43,6 +47,10 @@ namespace FloodAid.Api.Controllers
             _lockoutThreshold = authSettings.GetValue<int?>("LockoutThreshold") ?? 5;
             _lockoutDuration = TimeSpan.FromMinutes(authSettings.GetValue<int?>("LockoutDurationMinutes") ?? 15);
             _otpExpiry = TimeSpan.FromMinutes(authSettings.GetValue<int?>("OtpExpiryMinutes") ?? 5);
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var accessMinutes = authSettings.GetValue<int?>("AccessTokenMinutes") ?? int.Parse(jwtSettings["ExpiryMinutes"] ?? "30");
+            _accessTokenExpiry = TimeSpan.FromMinutes(accessMinutes);
+            _refreshTokenLifetime = TimeSpan.FromDays(authSettings.GetValue<int?>("RefreshTokenDays") ?? 7);
         }
 
         /// <summary>
@@ -195,26 +203,16 @@ namespace FloodAid.Api.Controllers
                 await RemoveOtpAsync(request.Email);
                 await RecordSuccessAsync(request.Email);
 
-                // Generate JWT token
-                var token = GenerateJwtToken(request.Email);
+                var adminUser = BuildAdminUser(request.Email);
 
-                // Get admin user details
-                var adminUser = new AdminUserDto
-                {
-                    Id = 1,
-                    Name = _configuration["AdminCredentials:Name"] ?? "Admin",
-                    Email = request.Email,
-                    Username = _configuration["AdminCredentials:Username"] ?? "",
-                    Role = "super_admin",
-                    Permissions = new[] { "all" },
-                    LoginTime = DateTime.UtcNow
-                };
+                var tokens = await IssueTokensAsync(request.Email);
 
                 return Ok(new LoginResponse
                 {
                     Success = true,
                     NextStep = "authenticated",
-                    Token = token,
+                    Token = tokens.AccessToken,
+                    RefreshToken = tokens.RefreshToken,
                     User = adminUser,
                     Message = "Login successful"
                 });
@@ -228,6 +226,64 @@ namespace FloodAid.Api.Controllers
                     Message = "An error occurred during verification" 
                 });
             }
+        }
+
+        /// <summary>
+        /// Refresh access token using a valid refresh token
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("refresh")]
+        public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshTokenRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                return BadRequest(new LoginResponse { Success = false, Message = "Refresh token is required" });
+            }
+
+            var refreshEntry = await GetRefreshTokenAsync(request.RefreshToken);
+            if (refreshEntry is null)
+            {
+                return Unauthorized(new LoginResponse { Success = false, Message = "Invalid refresh token" });
+            }
+
+            await RemoveRefreshTokenAsync(request.RefreshToken); // rotate token
+
+            var adminUser = BuildAdminUser(refreshEntry.Email);
+            var tokens = await IssueTokensAsync(refreshEntry.Email);
+
+            return Ok(new LoginResponse
+            {
+                Success = true,
+                NextStep = "authenticated",
+                Token = tokens.AccessToken,
+                RefreshToken = tokens.RefreshToken,
+                User = adminUser,
+                Message = "Token refreshed"
+            });
+        }
+
+        /// <summary>
+        /// Logout and revoke provided refresh token
+        /// </summary>
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+        {
+            var email = User.FindFirstValue(ClaimTypes.Email);
+            if (string.IsNullOrEmpty(email))
+            {
+                return Unauthorized();
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                var entry = await GetRefreshTokenAsync(request.RefreshToken);
+                if (entry is not null && string.Equals(entry.Email, email, StringComparison.OrdinalIgnoreCase))
+                {
+                    await RemoveRefreshTokenAsync(request.RefreshToken);
+                }
+            }
+
+            return Ok(new { Success = true, Message = "Logged out" });
         }
 
         /// <summary>
@@ -248,7 +304,6 @@ namespace FloodAid.Api.Controllers
             var secretKey = jwtSettings["SecretKey"];
             var issuer = jwtSettings["Issuer"];
             var audience = jwtSettings["Audience"];
-            var expiryMinutes = int.Parse(jwtSettings["ExpiryMinutes"] ?? "1440"); // 24 hours default
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -265,11 +320,81 @@ namespace FloodAid.Api.Controllers
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+                expires: DateTime.UtcNow.Add(_accessTokenExpiry),
                 signingCredentials: credentials
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private AdminUserDto BuildAdminUser(string email)
+        {
+            return new AdminUserDto
+            {
+                Id = 1,
+                Name = _configuration["AdminCredentials:Name"] ?? "Admin",
+                Email = email,
+                Username = _configuration["AdminCredentials:Username"] ?? string.Empty,
+                Role = "super_admin",
+                Permissions = new[] { "all" },
+                LoginTime = DateTime.UtcNow
+            };
+        }
+
+        private async Task<(string AccessToken, string RefreshToken)> IssueTokensAsync(string email)
+        {
+            var accessToken = GenerateJwtToken(email);
+            var refreshToken = GenerateSecureToken();
+            var entry = new RefreshTokenEntry
+            {
+                Email = email,
+                Expiry = DateTimeOffset.UtcNow.Add(_refreshTokenLifetime)
+            };
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpiration = entry.Expiry
+            };
+
+            var payload = JsonSerializer.Serialize(entry, _jsonOptions);
+            await _cache.SetStringAsync($"{RefreshCachePrefix}{refreshToken}", payload, options);
+
+            return (accessToken, refreshToken);
+        }
+
+        private string GenerateSecureToken(int byteLength = 32)
+        {
+            Span<byte> buffer = stackalloc byte[byteLength];
+            RandomNumberGenerator.Fill(buffer);
+            return Convert.ToBase64String(buffer)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+        }
+
+        private async Task<RefreshTokenEntry?> GetRefreshTokenAsync(string token)
+        {
+            var json = await _cache.GetStringAsync($"{RefreshCachePrefix}{token}");
+            if (string.IsNullOrEmpty(json))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<RefreshTokenEntry>(json, _jsonOptions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to deserialize refresh token entry");
+                await RemoveRefreshTokenAsync(token);
+                return null;
+            }
+        }
+
+        private Task RemoveRefreshTokenAsync(string token)
+        {
+            return _cache.RemoveAsync($"{RefreshCachePrefix}{token}");
         }
 
         private async Task<(bool IsLockedOut, TimeSpan Remaining)> IsLockedOutAsync(string key)
@@ -399,6 +524,12 @@ namespace FloodAid.Api.Controllers
         {
             public int FailCount { get; set; }
             public DateTimeOffset? LockoutUntil { get; set; }
+        }
+
+        private class RefreshTokenEntry
+        {
+            public string Email { get; set; } = string.Empty;
+            public DateTimeOffset Expiry { get; set; }
         }
 
         /// <summary>
