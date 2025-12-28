@@ -4,7 +4,7 @@ namespace FloodAid.Api.Services
     {
         Task SendDonationConfirmationAsync(string toEmail, string donorName, decimal amount, string receiptId);
         Task SendOtpEmailAsync(string toEmail, string userName, string otp, int expiryMinutes);
-        Task SendPasswordResetEmailAsync(string toEmail, string userName, string resetToken);
+        Task SendPasswordResetEmailAsync(string toEmail, string userName, string resetToken, int expiryMinutes);
     }
 
     public class EmailService : IEmailService
@@ -172,7 +172,7 @@ namespace FloodAid.Api.Services
             }
         }
 
-        public async Task SendPasswordResetEmailAsync(string toEmail, string userName, string resetToken)
+        public async Task SendPasswordResetEmailAsync(string toEmail, string userName, string resetToken, int expiryMinutes)
         {
             var brevoApiKey = _configuration["Email:BrevoApiKey"];
             var fromEmail = _configuration["Email:FromEmail"];
@@ -188,8 +188,9 @@ namespace FloodAid.Api.Services
                     "\nUser: {UserName}" +
                     "\nReset Token: {ResetToken}" +
                     "\nReset Link: {FrontendUrl}/admin/reset-password?token={ResetToken}" +
+                    "\nExpires In: {ExpiryMinutes} minutes" +
                     "\n=====================================",
-                    toEmail, userName, resetToken, frontendUrl, resetToken
+                    toEmail, userName, resetToken, frontendUrl, resetToken, expiryMinutes
                 );
                 return;
             }
@@ -222,7 +223,7 @@ namespace FloodAid.Api.Services
                                 </div>
                                 <p>Or copy and paste this link into your browser:</p>
                                 <p style='word-break: break-all; background-color: white; padding: 10px; border-radius: 5px;'>{resetLink}</p>
-                                <p><strong>This link will expire in 1 hour.</strong></p>
+                                <p><strong>This link will expire in {expiryMinutes} minutes.</strong></p>
                                 <p>If you didn't request a password reset, please ignore this email or contact support immediately.</p>
                                 <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
                                 <p style='color: #666; font-size: 12px;'>
