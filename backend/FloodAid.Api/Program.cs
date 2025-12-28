@@ -129,7 +129,7 @@ namespace FloodAid.Api
             // Add services to the container.
             builder.Services.AddOpenApi();
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            // builder.Services.AddSwaggerGen(); // Swashbuckle compatibility issue with .NET 10
 
             var app = builder.Build();
 
@@ -140,8 +140,8 @@ namespace FloodAid.Api
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
-                app.UseSwagger();
-                app.UseSwaggerUI();
+                // app.UseSwagger(); // Swashbuckle compatibility issue with .NET 10
+                // app.UseSwaggerUI(); // Swashbuckle compatibility issue with .NET 10
             }
 
             // Disable HTTPS redirect in development
