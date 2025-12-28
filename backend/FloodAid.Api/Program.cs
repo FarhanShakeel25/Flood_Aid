@@ -50,7 +50,14 @@ namespace FloodAid.Api
 
             builder.Services.AddAuthorization();
 
+            builder.Services.AddDistributedMemoryCache();
+
             // Rate limiting for auth endpoints
+            var authRateLimitSection = builder.Configuration.GetSection("RateLimiting:Auth");
+            var authPermitLimit = authRateLimitSection.GetValue<int?>("PermitLimit") ?? 5;
+            var authWindowMinutes = authRateLimitSection.GetValue<int?>("WindowMinutes") ?? 1;
+            var authQueueLimit = authRateLimitSection.GetValue<int?>("QueueLimit") ?? 0;
+
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = 429;
@@ -59,10 +66,10 @@ namespace FloodAid.Api
                         httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                         _ => new FixedWindowRateLimiterOptions
                         {
-                            PermitLimit = 5,
-                            Window = TimeSpan.FromMinutes(1),
+                            PermitLimit = authPermitLimit,
+                            Window = TimeSpan.FromMinutes(authWindowMinutes),
                             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                            QueueLimit = 0
+                            QueueLimit = authQueueLimit
                         }));
             });
 
