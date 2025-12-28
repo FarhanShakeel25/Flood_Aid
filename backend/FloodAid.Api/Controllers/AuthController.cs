@@ -2,10 +2,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
-using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Distributed;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using FloodAid.Api.Models;
 using FloodAid.Api.Models.DTOs;
 using FloodAid.Api.Services;
@@ -22,19 +23,26 @@ namespace FloodAid.Api.Controllers
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly IEmailService _emailService;
-        
-        // In-memory storage for OTPs (in production, use Redis or database with expiration)
-        private static readonly Dictionary<string, (string Otp, DateTime Expiry)> _otpStore = new();
-        private static readonly ConcurrentDictionary<string, (int FailCount, DateTimeOffset? LockoutUntil)> _authFailures = new();
+        private readonly IDistributedCache _cache;
+        private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+        private readonly int _lockoutThreshold;
+        private readonly TimeSpan _lockoutDuration;
+        private readonly TimeSpan _otpExpiry;
 
-        private const int LockoutThreshold = 5;
-        private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+        private const string OtpCachePrefix = "otp:";
+        private const string AuthFailCachePrefix = "authfail:";
 
-        public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService, IDistributedCache cache)
         {
             _configuration = configuration;
             _logger = logger;
             _emailService = emailService;
+            _cache = cache;
+
+            var authSettings = _configuration.GetSection("AuthSettings");
+            _lockoutThreshold = authSettings.GetValue<int?>("LockoutThreshold") ?? 5;
+            _lockoutDuration = TimeSpan.FromMinutes(authSettings.GetValue<int?>("LockoutDurationMinutes") ?? 15);
+            _otpExpiry = TimeSpan.FromMinutes(authSettings.GetValue<int?>("OtpExpiryMinutes") ?? 5);
         }
 
         /// <summary>
@@ -60,12 +68,13 @@ namespace FloodAid.Api.Controllers
                     });
                 }
 
-                if (IsLockedOut(adminEmail, out var remaining))
+                var lockout = await IsLockedOutAsync(adminEmail);
+                if (lockout.IsLockedOut)
                 {
                     return StatusCode(423, new LoginResponse
                     {
                         Success = false,
-                        Message = $"Account locked. Try again in {remaining.TotalMinutes:F0} minutes"
+                        Message = $"Account locked. Try again in {lockout.Remaining.TotalMinutes:F0} minutes"
                     });
                 }
 
@@ -74,7 +83,7 @@ namespace FloodAid.Api.Controllers
                 
                 if (!isIdentifierValid)
                 {
-                    RecordFailure(adminEmail);
+                    await RecordFailureAsync(adminEmail);
                     return Unauthorized(new LoginResponse 
                     { 
                         Success = false, 
@@ -87,7 +96,7 @@ namespace FloodAid.Api.Controllers
                 
                 if (!isPasswordValid)
                 {
-                    RecordFailure(adminEmail);
+                    await RecordFailureAsync(adminEmail);
                     return Unauthorized(new LoginResponse 
                     { 
                         Success = false, 
@@ -95,18 +104,17 @@ namespace FloodAid.Api.Controllers
                     });
                 }
 
-                RecordSuccess(adminEmail);
+                await RecordSuccessAsync(adminEmail);
 
                 // Generate OTP
                 var otp = GenerateOTP();
-                var expiry = DateTime.UtcNow.AddMinutes(5);
-                
-                // Store OTP (in production, use Redis with TTL)
-                _otpStore[adminEmail] = (otp, expiry);
+                var expiry = DateTimeOffset.UtcNow.Add(_otpExpiry);
+
+                await SetOtpAsync(adminEmail, otp, expiry);
 
                 // Send OTP via email
                 var adminName = _configuration["AdminCredentials:Name"] ?? "Admin";
-                await _emailService.SendOtpEmailAsync(adminEmail, adminName, otp, 5);
+                await _emailService.SendOtpEmailAsync(adminEmail, adminName, otp, (int)_otpExpiry.TotalMinutes);
                 
                 _logger.LogInformation("OTP generated and sent to {Email}", adminEmail);
 
@@ -133,61 +141,59 @@ namespace FloodAid.Api.Controllers
         /// </summary>
         [AllowAnonymous]
         [HttpPost("verify-otp")]
-        public ActionResult<LoginResponse> VerifyOTP([FromBody] VerifyOtpRequest request)
+        public async Task<ActionResult<LoginResponse>> VerifyOTP([FromBody] VerifyOtpRequest request)
         {
             try
             {
-                if (IsLockedOut(request.Email, out var remaining))
+                var lockout = await IsLockedOutAsync(request.Email);
+                if (lockout.IsLockedOut)
                 {
                     return StatusCode(423, new LoginResponse
                     {
                         Success = false,
-                        Message = $"Account locked. Try again in {remaining.TotalMinutes:F0} minutes"
+                        Message = $"Account locked. Try again in {lockout.Remaining.TotalMinutes:F0} minutes"
                     });
                 }
 
-                // Check if OTP exists and is not expired
-                if (!_otpStore.ContainsKey(request.Email))
+                var otpEntry = await GetOtpAsync(request.Email);
+                if (otpEntry is null)
                 {
-                    RecordFailure(request.Email);
-                    return BadRequest(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "No OTP found. Please login again" 
+                    await RecordFailureAsync(request.Email);
+                    return BadRequest(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "No OTP found. Please login again"
                     });
                 }
 
-                var (storedOtp, expiry) = _otpStore[request.Email];
-
-                // Check expiry
-                if (DateTime.UtcNow > expiry)
+                if (DateTimeOffset.UtcNow > otpEntry.Expiry)
                 {
-                    _otpStore.Remove(request.Email);
-                    RecordFailure(request.Email);
-                    return BadRequest(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "OTP expired. Please login again" 
+                    await RemoveOtpAsync(request.Email);
+                    await RecordFailureAsync(request.Email);
+                    return BadRequest(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "OTP expired. Please login again"
                     });
                 }
 
                 // Check master OTP for development
                 var masterOtp = _configuration["AdminCredentials:MasterOTP"];
-                bool isOtpValid = request.Otp == storedOtp || request.Otp == masterOtp;
+                bool isOtpValid = request.Otp == otpEntry.Otp || request.Otp == masterOtp;
 
                 if (!isOtpValid)
                 {
-                    RecordFailure(request.Email);
-                    return BadRequest(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "Invalid OTP" 
+                    await RecordFailureAsync(request.Email);
+                    return BadRequest(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Invalid OTP"
                     });
                 }
 
                 // Remove used OTP
-                _otpStore.Remove(request.Email);
-                RecordSuccess(request.Email);
+                await RemoveOtpAsync(request.Email);
+                await RecordSuccessAsync(request.Email);
 
                 // Generate JWT token
                 var token = GenerateJwtToken(request.Email);
@@ -266,43 +272,133 @@ namespace FloodAid.Api.Controllers
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private bool IsLockedOut(string key, out TimeSpan remaining)
+        private async Task<(bool IsLockedOut, TimeSpan Remaining)> IsLockedOutAsync(string key)
         {
-            remaining = TimeSpan.Zero;
-            if (_authFailures.TryGetValue(key, out var entry) && entry.LockoutUntil.HasValue)
+            var remaining = TimeSpan.Zero;
+            var state = await GetFailureStateAsync(key);
+            if (state?.LockoutUntil is null)
             {
-                var now = DateTimeOffset.UtcNow;
-                if (entry.LockoutUntil > now)
-                {
-                    remaining = entry.LockoutUntil.Value - now;
-                    return true;
-                }
-
-                _authFailures.TryRemove(key, out _); // lockout expired
+                return (false, remaining);
             }
-            return false;
+
+            var now = DateTimeOffset.UtcNow;
+            if (state.LockoutUntil > now)
+            {
+                remaining = state.LockoutUntil.Value - now;
+                return (true, remaining);
+            }
+
+            await RecordSuccessAsync(key); // lockout expired
+            return (false, remaining);
         }
 
-        private void RecordFailure(string key)
+        private async Task RecordFailureAsync(string key)
         {
-            _authFailures.AddOrUpdate(key,
-                _ => (1, (DateTimeOffset?)null),
-                (_, existing) =>
-                {
-                    var count = existing.FailCount + 1;
-                    var lockout = existing.LockoutUntil;
-                    if (count >= LockoutThreshold)
-                    {
-                        lockout = DateTimeOffset.UtcNow.Add(LockoutDuration);
-                        _logger.LogWarning("Account locked for {Key} after {Count} failed attempts", key, count);
-                    }
-                    return (count, lockout);
-                });
+            var now = DateTimeOffset.UtcNow;
+            var state = await GetFailureStateAsync(key) ?? new AuthFailureState();
+            state.FailCount += 1;
+
+            if (state.FailCount >= _lockoutThreshold)
+            {
+                state.LockoutUntil = now.Add(_lockoutDuration);
+                _logger.LogWarning("Account locked for {Key} after {Count} failed attempts", key, state.FailCount);
+            }
+
+            var ttl = state.LockoutUntil.HasValue
+                ? state.LockoutUntil.Value - now
+                : _lockoutDuration;
+
+            if (ttl <= TimeSpan.Zero)
+            {
+                ttl = _lockoutDuration;
+            }
+
+            await SetFailureStateAsync(key, state, ttl);
         }
 
-        private void RecordSuccess(string key)
+        private Task RecordSuccessAsync(string key)
         {
-            _authFailures.TryRemove(key, out _);
+            return _cache.RemoveAsync($"{AuthFailCachePrefix}{key}");
+        }
+
+        private async Task<OtpEntry?> GetOtpAsync(string email)
+        {
+            var json = await _cache.GetStringAsync($"{OtpCachePrefix}{email}");
+            if (string.IsNullOrEmpty(json))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<OtpEntry>(json, _jsonOptions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to deserialize OTP cache entry for {Email}", email);
+                await _cache.RemoveAsync($"{OtpCachePrefix}{email}");
+                return null;
+            }
+        }
+
+        private Task SetOtpAsync(string email, string otp, DateTimeOffset expiry)
+        {
+            var entry = new OtpEntry { Otp = otp, Expiry = expiry };
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpiration = expiry
+            };
+
+            var payload = JsonSerializer.Serialize(entry, _jsonOptions);
+            return _cache.SetStringAsync($"{OtpCachePrefix}{email}", payload, options);
+        }
+
+        private Task RemoveOtpAsync(string email)
+        {
+            return _cache.RemoveAsync($"{OtpCachePrefix}{email}");
+        }
+
+        private async Task<AuthFailureState?> GetFailureStateAsync(string key)
+        {
+            var json = await _cache.GetStringAsync($"{AuthFailCachePrefix}{key}");
+            if (string.IsNullOrEmpty(json))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<AuthFailureState>(json, _jsonOptions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to deserialize auth failure state for {Key}", key);
+                await _cache.RemoveAsync($"{AuthFailCachePrefix}{key}");
+                return null;
+            }
+        }
+
+        private Task SetFailureStateAsync(string key, AuthFailureState state, TimeSpan ttl)
+        {
+            var payload = JsonSerializer.Serialize(state, _jsonOptions);
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = ttl
+            };
+
+            return _cache.SetStringAsync($"{AuthFailCachePrefix}{key}", payload, options);
+        }
+
+        private class OtpEntry
+        {
+            public string Otp { get; set; } = string.Empty;
+            public DateTimeOffset Expiry { get; set; }
+        }
+
+        private class AuthFailureState
+        {
+            public int FailCount { get; set; }
+            public DateTimeOffset? LockoutUntil { get; set; }
         }
 
         /// <summary>
