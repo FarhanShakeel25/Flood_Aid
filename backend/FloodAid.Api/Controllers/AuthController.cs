@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Caching.Distributed;
 using System.IdentityModel.Tokens.Jwt;
@@ -8,6 +9,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using FloodAid.Api.Models.DTOs;
 using FloodAid.Api.Services;
@@ -25,6 +27,7 @@ namespace FloodAid.Api.Controllers
         private readonly ILogger<AuthController> _logger;
         private readonly IEmailService _emailService;
         private readonly IDistributedCache _cache;
+        private readonly FloodAidContext _dbContext;
         private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
         private readonly int _lockoutThreshold;
         private readonly TimeSpan _lockoutDuration;
@@ -40,12 +43,13 @@ namespace FloodAid.Api.Controllers
         private const string ResetCachePrefix = "pwreset:";
         private const string AdminPasswordCachePrefix = "adminpwd:";
 
-        public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService, IDistributedCache cache)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService, IDistributedCache cache, FloodAidContext dbContext)
         {
             _configuration = configuration;
             _logger = logger;
             _emailService = emailService;
             _cache = cache;
+            _dbContext = dbContext;
 
             var authSettings = _configuration.GetSection("AuthSettings");
             _lockoutThreshold = authSettings.GetValue<int?>("LockoutThreshold") ?? 5;
@@ -68,21 +72,20 @@ namespace FloodAid.Api.Controllers
         {
             try
             {
-                // Get admin user from configuration (in production, fetch from database)
-                var adminEmail = _configuration["AdminCredentials:Email"];
-                var adminUsername = _configuration["AdminCredentials:Username"];
-                var adminPasswordHash = await GetAdminPasswordHashAsync(adminEmail!);
+                // Query admin user from database by email or username
+                var admin = await _dbContext.Admins.FirstOrDefaultAsync(a => 
+                    a.Email == request.Identifier || a.Username == request.Identifier);
 
-                if (string.IsNullOrEmpty(adminEmail) || string.IsNullOrEmpty(adminPasswordHash))
+                if (admin == null || !admin.IsActive)
                 {
-                    return StatusCode(500, new LoginResponse 
+                    return Unauthorized(new LoginResponse 
                     { 
                         Success = false, 
-                        Message = "Admin credentials not configured" 
+                        Message = "Invalid credentials" 
                     });
                 }
 
-                var lockout = await IsLockedOutAsync(adminEmail);
+                var lockout = await IsLockedOutAsync(admin.Email);
                 if (lockout.IsLockedOut)
                 {
                     return StatusCode(423, new LoginResponse
@@ -92,25 +95,12 @@ namespace FloodAid.Api.Controllers
                     });
                 }
 
-                // Validate identifier (email or username)
-                bool isIdentifierValid = request.Identifier == adminEmail || request.Identifier == adminUsername;
-                
-                if (!isIdentifierValid)
-                {
-                    await RecordFailureAsync(adminEmail);
-                    return Unauthorized(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "Invalid credentials" 
-                    });
-                }
-
                 // Verify password using BCrypt (Work Factor 11 as per SRS)
-                bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, adminPasswordHash);
+                bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, admin.PasswordHash);
                 
                 if (!isPasswordValid)
                 {
-                    await RecordFailureAsync(adminEmail);
+                    await RecordFailureAsync(admin.Email);
                     return Unauthorized(new LoginResponse 
                     { 
                         Success = false, 
@@ -118,19 +108,18 @@ namespace FloodAid.Api.Controllers
                     });
                 }
 
-                await RecordSuccessAsync(adminEmail);
+                await RecordSuccessAsync(admin.Email);
 
                 // Generate OTP
                 var otp = GenerateOTP();
                 var expiry = DateTimeOffset.UtcNow.Add(_otpExpiry);
 
-                await SetOtpAsync(adminEmail, otp, expiry);
+                await SetOtpAsync(admin.Email, otp, expiry);
 
                 // Send OTP via email
-                var adminName = _configuration["AdminCredentials:Name"] ?? "Admin";
-                await _emailService.SendOtpEmailAsync(adminEmail, adminName, otp, (int)_otpExpiry.TotalMinutes);
+                await _emailService.SendOtpEmailAsync(admin.Email, admin.Name, otp, (int)_otpExpiry.TotalMinutes);
                 
-                _logger.LogInformation("OTP generated and sent to {Email}", adminEmail);
+                _logger.LogInformation("OTP generated and sent to {Email}", admin.Email);
 
                 return Ok(new LoginResponse
                 {

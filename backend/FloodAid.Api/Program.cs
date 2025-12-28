@@ -13,7 +13,7 @@ namespace FloodAid.Api
 {
     static class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -191,6 +191,9 @@ namespace FloodAid.Api
             app.MapGet("/health", () => new { status = "ok", timestamp = DateTime.UtcNow })
                 .WithName("HealthCheck")
                 .WithOpenApi();
+
+            // Initialize database with migrations and seed data
+            await app.InitializeDatabaseAsync(builder.Configuration);
 
             app.Run();
         }
