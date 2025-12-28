@@ -1,9 +1,11 @@
 using FloodAid.Api.Models;
 using FloodAid.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 namespace FloodAid.Api
 {
@@ -48,6 +50,22 @@ namespace FloodAid.Api
 
             builder.Services.AddAuthorization();
 
+            // Rate limiting for auth endpoints
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = 429;
+                options.AddPolicy("auth", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 5,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+            });
+
             // Add controllers
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
@@ -85,6 +103,7 @@ namespace FloodAid.Api
                 app.UseHttpsRedirection();
             }
 
+            app.UseRateLimiter();
             // Add Authentication & Authorization middleware
             app.UseAuthentication();
             app.UseAuthorization();
