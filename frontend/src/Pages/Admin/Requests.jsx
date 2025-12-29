@@ -46,9 +46,13 @@ const AdminRequests = () => {
                         className="icon-btn"
                         title="Filter"
                         onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                        style={{ background: statusFilter !== 'All' ? '#eff6ff' : '', borderColor: statusFilter !== 'All' ? '#3b82f6' : '' }}
+                        style={{
+                            background: statusFilter !== 'All' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                            borderColor: statusFilter !== 'All' ? 'var(--admin-accent)' : 'var(--admin-border)',
+                            color: 'var(--admin-text-main)'
+                        }}
                     >
-                        <Filter size={20} color={statusFilter !== 'All' ? '#3b82f6' : 'currentColor'} />
+                        <Filter size={20} color={statusFilter !== 'All' ? 'var(--admin-accent)' : 'var(--admin-text-muted)'} />
                     </button>
 
                     {/* Status Filter Dropdown */}
@@ -57,15 +61,15 @@ const AdminRequests = () => {
                             position: 'absolute',
                             top: '120%',
                             right: 0,
-                            background: 'white',
-                            border: '1px solid #e2e8f0',
+                            background: 'var(--admin-card-bg)',
+                            border: '1px solid var(--admin-border)',
                             borderRadius: '8px',
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                             zIndex: 10,
                             minWidth: '150px',
                             overflow: 'hidden'
                         }}>
-                            <div style={{ padding: '0.5rem', borderBottom: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>FILTER BY STATUS</div>
+                            <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--admin-border)', fontSize: '0.75rem', color: 'var(--admin-text-muted)', fontWeight: 600 }}>FILTER BY STATUS</div>
                             {['All', 'Pending', 'In Progress', 'Resolved'].map((status) => (
                                 <button
                                     key={status}
@@ -78,8 +82,8 @@ const AdminRequests = () => {
                                         width: '100%',
                                         textAlign: 'left',
                                         padding: '0.5rem 1rem',
-                                        background: statusFilter === status ? '#f1f5f9' : 'white',
-                                        color: statusFilter === status ? '#0f172a' : '#475569',
+                                        background: statusFilter === status ? 'var(--admin-bg)' : 'transparent',
+                                        color: statusFilter === status ? 'var(--admin-text-main)' : 'var(--admin-text-secondary)',
                                         border: 'none',
                                         cursor: 'pointer',
                                         fontSize: '0.875rem'
@@ -110,9 +114,9 @@ const AdminRequests = () => {
                         <tbody>
                             {filteredRequests.map((r) => (
                                 <tr key={r.id}>
-                                    <td style={{ fontWeight: 600 }}>{r.id}</td>
+                                    <td style={{ fontWeight: 600, color: 'var(--admin-text-main)' }}>{r.id}</td>
                                     <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-main)' }}>
                                             {r.type === 'Medical' && <span style={{ color: '#ef4444' }}>🏥</span>}
                                             {r.type === 'Food' && <span style={{ color: '#f97316' }}>🍞</span>}
                                             {r.type === 'Rescue' && <span style={{ color: '#dc2626' }}>🆘</span>}
@@ -120,7 +124,7 @@ const AdminRequests = () => {
                                         </div>
                                     </td>
                                     <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#64748b' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--admin-text-secondary)' }}>
                                             <MapPin size={14} />
                                             {r.location}
                                         </div>
@@ -133,7 +137,7 @@ const AdminRequests = () => {
                                             {r.priority}
                                         </span>
                                     </td>
-                                    <td>{r.reportedBy}</td>
+                                    <td style={{ color: 'var(--admin-text-secondary)' }}>{r.reportedBy}</td>
                                     <td>
                                         <span className={`badge ${r.status === 'Resolved' ? 'badge-green' : 'badge-gray'
                                             }`}>

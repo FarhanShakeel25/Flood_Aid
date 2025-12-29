@@ -39,19 +39,20 @@ const ExportFilterModal = ({ isOpen, onClose, onExport }) => {
             <div
                 className="animate-scale-in"
                 style={{
-                    background: 'white',
+                    background: 'var(--admin-card-bg)',
                     borderRadius: '16px',
                     padding: '2rem',
                     width: '90%',
                     maxWidth: '450px',
                     boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-                    position: 'relative'
+                    position: 'relative',
+                    border: '1px solid var(--admin-border)'
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>Export Report</h2>
+                    <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--admin-text-main)' }}>Export Report</h2>
                     <button
                         onClick={onClose}
                         style={{
@@ -60,7 +61,7 @@ const ExportFilterModal = ({ isOpen, onClose, onExport }) => {
                             cursor: 'pointer',
                             padding: '0.5rem',
                             borderRadius: '8px',
-                            color: '#64748b'
+                            color: 'var(--admin-text-muted)'
                         }}
                     >
                         <X size={20} />
@@ -69,31 +70,47 @@ const ExportFilterModal = ({ isOpen, onClose, onExport }) => {
 
                 {/* Date Range */}
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#334155', marginBottom: '0.75rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--admin-text-secondary)', marginBottom: '0.75rem' }}>
                         Date Range
                     </label>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div>
                             <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '0.25rem' }}>From</span>
                             <div style={{ position: 'relative' }}>
-                                <Calendar size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
+                                <Calendar size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--admin-text-muted)' }} />
                                 <input
                                     type="date"
                                     value={dateRange.start}
                                     onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                                    style={{ width: '100%', padding: '0.5rem 0.5rem 0.5rem 2.25rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem' }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.5rem 0.5rem 0.5rem 2.25rem',
+                                        background: 'var(--admin-bg)',
+                                        color: 'var(--admin-text-main)',
+                                        border: '1px solid var(--admin-border)',
+                                        borderRadius: '8px',
+                                        fontSize: '0.875rem'
+                                    }}
                                 />
                             </div>
                         </div>
                         <div>
                             <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginBottom: '0.25rem' }}>To</span>
                             <div style={{ position: 'relative' }}>
-                                <Calendar size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
+                                <Calendar size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--admin-text-muted)' }} />
                                 <input
                                     type="date"
                                     value={dateRange.end}
                                     onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                                    style={{ width: '100%', padding: '0.5rem 0.5rem 0.5rem 2.25rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem' }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.5rem 0.5rem 0.5rem 2.25rem',
+                                        background: 'var(--admin-bg)',
+                                        color: 'var(--admin-text-main)',
+                                        border: '1px solid var(--admin-border)',
+                                        borderRadius: '8px',
+                                        fontSize: '0.875rem'
+                                    }}
                                 />
                             </div>
                         </div>
@@ -102,7 +119,7 @@ const ExportFilterModal = ({ isOpen, onClose, onExport }) => {
 
                 {/* Status Filter */}
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#334155', marginBottom: '0.75rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--admin-text-secondary)', marginBottom: '0.75rem' }}>
                         Include Status
                     </label>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -113,9 +130,9 @@ const ExportFilterModal = ({ isOpen, onClose, onExport }) => {
                                 style={{
                                     padding: '0.5rem 1rem',
                                     borderRadius: '20px',
-                                    border: `1px solid ${status === s ? '#3b82f6' : '#e2e8f0'}`,
-                                    background: status === s ? '#eff6ff' : 'white',
-                                    color: status === s ? '#2563eb' : '#64748b',
+                                    border: `1px solid ${status === s ? 'var(--admin-accent)' : 'var(--admin-border)'}`,
+                                    background: status === s ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                    color: status === s ? 'var(--admin-accent)' : 'var(--admin-text-secondary)',
                                     fontSize: '0.875rem',
                                     fontWeight: 500,
                                     cursor: 'pointer',
@@ -130,7 +147,7 @@ const ExportFilterModal = ({ isOpen, onClose, onExport }) => {
 
                 {/* Format */}
                 <div style={{ marginBottom: '2rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#334155', marginBottom: '0.75rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--admin-text-secondary)', marginBottom: '0.75rem' }}>
                         Export Format
                     </label>
                     <div style={{ display: 'flex', gap: '1rem' }}>
@@ -139,51 +156,51 @@ const ExportFilterModal = ({ isOpen, onClose, onExport }) => {
                             style={{
                                 flex: 1,
                                 padding: '0.75rem',
-                                border: `2px solid ${format === 'pdf' ? '#3b82f6' : '#e2e8f0'}`,
+                                border: `2px solid ${format === 'pdf' ? 'var(--admin-accent)' : 'var(--admin-border)'}`,
                                 borderRadius: '12px',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
                                 gap: '0.25rem',
-                                background: format === 'pdf' ? '#eff6ff' : 'white'
+                                background: format === 'pdf' ? 'rgba(59, 130, 246, 0.1)' : 'transparent'
                             }}
                         >
-                            <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>PDF</span>
+                            <span style={{ fontWeight: 600, color: 'var(--admin-text-main)', fontSize: '0.9rem' }}>PDF</span>
                         </div>
                         <div
                             onClick={() => setFormat('xlsx')}
                             style={{
                                 flex: 1,
                                 padding: '0.75rem',
-                                border: `2px solid ${format === 'xlsx' ? '#3b82f6' : '#e2e8f0'}`,
+                                border: `2px solid ${format === 'xlsx' ? 'var(--admin-accent)' : 'var(--admin-border)'}`,
                                 borderRadius: '12px',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
                                 gap: '0.25rem',
-                                background: format === 'xlsx' ? '#eff6ff' : 'white'
+                                background: format === 'xlsx' ? 'rgba(59, 130, 246, 0.1)' : 'transparent'
                             }}
                         >
-                            <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>Excel</span>
+                            <span style={{ fontWeight: 600, color: 'var(--admin-text-main)', fontSize: '0.9rem' }}>Excel</span>
                         </div>
                         <div
                             onClick={() => setFormat('csv')}
                             style={{
                                 flex: 1,
                                 padding: '0.75rem',
-                                border: `2px solid ${format === 'csv' ? '#3b82f6' : '#e2e8f0'}`,
+                                border: `2px solid ${format === 'csv' ? 'var(--admin-accent)' : 'var(--admin-border)'}`,
                                 borderRadius: '12px',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
                                 gap: '0.25rem',
-                                background: format === 'csv' ? '#eff6ff' : 'white'
+                                background: format === 'csv' ? 'rgba(59, 130, 246, 0.1)' : 'transparent'
                             }}
                         >
-                            <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>CSV</span>
+                            <span style={{ fontWeight: 600, color: 'var(--admin-text-main)', fontSize: '0.9rem' }}>CSV</span>
                         </div>
                     </div>
                 </div>

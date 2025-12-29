@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Manually allow the admin credentials file
+!src/config/adminCredentials.js

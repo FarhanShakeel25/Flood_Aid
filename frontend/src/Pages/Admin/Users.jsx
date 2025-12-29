@@ -71,12 +71,12 @@ const AdminUsers = () => {
                                 <tr key={user.id}>
                                     <td>
                                         <div className="user-cell">
-                                            <div className="user-avatar">
+                                            <div className="user-avatar" style={{ background: 'var(--admin-bg)', color: 'var(--admin-accent)', border: '1px solid var(--admin-border)' }}>
                                                 {user.name.charAt(0)}
                                             </div>
                                             <div className="user-info">
-                                                <p className="user-name">{user.name}</p>
-                                                <p className="user-email">{user.email}</p>
+                                                <p className="user-name" style={{ color: 'var(--admin-text-main)' }}>{user.name}</p>
+                                                <p className="user-email" style={{ color: 'var(--admin-text-secondary)' }}>{user.email}</p>
                                             </div>
                                         </div>
                                     </td>

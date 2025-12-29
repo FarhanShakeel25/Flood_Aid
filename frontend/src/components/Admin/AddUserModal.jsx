@@ -65,19 +65,20 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
             <div
                 className="modal-content animate-scale-in"
                 style={{
-                    background: 'white',
+                    background: 'var(--admin-card-bg)',
                     borderRadius: '16px',
                     padding: '2rem',
                     width: '90%',
                     maxWidth: '500px',
                     boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-                    position: 'relative'
+                    position: 'relative',
+                    border: '1px solid var(--admin-border)'
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Add New User</h2>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: 'var(--admin-text-main)' }}>Add New User</h2>
                     <button
                         onClick={onClose}
                         style={{
@@ -88,10 +89,10 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
                             borderRadius: '8px',
                             transition: 'background 0.2s'
                         }}
-                        onMouseEnter={(e) => e.target.style.background = '#f1f5f9'}
+                        onMouseEnter={(e) => e.target.style.background = 'var(--admin-bg)'}
                         onMouseLeave={(e) => e.target.style.background = 'transparent'}
                     >
-                        <X size={24} color="#64748b" />
+                        <X size={24} color="var(--admin-text-muted)" />
                     </button>
                 </div>
 
@@ -100,7 +101,7 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                         {/* Name Field */}
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500, color: '#334155' }}>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500, color: 'var(--admin-text-secondary)' }}>
                                 <User size={16} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
                                 Full Name
                             </label>
@@ -113,7 +114,9 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
                                 style={{
                                     width: '100%',
                                     padding: '0.75rem',
-                                    border: `1px solid ${errors.name ? '#ef4444' : '#e2e8f0'}`,
+                                    background: 'var(--admin-bg)',
+                                    color: 'var(--admin-text-main)',
+                                    border: `1px solid ${errors.name ? '#ef4444' : 'var(--admin-border)'}`,
                                     borderRadius: '8px',
                                     fontSize: '1rem',
                                     transition: 'border-color 0.2s',
@@ -126,7 +129,7 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
 
                         {/* Email Field */}
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500, color: '#334155' }}>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500, color: 'var(--admin-text-secondary)' }}>
                                 <Mail size={16} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
                                 Email Address
                             </label>
@@ -139,7 +142,9 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
                                 style={{
                                     width: '100%',
                                     padding: '0.75rem',
-                                    border: `1px solid ${errors.email ? '#ef4444' : '#e2e8f0'}`,
+                                    background: 'var(--admin-bg)',
+                                    color: 'var(--admin-text-main)',
+                                    border: `1px solid ${errors.email ? '#ef4444' : 'var(--admin-border)'}`,
                                     borderRadius: '8px',
                                     fontSize: '1rem',
                                     transition: 'border-color 0.2s',
@@ -151,7 +156,7 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
 
                         {/* Password Field */}
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500, color: '#334155' }}>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500, color: 'var(--admin-text-secondary)' }}>
                                 <Lock size={16} style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} />
                                 Password
                             </label>
@@ -164,7 +169,9 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
                                 style={{
                                     width: '100%',
                                     padding: '0.75rem',
-                                    border: `1px solid ${errors.password ? '#ef4444' : '#e2e8f0'}`,
+                                    background: 'var(--admin-bg)',
+                                    color: 'var(--admin-text-main)',
+                                    border: `1px solid ${errors.password ? '#ef4444' : 'var(--admin-border)'}`,
                                     borderRadius: '8px',
                                     fontSize: '1rem',
                                     transition: 'border-color 0.2s',
@@ -183,17 +190,17 @@ const AddUserModal = ({ isOpen, onClose, onSubmit }) => {
                             style={{
                                 flex: 1,
                                 padding: '0.75rem',
-                                border: '1px solid #e2e8f0',
+                                border: '1px solid var(--admin-border)',
                                 borderRadius: '8px',
-                                background: 'white',
-                                color: '#64748b',
+                                background: 'var(--admin-card-bg)',
+                                color: 'var(--admin-text-secondary)',
                                 fontSize: '1rem',
                                 fontWeight: 500,
                                 cursor: 'pointer',
                                 transition: 'all 0.2s'
                             }}
-                            onMouseEnter={(e) => e.target.style.background = '#f8fafc'}
-                            onMouseLeave={(e) => e.target.style.background = 'white'}
+                            onMouseEnter={(e) => e.target.style.background = 'var(--admin-bg)'}
+                            onMouseLeave={(e) => e.target.style.background = 'var(--admin-card-bg)'}
                         >
                             Cancel
                         </button>

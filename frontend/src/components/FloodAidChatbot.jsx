@@ -403,57 +403,52 @@ const FloodAidChatbot = ({
               </select>
             </div>
 
-            {/* Input Area */}
-            <div className="chatbot-input">
-              <textarea
-                className="chatbot-input-field"
-                placeholder="Ask about flood aid...  🎤 or click mic to speak"
-                value={inputValue}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  // Auto-resize textarea based on content
-                  e.target.style.height = '44px'; // Reset to single line height
-                  if (e.target.scrollHeight > 44) {
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                  }
-                }}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                disabled={isLoading}
-                aria-label="Type your message"
-                rows={1}
-                style={{
-                  resize: 'none',
-                  overflow: 'hidden',
-                  height: '44px',
-                  maxHeight: '120px'
-                }}
-              />
+            {/* Input Wrapper - Professional Style */}
+            <div className="chatbot-input-wrapper">
+              <div className="chatbot-input">
+                <textarea
+                  className="chatbot-input-field"
+                  placeholder="Ask about flood aid..."
+                  value={inputValue}
+                  onChange={(e) => {
+                    const target = e.target;
+                    setInputValue(target.value);
+                    // Reset height to calculate properly
+                    target.style.height = 'auto';
+                    const newHeight = Math.min(target.scrollHeight, 120);
+                    target.style.height = `${newHeight}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                      // Reset height after send
+                      e.target.style.height = '44px';
+                    }
+                  }}
+                  disabled={isLoading}
+                  rows={1}
+                />
 
-              {/* Mic Button */}
-              <button
-                onClick={toggleVoiceInput}
-                className={`chatbot-voice-btn ${isListening ? 'listening' : ''}`}
-                disabled={isLoading}
-                aria-label="Voice input"
-                title={isListening ? 'Stop recording' : `Start voice input (${languages[selectedLanguage]})`}
-              >
-                {isListening ? <MicOff size={20} /> : <Mic size={20} />}
-              </button>
+                <div className="chatbot-input-actions">
+                  <button
+                    onClick={toggleVoiceInput}
+                    className={`chatbot-voice-btn ${isListening ? 'listening' : ''}`}
+                    disabled={isLoading}
+                    title={isListening ? 'Stop recording' : `Voice Input`}
+                  >
+                    {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+                  </button>
 
-              {/* Send Button */}
-              <button
-                onClick={handleSendMessage}
-                className="chatbot-send-btn"
-                disabled={isLoading || !inputValue.trim()}
-                aria-label="Send message"
-              >
-                <Send size={20} />
-              </button>
+                  <button
+                    onClick={handleSendMessage}
+                    className="chatbot-send-btn"
+                    disabled={isLoading || !inputValue.trim()}
+                  >
+                    <Send size={20} />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* ✅ MODIFIED: Show current AI provider */}

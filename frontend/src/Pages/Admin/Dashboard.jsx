@@ -63,53 +63,54 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <div style={{ marginBottom: '1rem' }}>
-                <h1 style={{ fontSize: '1.875rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: '100%', color: 'var(--admin-text-main)' }}>
+            <div style={{ marginBottom: '0rem' }}>
+                <h1 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--admin-text-main)', margin: 0 }}>
                     Dashboard Overview
                 </h1>
-                <p style={{ color: '#64748b' }}>Welcome back, Admin. Here's what's happening today.</p>
+                <p style={{ color: 'var(--admin-text-secondary)', margin: 0, fontSize: '0.75rem' }}>Overview for today's activities.</p>
             </div>
 
             {/* Stats Grid */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: '1.5rem'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '0.75rem'
             }}>
                 {stats.map((stat, index) => (
                     <div key={index} style={{
-                        background: 'white',
-                        padding: '1.5rem',
-                        borderRadius: '1rem',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        background: 'var(--admin-card-bg)',
+                        padding: '0.75rem', /* Slashed from 1rem */
+                        borderRadius: '0.75rem',
+                        border: '1px solid var(--admin-border)',
+                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '1rem'
+                        gap: '0.375rem'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{
-                                padding: '0.75rem',
-                                borderRadius: '0.75rem',
-                                backgroundColor: 'rgba(241, 245, 249, 1)', // slate-100
-                                color: '#334155'
+                                padding: '0.375rem',
+                                borderRadius: '0.375rem',
+                                backgroundColor: 'var(--admin-bg)',
+                                color: 'var(--admin-text-main)'
                             }}>
-                                <stat.icon size={24} />
+                                <stat.icon size={18} />
                             </div>
                             <span style={{
-                                fontSize: '0.875rem',
+                                fontSize: '0.7rem',
                                 fontWeight: 600,
                                 color: stat.change.startsWith('+') ? '#16a34a' : '#ef4444',
-                                background: stat.change.startsWith('+') ? '#dcfce7' : '#fee2e2',
-                                padding: '0.25rem 0.5rem',
+                                background: stat.change.startsWith('+') ? 'rgba(22, 163, 74, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                padding: '0.125rem 0.375rem',
                                 borderRadius: '9999px'
                             }}>
                                 {stat.change}
                             </span>
                         </div>
                         <div>
-                            <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>{stat.title}</p>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{stat.value}</h3>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', margin: 0 }}>{stat.title}</p>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--admin-text-main)', margin: 0 }}>{stat.value}</h3>
                         </div>
                     </div>
                 ))}
@@ -118,36 +119,64 @@ const AdminDashboard = () => {
             {/* Charts Section */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                gap: '1.5rem'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '0.75rem',
+                flex: 1,
+                minHeight: 0 // Allow grid contents to shrink
             }}>
                 {/* Line Chart */}
                 <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '1rem',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    background: 'var(--admin-card-bg)',
+                    padding: '1rem', /* Slashed from 1.25rem */
+                    borderRadius: '0.75rem',
+                    border: '1px solid var(--admin-border)',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    display: 'flex',
+                    flexDirection: 'column'
                 }}>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: '#1e293b' }}>
+                    <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--admin-text-main)' }}>
                         Donation Trends
                     </h3>
-                    <div style={{ height: '300px' }}>
-                        <Line data={lineChartData} options={{ maintainAspectRatio: false }} />
+                    <div style={{ flex: 1, minHeight: '180px' }}>
+                        <Line
+                            data={lineChartData}
+                            options={{
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { labels: { color: 'var(--admin-text-secondary)', boxWidth: 10, font: { size: 10 } } }
+                                },
+                                scales: {
+                                    x: { grid: { color: 'var(--admin-border)' }, ticks: { color: 'var(--admin-text-secondary)', font: { size: 10 } } },
+                                    y: { grid: { color: 'var(--admin-border)' }, ticks: { color: 'var(--admin-text-secondary)', font: { size: 10 } } }
+                                }
+                            }}
+                        />
                     </div>
                 </div>
 
                 {/* Doughnut Chart */}
                 <div style={{
-                    background: 'white',
-                    padding: '1.5rem',
-                    borderRadius: '1rem',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    background: 'var(--admin-card-bg)',
+                    padding: '1rem', /* Slashed from 1.25rem */
+                    borderRadius: '0.75rem',
+                    border: '1px solid var(--admin-border)',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    display: 'flex',
+                    flexDirection: 'column'
                 }}>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: '#1e293b' }}>
+                    <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--admin-text-main)' }}>
                         Resource Allocation
                     </h3>
-                    <div style={{ height: '300px', display: 'flex', justifyContent: 'center' }}>
-                        <Doughnut data={doughnutData} options={{ maintainAspectRatio: false }} />
+                    <div style={{ flex: 1, minHeight: '180px', display: 'flex', justifyContent: 'center' }}>
+                        <Doughnut
+                            data={doughnutData}
+                            options={{
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { labels: { color: 'var(--admin-text-secondary)', boxWidth: 10, font: { size: 10 } } }
+                                }
+                            }}
+                        />
                     </div>
                 </div>
             </div>

@@ -22,6 +22,13 @@ const AdminLayout = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
+    const { theme } = useTheme();
+
+    // Reset global body padding for admin layout
+    React.useEffect(() => {
+        document.body.classList.add('admin-mode');
+        return () => document.body.classList.remove('admin-mode');
+    }, []);
 
     const handleLogout = () => {
         logout();
@@ -41,8 +48,6 @@ const AdminLayout = ({ children }) => {
         { path: '/admin/requests', icon: AlertTriangle, label: 'Relief Requests' },
         { path: '/admin/settings', icon: Settings, label: 'Settings' },
     ];
-
-    const { theme } = useTheme();
 
     return (
         <div className="admin-container" data-theme={theme}>
@@ -101,14 +106,14 @@ const AdminLayout = ({ children }) => {
                 </nav>
 
                 {/* User Profile */}
-                <div className="admin-profile">
+                <div className="admin-profile" style={{ borderTop: '1px solid var(--admin-border)' }}>
                     <div className="profile-content">
-                        <div className="profile-avatar overflow-hidden">
+                        <div className="profile-avatar overflow-hidden" style={{ background: 'var(--admin-bg)', color: 'var(--admin-accent)', border: '1px solid var(--admin-border)' }}>
                             {admin?.avatar ? (
                                 <img
                                     src={admin.avatar}
                                     alt="Profile"
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
                             ) : (
                                 admin?.name?.charAt(0) || 'A'
@@ -116,8 +121,8 @@ const AdminLayout = ({ children }) => {
                         </div>
                         {isSidebarOpen && (
                             <div className="profile-info">
-                                <p className="profile-name">{admin?.name || 'Admin'}</p>
-                                <p className="profile-email">{admin?.email}</p>
+                                <p className="profile-name" style={{ color: 'var(--admin-sidebar-text)', fontWeight: 600 }}>{admin?.name || 'Admin'}</p>
+                                <p className="profile-email" style={{ color: 'var(--admin-sidebar-text)', opacity: 0.7, fontSize: '0.75rem' }}>{admin?.email}</p>
                             </div>
                         )}
                         {isSidebarOpen && (
@@ -125,6 +130,7 @@ const AdminLayout = ({ children }) => {
                                 onClick={handleLogout}
                                 className="logout-btn"
                                 title="Logout"
+                                style={{ color: 'var(--admin-sidebar-text)' }}
                             >
                                 <LogOut size={18} />
                             </button>
@@ -171,29 +177,30 @@ const AdminLayout = ({ children }) => {
                                     top: 'calc(100% + 0.5rem)',
                                     right: 0,
                                     width: '320px',
-                                    background: 'white',
+                                    background: 'var(--admin-card-bg)',
                                     borderRadius: '12px',
-                                    boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
-                                    border: '1px solid #e2e8f0',
-                                    zIndex: 1000
+                                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                                    border: '1px solid var(--admin-border)',
+                                    zIndex: 1000,
+                                    overflow: 'hidden'
                                 }}>
-                                    <div style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0' }}>
-                                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Notifications</h3>
+                                    <div style={{ padding: '1rem', borderBottom: '1px solid var(--admin-border)' }}>
+                                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--admin-text-main)' }}>Notifications</h3>
                                     </div>
                                     <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                                         {mockNotifications.map(notif => (
                                             <div key={notif.id} style={{
                                                 padding: '0.75rem 1rem',
-                                                borderBottom: '1px solid #f1f5f9',
+                                                borderBottom: '1px solid var(--admin-border)',
                                                 cursor: 'pointer',
-                                                background: notif.unread ? '#eff6ff' : 'white'
+                                                background: notif.unread ? 'rgba(59, 130, 246, 0.1)' : 'transparent'
                                             }}>
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    {notif.unread && <div style={{ width: '6px', height: '6px', background: '#3b82f6', borderRadius: '50%', marginTop: '6px', flexShrink: 0 }}></div>}
+                                                    {notif.unread && <div style={{ width: '6px', height: '6px', background: 'var(--admin-accent)', borderRadius: '50%', marginTop: '6px', flexShrink: 0 }}></div>}
                                                     <div style={{ flex: 1 }}>
-                                                        <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem' }}>{notif.title}</p>
-                                                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: '#64748b' }}>{notif.message}</p>
-                                                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>{notif.time}</p>
+                                                        <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem', color: 'var(--admin-text-main)' }}>{notif.title}</p>
+                                                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--admin-text-secondary)' }}>{notif.message}</p>
+                                                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>{notif.time}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -209,9 +216,9 @@ const AdminLayout = ({ children }) => {
                             }}
                             style={{
                                 textDecoration: 'none',
-                                color: '#2563eb',
+                                color: 'var(--admin-accent)',
                                 fontSize: '0.875rem',
-                                fontWeight: 500,
+                                fontWeight: 600,
                                 background: 'transparent',
                                 border: 'none',
                                 cursor: 'pointer',

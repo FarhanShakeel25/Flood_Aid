@@ -4,7 +4,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import '../../styles/AdminLogin.css';
 
 function AdminLogin() {
-    const { verifyCredentials, verifyOTP, authStep, isAuthenticated } = useAdminAuth();
+    const { verifyCredentials, verifyOTP, resendOTP, authStep, isAuthenticated } = useAdminAuth();
     const navigate = useNavigate();
 
     const [email, setEmail] = useState('');
@@ -14,6 +14,7 @@ function AdminLogin() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showOtp, setShowOtp] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -21,6 +22,14 @@ function AdminLogin() {
             navigate('/admin');
         }
     }, [isAuthenticated, navigate]);
+
+    // Handle resend cooldown timer
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [resendCooldown]);
 
     const handleCredentialsSubmit = async (e) => {
         e.preventDefault();
@@ -51,16 +60,16 @@ function AdminLogin() {
     };
 
     const handleResendOTP = async () => {
+        if (resendCooldown > 0) return;
+
         setError('');
         setLoading(true);
         try {
-            // Generate new OTP
-            const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
-            localStorage.setItem('floodaid_mock_otp', mockOtp);
-            console.log('📧 New OTP generated');
-            // alert removed for security
+            await resendOTP();
+            setResendCooldown(60); // 60 seconds cooldown
+            alert('A new OTP has been sent to your email.');
         } catch (err) {
-            setError('Failed to resend OTP');
+            setError(err.message || 'Failed to resend OTP');
         } finally {
             setLoading(false);
         }
@@ -215,30 +224,36 @@ function AdminLogin() {
                         <button
                             type="button"
                             onClick={handleResendOTP}
-                            disabled={loading}
+                            disabled={loading || resendCooldown > 0}
                             style={{
                                 marginTop: '0.75rem',
                                 padding: '0.75rem',
                                 background: 'transparent',
-                                color: '#3b82f6',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                color: resendCooldown > 0 ? '#94a3b8' : '#3b82f6',
+                                border: `1px solid ${resendCooldown > 0 ? '#e2e8f0' : 'rgba(59, 130, 246, 0.3)'}`,
                                 borderRadius: '12px',
                                 fontSize: '0.875rem',
                                 fontWeight: 500,
-                                cursor: 'pointer',
+                                cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
                                 transition: 'all 0.2s',
                                 width: '100%'
                             }}
                             onMouseEnter={(e) => {
-                                e.target.style.background = 'rgba(59, 130, 246, 0.1)';
-                                e.target.style.borderColor = '#3b82f6';
+                                if (resendCooldown === 0) {
+                                    e.target.style.background = 'rgba(59, 130, 246, 0.1)';
+                                    e.target.style.borderColor = '#3b82f6';
+                                }
                             }}
                             onMouseLeave={(e) => {
-                                e.target.style.background = 'transparent';
-                                e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                                if (resendCooldown === 0) {
+                                    e.target.style.background = 'transparent';
+                                    e.target.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                                }
                             }}
                         >
-                            🔄 Resend OTP
+                            {resendCooldown > 0
+                                ? `🔄 Resend in ${resendCooldown}s`
+                                : '🔄 Resend OTP'}
                         </button>
                     </form>
                 )}

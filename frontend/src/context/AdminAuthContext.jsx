@@ -1,6 +1,7 @@
 // frontend/src/context/AdminAuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { ADMIN_CREDENTIALS, OTP_CONFIG, ADMIN_USER_TEMPLATE } from '../config/adminCredentials';
+import { sendOTPEmail } from '../services/emailService';
 
 const AdminAuthContext = createContext(null);
 
@@ -9,6 +10,7 @@ export const AdminAuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authStep, setAuthStep] = useState('login'); // 'login' | 'otp' | 'authenticated'
   const [tempEmail, setTempEmail] = useState(''); // Store email between steps
+  const [tempName, setTempName] = useState(''); // Store name for EmailJS
 
   useEffect(() => {
     // Check if admin is logged in on mount
@@ -35,17 +37,46 @@ export const AdminAuthProvider = ({ children }) => {
     const isPasswordValid = password === validPassword;
 
     if (isIdentifierValid && isPasswordValid) {
+      // Get current admin name if exists, else template
+      const currentName = admin?.name || ADMIN_USER_TEMPLATE.name;
+
       setTempEmail(storedEmail);
+      setTempName(currentName);
       setAuthStep('otp');
 
       // Generate a mock OTP
-      const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      localStorage.setItem('floodaid_mock_otp', mockOtp);
-      console.log('📧 OTP Generated internally.');
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      localStorage.setItem('floodaid_mock_otp', otp);
+
+      // Send real email
+      try {
+        await sendOTPEmail(storedEmail, currentName, otp);
+        console.log('📧 OTP Sent via EmailJS.');
+      } catch (error) {
+        console.warn('⚠️ Email sending failed, check EmailJS config or fallback to console.');
+        console.log('Generated OTP:', otp);
+      }
 
       return { success: true, nextStep: 'otp' };
     } else {
       throw new Error('Invalid username/email or password');
+    }
+  };
+
+  // Resend OTP
+  const resendOTP = async () => {
+    if (!tempEmail) return;
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    localStorage.setItem('floodaid_mock_otp', otp);
+
+    try {
+      await sendOTPEmail(tempEmail, tempName, otp);
+      return { success: true };
+    } catch (error) {
+      console.warn('⚠️ Resend failed, OTP logged to console.');
+      console.log('Resent OTP:', otp);
+      throw error;
     }
   };
 
@@ -56,12 +87,19 @@ export const AdminAuthProvider = ({ children }) => {
     if (otp === validOtp || otp === OTP_CONFIG.masterOTP) {
       // Load any existing profile data or use template
       const existingData = localStorage.getItem('floodaid_admin');
-      const baseAdmin = existingData ? JSON.parse(existingData) : ADMIN_USER_TEMPLATE;
+      let adminData;
 
-      const adminData = {
-        ...baseAdmin,
-        loginTime: new Date().toISOString()
-      };
+      if (existingData) {
+        adminData = JSON.parse(existingData);
+      } else {
+        adminData = {
+          ...ADMIN_USER_TEMPLATE,
+          email: localStorage.getItem('floodaid_admin_email') || ADMIN_CREDENTIALS.email,
+          username: localStorage.getItem('floodaid_admin_username') || ADMIN_CREDENTIALS.username,
+        };
+      }
+
+      adminData.loginTime = new Date().toISOString();
 
       setAdmin(adminData);
       setAuthStep('authenticated');
@@ -90,6 +128,7 @@ export const AdminAuthProvider = ({ children }) => {
     setAdmin(null);
     setAuthStep('login');
     setTempEmail('');
+    setTempName('');
     localStorage.removeItem('floodaid_admin');
     localStorage.removeItem('floodaid_token');
   };
@@ -100,6 +139,7 @@ export const AdminAuthProvider = ({ children }) => {
     authStep,
     verifyCredentials,
     verifyOTP,
+    resendOTP,
     updateProfile,
     login: verifyCredentials,
     logout,

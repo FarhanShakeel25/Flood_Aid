@@ -1,13 +1,27 @@
-/* globals.css */
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 a {
   text-decoration: none;
   color: inherit;
 }
 
-button {
-  cursor: pointer;
-  font-family: inherit;
+/* Global Admin Heading Reset to eliminate top "dead zones" */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-top: 0;
 }
+
 /* Add to frontend/src/styles/globals.css */
 
 /* Admin Panel Floating Button */
@@ -43,9 +57,9 @@ button {
 }
 
 /* Responsive */
-@media (max-width:  768px) {
+@media (max-width: 768px) {
   .admin-fab {
-    bottom:  70px;
+    bottom: 70px;
     right: 15px;
     width: 48px;
     height: 48px;

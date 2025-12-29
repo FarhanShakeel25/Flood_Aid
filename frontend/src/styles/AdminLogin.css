@@ -63,11 +63,10 @@
 .login-card {
     position: relative;
     z-index: 10;
-    background: rgba(255, 255, 255, 0.9);
-    /* Lighter background */
+    background: var(--admin-card-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--admin-border);
     border-radius: 24px;
     padding: 3rem;
     width: 100%;
@@ -113,8 +112,7 @@
 }
 
 .login-title {
-    color: #0f172a;
-    /* Black text */
+    color: var(--admin-text-main);
     font-size: 1.75rem;
     font-weight: 700;
     margin: 0 0 0.5rem 0;
@@ -122,8 +120,7 @@
 }
 
 .login-subtitle {
-    color: #475569;
-    /* Dark gray */
+    color: var(--admin-text-secondary);
     font-size: 0.95rem;
     margin: 0;
 }
@@ -143,21 +140,17 @@
     display: block;
     font-size: 0.875rem;
     font-weight: 600;
-    color: #334155;
-    /* Dark gray label */
+    color: var(--admin-text-secondary);
     margin-bottom: 0.5rem;
 }
 
 .form-input {
     width: 100%;
     padding: 0.875rem 1rem;
-    background: #ffffff;
-    /* White input background */
-    border: 1px solid #cbd5e1;
-    /* Light gray border */
+    background: var(--admin-bg);
+    border: 1px solid var(--admin-border);
     border-radius: 12px;
-    color: #0f172a;
-    /* Black text */
+    color: var(--admin-text-main);
     font-size: 1rem;
     transition: all 0.2s;
     box-sizing: border-box;
@@ -165,13 +158,13 @@
 
 .form-input:focus {
     outline: none;
-    border-color: #3b82f6;
-    background: #ffffff;
+    border-color: var(--admin-accent);
+    background: var(--admin-bg);
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
 }
 
 .form-input::placeholder {
-    color: #64748b;
+    color: var(--admin-text-muted);
 }
 
 .submit-btn {

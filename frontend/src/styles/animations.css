@@ -114,6 +114,54 @@
     }
 }
 
+/* WhatsApp Style Burst Up (Status Like Effect) */
+@keyframes burstUp {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+
+    20% {
+        transform: translate(-50%, -80%) scale(1.1);
+        /* Slower, more controlled pop */
+        opacity: 1;
+    }
+
+    40% {
+        transform: translate(var(--drift-x, -50%), -120%) scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(var(--drift-x, -50%), -250%) scale(0.6);
+        /* Reduced travel */
+        opacity: 0;
+    }
+}
+
+/* Float and Fade for particles (Paper Flag Flutter) */
+@keyframes floatFade {
+    0% {
+        transform: translate(0, 0) scale(0) rotate(0deg);
+        opacity: 0;
+    }
+
+    15% {
+        transform: translate(var(--burst-x), var(--burst-y)) scale(1) rotate(20deg);
+        opacity: 1;
+    }
+
+    50% {
+        /* Fluttering effect middle phase */
+        transform: translate(calc(var(--burst-x) * 1.2), calc(var(--burst-y) - 10vh)) scale(1) rotate(-15deg);
+    }
+
+    100% {
+        transform: translate(var(--drift-x), -100vh) scale(0) rotate(360deg);
+        opacity: 0;
+    }
+}
+
 /* Pulse animation */
 @keyframes pulse {
 

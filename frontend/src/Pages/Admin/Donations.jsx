@@ -124,9 +124,13 @@ const AdminDonations = () => {
                         className="icon-btn"
                         title="Filter"
                         onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                        style={{ background: statusFilter !== 'All' ? '#eff6ff' : '', borderColor: statusFilter !== 'All' ? '#3b82f6' : '' }}
+                        style={{
+                            background: statusFilter !== 'All' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                            borderColor: statusFilter !== 'All' ? 'var(--admin-accent)' : 'var(--admin-border)',
+                            color: 'var(--admin-text-main)'
+                        }}
                     >
-                        <Filter size={20} color={statusFilter !== 'All' ? '#3b82f6' : 'currentColor'} />
+                        <Filter size={20} color={statusFilter !== 'All' ? 'var(--admin-accent)' : 'var(--admin-text-muted)'} />
                     </button>
 
                     {/* Status Filter Dropdown */}
@@ -135,15 +139,15 @@ const AdminDonations = () => {
                             position: 'absolute',
                             top: '120%',
                             right: 0,
-                            background: 'white',
-                            border: '1px solid #e2e8f0',
+                            background: 'var(--admin-card-bg)',
+                            border: '1px solid var(--admin-border)',
                             borderRadius: '8px',
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                             zIndex: 10,
                             minWidth: '150px',
                             overflow: 'hidden'
                         }}>
-                            <div style={{ padding: '0.5rem', borderBottom: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>FILTER BY STATUS</div>
+                            <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--admin-border)', fontSize: '0.75rem', color: 'var(--admin-text-muted)', fontWeight: 600 }}>FILTER BY STATUS</div>
                             {['All', 'Completed', 'Pending', 'Verified'].map((status) => (
                                 <button
                                     key={status}
@@ -156,8 +160,8 @@ const AdminDonations = () => {
                                         width: '100%',
                                         textAlign: 'left',
                                         padding: '0.5rem 1rem',
-                                        background: statusFilter === status ? '#f1f5f9' : 'white',
-                                        color: statusFilter === status ? '#0f172a' : '#475569',
+                                        background: statusFilter === status ? 'var(--admin-bg)' : 'transparent',
+                                        color: statusFilter === status ? 'var(--admin-text-main)' : 'var(--admin-text-secondary)',
                                         border: 'none',
                                         cursor: 'pointer',
                                         fontSize: '0.875rem'
@@ -188,11 +192,11 @@ const AdminDonations = () => {
                         <tbody>
                             {filteredDonations.map((d) => (
                                 <tr key={d.id}>
-                                    <td style={{ fontFamily: 'monospace', fontWeight: 600, color: '#64748b' }}>#{d.id}</td>
-                                    <td style={{ fontWeight: 500 }}>{d.donor}</td>
-                                    <td style={{ fontWeight: 700, color: '#0f172a' }}>{d.amount}</td>
-                                    <td>{d.date}</td>
-                                    <td>{d.method}</td>
+                                    <td style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--admin-text-muted)' }}>#{d.id}</td>
+                                    <td style={{ fontWeight: 500, color: 'var(--admin-text-main)' }}>{d.donor}</td>
+                                    <td style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>{d.amount}</td>
+                                    <td style={{ color: 'var(--admin-text-secondary)' }}>{d.date}</td>
+                                    <td style={{ color: 'var(--admin-text-secondary)' }}>{d.method}</td>
                                     <td>
                                         <span className={`badge ${d.status === 'Completed' ? 'badge-green' :
                                             d.status === 'Pending' ? 'badge-orange' :
@@ -207,6 +211,7 @@ const AdminDonations = () => {
                                                 className="icon-btn"
                                                 title="View Details"
                                                 onClick={() => handleViewReceipt(d)}
+                                                style={{ color: 'var(--admin-text-muted)' }}
                                             >
                                                 <Eye size={18} />
                                             </button>
