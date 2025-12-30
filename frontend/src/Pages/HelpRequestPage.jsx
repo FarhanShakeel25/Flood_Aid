@@ -64,32 +64,45 @@ const HelpRequestPage = () => {
 
   // Initialize map when needed
   useEffect(() => {
-    if (showMap && mapRef.current && !mapInstanceRef.current) {
-      // Default center (Pakistan center)
-      const defaultLat = 30.3753;
-      const defaultLng = 69.3451;
+    if (!showMap) return;
 
-      mapInstanceRef.current = L.map(mapRef.current).setView([defaultLat, defaultLng], 6);
+    const container = mapRef.current;
+    if (!container) return;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(mapInstanceRef.current);
-
-      const marker = L.marker([defaultLat, defaultLng]).addTo(mapInstanceRef.current);
-
-      mapInstanceRef.current.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        setFormData((prev) => ({
-          ...prev,
-          latitude: lat,
-          longitude: lng,
-        }));
-        marker.setLatLng([lat, lng]);
-        setShowMap(false);
-        setLocationStatus('✅ Location set from map');
-      });
+    // If map already exists, just invalidate size and return
+    if (mapInstanceRef.current) {
+      setTimeout(() => mapInstanceRef.current?.invalidateSize(), 0);
+      return;
     }
+
+    // Default center (Pakistan center)
+    const defaultLat = 30.3753;
+    const defaultLng = 69.3451;
+
+    const map = L.map(container).setView([defaultLat, defaultLng], 6);
+    mapInstanceRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    const marker = L.marker([defaultLat, defaultLng]).addTo(map);
+
+    map.on('click', (e) => {
+      const { lat, lng } = e.latlng;
+      setFormData((prev) => ({
+        ...prev,
+        latitude: lat,
+        longitude: lng,
+      }));
+      marker.setLatLng([lat, lng]);
+      setShowMap(false);
+      setLocationStatus('✅ Location set from map');
+    });
+
+    // Ensure tiles render after mount
+    setTimeout(() => map.invalidateSize(), 0);
   }, [showMap]);
 
   const handleChange = (e) => {
