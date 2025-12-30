@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import '../styles/HelpRequest.css';
 
 const HelpRequestPage = () => {
@@ -351,16 +352,7 @@ const HelpRequestPage = () => {
                       📍 Click on the map to set your location
                     </p>
                     
-                    <div 
-                      ref={mapRef}
-                      style={{
-                        width: '100%',
-                        height: '300px',
-                        borderRadius: '4px',
-                        border: '2px solid #2196F3',
-                        marginTop: '10px'
-                      }}
-                    />
+                    <div ref={mapRef} className="location-map" />
                     
                     <p style={{ marginBottom: '0', fontSize: '12px', color: '#666', marginTop: '10px' }}>
                       Drag the map and click where you are located
