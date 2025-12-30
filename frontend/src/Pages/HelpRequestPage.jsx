@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import L from 'leaflet';
 import '../styles/HelpRequest.css';
 
 const HelpRequestPage = () => {
@@ -20,8 +21,9 @@ const HelpRequestPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [locationStatus, setLocationStatus] = useState('Getting location...');
-  const [showManualEntry, setShowManualEntry] = useState(false);
-  const [manualCoords, setManualCoords] = useState({ lat: '', lng: '' });
+  const [showMap, setShowMap] = useState(false);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
 
   // Get GPS location on component mount
   useEffect(() => {
@@ -30,7 +32,7 @@ const HelpRequestPage = () => {
 
   const getLocation = () => {
     setLocationStatus('Getting location...');
-    setShowManualEntry(false);
+    setShowMap(false);
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -40,12 +42,12 @@ const HelpRequestPage = () => {
             longitude: position.coords.longitude,
           }));
           setLocationStatus(`✅ Location found`);
-          setShowManualEntry(false);
+          setShowMap(false);
         },
         (error) => {
           console.error('Geolocation error:', error);
-          setLocationStatus('⚠️ Could not get location automatically');
-          setShowManualEntry(true);
+          setLocationStatus('📍 Click on map to set your location');
+          setShowMap(true);
         },
         {
           enableHighAccuracy: false,
@@ -54,34 +56,40 @@ const HelpRequestPage = () => {
         }
       );
     } else {
-      setLocationStatus('⚠️ Geolocation not supported in this browser');
-      setShowManualEntry(true);
+      setLocationStatus('📍 Click on map to set your location');
+      setShowMap(true);
     }
   };
 
-  const handleManualCoordinates = () => {
-    const lat = parseFloat(manualCoords.lat);
-    const lng = parseFloat(manualCoords.lng);
-    
-    if (!manualCoords.lat || !manualCoords.lng || isNaN(lat) || isNaN(lng)) {
-      setError('Please enter valid latitude and longitude values');
-      return;
+  // Initialize map when needed
+  useEffect(() => {
+    if (showMap && mapRef.current && !mapInstanceRef.current) {
+      // Default center (Pakistan center)
+      const defaultLat = 30.3753;
+      const defaultLng = 69.3451;
+
+      mapInstanceRef.current = L.map(mapRef.current).setView([defaultLat, defaultLng], 6);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(mapInstanceRef.current);
+
+      const marker = L.marker([defaultLat, defaultLng]).addTo(mapInstanceRef.current);
+
+      mapInstanceRef.current.on('click', (e) => {
+        const { lat, lng } = e.latlng;
+        setFormData((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+        }));
+        marker.setLatLng([lat, lng]);
+        setShowMap(false);
+        setLocationStatus('✅ Location set from map');
+      });
     }
-    
-    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      setError('Latitude must be between -90 and 90, Longitude between -180 and 180');
-      return;
-    }
-    
-    setFormData((prev) => ({
-      ...prev,
-      latitude: lat,
-      longitude: lng,
-    }));
-    setLocationStatus(`✅ Manual location set`);
-    setShowManualEntry(false);
-    setError('');
-  };
+  }, [showMap]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -331,78 +339,32 @@ const HelpRequestPage = () => {
                   </div>
                 )}
 
-                {showManualEntry && (
+                {showMap && (
                   <div style={{
                     marginTop: '15px',
                     padding: '15px',
-                    backgroundColor: '#fff3cd',
+                    backgroundColor: '#e3f2fd',
                     borderRadius: '4px',
-                    borderLeft: '4px solid #ff9800'
+                    borderLeft: '4px solid #2196F3'
                   }}>
-                    <p style={{ marginTop: '0', fontSize: '13px', fontWeight: 'bold', color: '#d32f2f' }}>
-                      Can't access your location? Enter coordinates manually:
+                    <p style={{ marginTop: '0', fontSize: '13px', fontWeight: 'bold', color: '#1976d2' }}>
+                      📍 Click on the map to set your location
                     </p>
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', color: '#333' }}>Latitude *</label>
-                        <input
-                          type="number"
-                          placeholder="e.g., 31.5204"
-                          value={manualCoords.lat}
-                          onChange={(e) => setManualCoords({ ...manualCoords, lat: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '8px',
-                            borderRadius: '4px',
-                            border: '1px solid #ddd',
-                            fontSize: '13px'
-                          }}
-                          step="0.0001"
-                          min="-90"
-                          max="90"
-                        />
-                        <small style={{ color: '#666' }}>(-90 to 90)</small>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', color: '#333' }}>Longitude *</label>
-                        <input
-                          type="number"
-                          placeholder="e.g., 74.3587"
-                          value={manualCoords.lng}
-                          onChange={(e) => setManualCoords({ ...manualCoords, lng: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '8px',
-                            borderRadius: '4px',
-                            border: '1px solid #ddd',
-                            fontSize: '13px'
-                          }}
-                          step="0.0001"
-                          min="-180"
-                          max="180"
-                        />
-                        <small style={{ color: '#666' }}>(-180 to 180)</small>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleManualCoordinates}
+                    <div 
+                      ref={mapRef}
                       style={{
                         width: '100%',
-                        padding: '10px',
-                        backgroundColor: '#ff9800',
-                        color: 'white',
-                        border: 'none',
+                        height: '300px',
                         borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 'bold'
+                        border: '2px solid #2196F3',
+                        marginTop: '10px'
                       }}
-                    >
-                      ✓ Set Coordinates
-                    </button>
+                    />
+                    
+                    <p style={{ marginBottom: '0', fontSize: '12px', color: '#666', marginTop: '10px' }}>
+                      Drag the map and click where you are located
+                    </p>
                   </div>
                 )}
               </fieldset>

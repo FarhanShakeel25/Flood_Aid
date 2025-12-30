@@ -5,6 +5,9 @@
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
+/* Leaflet map styles */
+@import 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+
 .help-request-container {
   flex: 1;
   padding: 3rem 1rem;
