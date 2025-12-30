@@ -1,6 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using FloodAid.Api.Enums;
-
 
 namespace FloodAid.Api.Models
 {
@@ -16,12 +15,19 @@ namespace FloodAid.Api.Models
         [Required]
         public RequestStatus Status { get; set; }
 
-        [Required] 
+        [Required]
         public required string RequestDescription { get; set; }
 
         [Required]
         public required double Longitude { get; set; }
+
         [Required]
         public required double Latitude { get; set; }
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Required]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }
