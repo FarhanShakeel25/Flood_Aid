@@ -20,6 +20,8 @@ namespace FloodAid.Api.Models
         public string PasswordHash { get; set; } = string.Empty;
         
         public string Role { get; set; } = "super_admin";
+
+        public bool IsActive { get; set; } = true;
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
