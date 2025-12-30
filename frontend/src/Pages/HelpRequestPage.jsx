@@ -23,6 +23,11 @@ const HelpRequestPage = () => {
 
   // Get GPS location on component mount
   useEffect(() => {
+    getLocation();
+  }, []);
+
+  const getLocation = () => {
+    setLocationStatus('Getting location...');
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -31,17 +36,22 @@ const HelpRequestPage = () => {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           }));
-          setLocationStatus(`Location: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
+          setLocationStatus(`✅ Location: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
         },
         (error) => {
           console.error('Geolocation error:', error);
-          setLocationStatus('⚠️ Could not get location. Please enter manually.');
+          setLocationStatus('⚠️ Could not get location. Please enter manually or click "Get Location" again.');
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 0,
         }
       );
     } else {
       setLocationStatus('⚠️ Geolocation not supported');
     }
-  }, []);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -70,7 +80,7 @@ const HelpRequestPage = () => {
     }
 
     if (formData.latitude === null || formData.longitude === null) {
-      setError('Location is required. Please enable geolocation or enter coordinates.');
+      setError('📍 Location is required. Please click "Get My Location" button and allow access to your location.');
       setLoading(false);
       return;
     }
@@ -243,10 +253,51 @@ const HelpRequestPage = () => {
                   <span>{locationStatus}</span>
                 </div>
 
+                <p style={{
+                  fontSize: '13px',
+                  color: '#555',
+                  marginTop: '10px',
+                  marginBottom: '10px',
+                  fontStyle: 'italic'
+                }}
+                >
+                  We need your exact location so volunteers can find you quickly to provide help.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={getLocation}
+                  style={{
+                    width: '100%',
+                    marginBottom: '15px',
+                    padding: '12px 16px',
+                    backgroundColor: formData.latitude && formData.longitude ? '#4CAF50' : '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {formData.latitude && formData.longitude ? (
+                    '✅ Location Captured'
+                  ) : (
+                    '📍 Get My Location'
+                  )}
+                </button>
+
                 {formData.latitude && formData.longitude && (
-                  <div className="location-coordinates">
-                    <p>📍 Latitude: {formData.latitude.toFixed(4)}</p>
-                    <p>📍 Longitude: {formData.longitude.toFixed(4)}</p>
+                  <div className="location-coordinates" style={{
+                    padding: '10px',
+                    backgroundColor: '#e8f5e9',
+                    borderRadius: '4px',
+                    marginTop: '10px',
+                    fontSize: '13px',
+                    color: '#2e7d32'
+                  }}
+                  >
+                    <p style={{ margin: '0' }}>✅ Your location is set and ready</p>
                   </div>
                 )}
               </fieldset>
