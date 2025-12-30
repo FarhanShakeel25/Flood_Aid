@@ -20,6 +20,8 @@ const HelpRequestPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [locationStatus, setLocationStatus] = useState('Getting location...');
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualCoords, setManualCoords] = useState({ lat: '', lng: '' });
 
   // Get GPS location on component mount
   useEffect(() => {
@@ -28,6 +30,7 @@ const HelpRequestPage = () => {
 
   const getLocation = () => {
     setLocationStatus('Getting location...');
+    setShowManualEntry(false);
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -36,21 +39,48 @@ const HelpRequestPage = () => {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           }));
-          setLocationStatus(`✅ Location: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
+          setLocationStatus(`✅ Location found`);
+          setShowManualEntry(false);
         },
         (error) => {
           console.error('Geolocation error:', error);
-          setLocationStatus('⚠️ Could not get location. Please enter manually or click "Get Location" again.');
+          setLocationStatus('⚠️ Could not get location automatically');
+          setShowManualEntry(true);
         },
         {
           enableHighAccuracy: false,
-          timeout: 10000,
+          timeout: 8000,
           maximumAge: 0,
         }
       );
     } else {
-      setLocationStatus('⚠️ Geolocation not supported');
+      setLocationStatus('⚠️ Geolocation not supported in this browser');
+      setShowManualEntry(true);
     }
+  };
+
+  const handleManualCoordinates = () => {
+    const lat = parseFloat(manualCoords.lat);
+    const lng = parseFloat(manualCoords.lng);
+    
+    if (!manualCoords.lat || !manualCoords.lng || isNaN(lat) || isNaN(lng)) {
+      setError('Please enter valid latitude and longitude values');
+      return;
+    }
+    
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setError('Latitude must be between -90 and 90, Longitude between -180 and 180');
+      return;
+    }
+    
+    setFormData((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+    }));
+    setLocationStatus(`✅ Manual location set`);
+    setShowManualEntry(false);
+    setError('');
   };
 
   const handleChange = (e) => {
@@ -298,6 +328,81 @@ const HelpRequestPage = () => {
                   }}
                   >
                     <p style={{ margin: '0' }}>✅ Your location is set and ready</p>
+                  </div>
+                )}
+
+                {showManualEntry && (
+                  <div style={{
+                    marginTop: '15px',
+                    padding: '15px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '4px',
+                    borderLeft: '4px solid #ff9800'
+                  }}>
+                    <p style={{ marginTop: '0', fontSize: '13px', fontWeight: 'bold', color: '#d32f2f' }}>
+                      Can't access your location? Enter coordinates manually:
+                    </p>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', color: '#333' }}>Latitude *</label>
+                        <input
+                          type="number"
+                          placeholder="e.g., 31.5204"
+                          value={manualCoords.lat}
+                          onChange={(e) => setManualCoords({ ...manualCoords, lat: e.target.value })}
+                          style={{
+                            width: '100%',
+                            padding: '8px',
+                            borderRadius: '4px',
+                            border: '1px solid #ddd',
+                            fontSize: '13px'
+                          }}
+                          step="0.0001"
+                          min="-90"
+                          max="90"
+                        />
+                        <small style={{ color: '#666' }}>(-90 to 90)</small>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', color: '#333' }}>Longitude *</label>
+                        <input
+                          type="number"
+                          placeholder="e.g., 74.3587"
+                          value={manualCoords.lng}
+                          onChange={(e) => setManualCoords({ ...manualCoords, lng: e.target.value })}
+                          style={{
+                            width: '100%',
+                            padding: '8px',
+                            borderRadius: '4px',
+                            border: '1px solid #ddd',
+                            fontSize: '13px'
+                          }}
+                          step="0.0001"
+                          min="-180"
+                          max="180"
+                        />
+                        <small style={{ color: '#666' }}>(-180 to 180)</small>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleManualCoordinates}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        backgroundColor: '#ff9800',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      ✓ Set Coordinates
+                    </button>
                   </div>
                 )}
               </fieldset>
