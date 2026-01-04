@@ -47,7 +47,7 @@ const AdminRequests = () => {
                     params.append('searchTerm', searchTerm);
                 }
 
-                const response = await fetch(`http://localhost:5273/api/helpRequest?${params.toString()}`);
+                const response = await fetch(`https://floodaid-api.onrender.com/api/helpRequest?${params.toString()}`);
                 if (!response.ok) {
                     throw new Error('Failed to fetch requests');
                 }
@@ -130,7 +130,7 @@ const AdminRequests = () => {
     const handleStatusUpdate = async (requestId, newStatus) => {
         try {
             const statusInt = mapStatusToInt(newStatus);
-            const response = await fetch(`http://localhost:5273/api/helpRequest/${requestId}/status`, {
+            const response = await fetch(`https://floodaid-api.onrender.com/api/helpRequest/${requestId}/status`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

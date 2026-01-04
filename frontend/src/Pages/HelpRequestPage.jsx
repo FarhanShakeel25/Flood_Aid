@@ -225,7 +225,7 @@ const HelpRequestPage = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5273/api/helpRequest', {
+      const response = await fetch('https://floodaid-api.onrender.com/api/helpRequest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
