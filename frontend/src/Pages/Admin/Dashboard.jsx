@@ -39,7 +39,7 @@ const AdminDashboard = () => {
         const fetchStats = async () => {
             try {
                 setLoadingStats(true);
-                const res = await fetch('http://localhost:5273/api/helpRequest/stats');
+                const res = await fetch('https://floodaid-api.onrender.com/api/helpRequest/stats');
                 if (!res.ok) {
                     throw new Error('Failed to load request stats');
                 }
