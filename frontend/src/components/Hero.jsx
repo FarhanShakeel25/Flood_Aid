@@ -101,6 +101,10 @@ export function HeroSection() {
     }
   };
 
+  const handleNeedHelp = () => {
+    window.location.href = '/help-request';
+  };
+
   return (
     <section id="home" className="hero-section" ref={heroRef}>
       {/* Background video/simulation layer */}
@@ -156,6 +160,19 @@ export function HeroSection() {
                 <div className="btn-content">
                   <span className="btn-label">Emergency Hotline </span>
                   <span className="btn-number"> 911</span>
+                </div>
+                <div className="btn-ripple"></div>
+              </button>
+
+              <button 
+                className="btn btn-success floating-btn"
+                onClick={handleNeedHelp}
+              >
+                <svg className="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15h2v2h-2v-2zm0-6h2v6h-2v-6zm0-5h2v2h-2V6z"/>
+                </svg>
+                <div className="btn-content">
+                  <span className="btn-label">I Need Help</span>
                 </div>
                 <div className="btn-ripple"></div>
               </button>

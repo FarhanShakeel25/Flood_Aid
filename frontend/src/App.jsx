@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Link, Navigate, us
 import Home from './Pages/HomePage';
 import Contact from './Pages/ContactPage';
 import Donations from './components/donations';
+import HelpRequestPage from './Pages/HelpRequestPage';
 import SuccessPage from './Pages/SuccessPage';
 import CancelPage from './Pages/CancelPage';
 import FloodAidChatbot from './components/FloodAidChatbot';
@@ -106,6 +107,7 @@ function AppContent() {
         <Route path="/home" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/donate" element={<Donations />} />
+        <Route path="/help-request" element={<HelpRequestPage />} />
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/cancel" element={<CancelPage />} />
 

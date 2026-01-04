@@ -20,10 +20,15 @@
 /* Layout Container */
 .admin-container {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
   background-color: var(--admin-bg);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 /* Sidebar */
@@ -184,8 +189,9 @@
   flex-direction: column;
   min-width: 0;
   /* Prevent flex overflow */
-  overflow-x: hidden;
-  /* Fix vulnerability in size (overflow) */
+  overflow: visible;
+  position: relative;
+  min-height: 100vh;
 }
 
 /* ... existing logic ... */
@@ -226,6 +232,7 @@
   justify-content: space-between;
   padding: 0 2rem;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  position: static;
 }
 
 .header-left,
@@ -263,7 +270,14 @@
 .admin-content {
   flex: 1;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 1rem 2rem 2rem 2rem;
+  min-height: 0;
+}
+
+.admin-content h1,
+.admin-content h2,
+.admin-content h3 {
+  margin-top: 0;
 }
 
 /* Responsive Overrides */

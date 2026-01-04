@@ -1,5 +1,7 @@
 using FloodAid.Api.Models;
 using FloodAid.Api.Services;
+using FloodAid.Api.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -47,6 +49,10 @@ namespace FloodAid.Api
             });
 
             builder.Services.AddAuthorization();
+
+            // Register Database Context
+            builder.Services.AddDbContext<FloodAidContext>(options =>
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             // Add controllers
             builder.Services.AddControllers()
