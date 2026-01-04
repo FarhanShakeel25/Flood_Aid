@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using FloodAid.Api.Models;
 using FloodAid.Api.Models.DTOs;
+using FloodAid.Api.Services;
+using FloodAid.Api.Data;
 using BCrypt.Net;
 
 namespace FloodAid.Api.Controllers
@@ -15,42 +18,33 @@ namespace FloodAid.Api.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
+        private readonly IEmailService _emailService;
+        private readonly FloodAidContext _context;
         
         // In-memory storage for OTPs (in production, use Redis or database with expiration)
         private static readonly Dictionary<string, (string Otp, DateTime Expiry)> _otpStore = new();
 
-        public AuthController(IConfiguration configuration, ILogger<AuthController> logger)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IEmailService emailService, FloodAidContext context)
         {
             _configuration = configuration;
             _logger = logger;
+            _emailService = emailService;
+            _context = context;
         }
 
         /// <summary>
         /// Step 1: Verify admin credentials and send OTP
         /// </summary>
         [HttpPost("login")]
-        public ActionResult<LoginResponse> Login([FromBody] LoginRequest request)
+        public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
         {
             try
             {
-                // Get admin user from configuration (in production, fetch from database)
-                var adminEmail = _configuration["AdminCredentials:Email"];
-                var adminUsername = _configuration["AdminCredentials:Username"];
-                var adminPasswordHash = _configuration["AdminCredentials:PasswordHash"];
+                // Get admin user from database
+                var adminUser = await _context.Admins.FirstOrDefaultAsync(a => 
+                    a.Email == request.Identifier || a.Username == request.Identifier);
 
-                if (string.IsNullOrEmpty(adminEmail) || string.IsNullOrEmpty(adminPasswordHash))
-                {
-                    return StatusCode(500, new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "Admin credentials not configured" 
-                    });
-                }
-
-                // Validate identifier (email or username)
-                bool isIdentifierValid = request.Identifier == adminEmail || request.Identifier == adminUsername;
-                
-                if (!isIdentifierValid)
+                if (adminUser == null)
                 {
                     return Unauthorized(new LoginResponse 
                     { 
@@ -59,8 +53,18 @@ namespace FloodAid.Api.Controllers
                     });
                 }
 
+                // Check if admin is active
+                if (!adminUser.IsActive)
+                {
+                    return Unauthorized(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "Admin account is inactive" 
+                    });
+                }
+
                 // Verify password using BCrypt (Work Factor 11 as per SRS)
-                bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, adminPasswordHash);
+                bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, adminUser.PasswordHash);
                 
                 if (!isPasswordValid)
                 {
@@ -71,21 +75,25 @@ namespace FloodAid.Api.Controllers
                     });
                 }
 
-                // Generate OTP
-                var otp = GenerateOTP();
-                var expiry = DateTime.UtcNow.AddMinutes(5);
-                
-                // Store OTP (in production, use Redis with TTL)
-                _otpStore[adminEmail] = (otp, expiry);
+                // Use master OTP for dev/testing and skip email dispatch
+                var otp = _configuration["AdminCredentials:MasterOTP"];
+                if (string.IsNullOrWhiteSpace(otp))
+                {
+                    otp = GenerateOTP();
+                }
 
-                // TODO: Send OTP via email service
-                _logger.LogInformation($"OTP generated for {adminEmail}: {otp} (expires at {expiry})");
+                var expiry = DateTime.UtcNow.AddMinutes(5);
+
+                // Store OTP (in production, use Redis with TTL)
+                _otpStore[adminUser.Email] = (otp, expiry);
+
+                _logger.LogInformation("OTP email suppressed for {Email}. Use master OTP configured in AdminCredentials:MasterOTP.", adminUser.Email);
 
                 return Ok(new LoginResponse
                 {
                     Success = true,
                     NextStep = "otp",
-                    Message = "OTP sent to your registered email"
+                    Message = "Use master OTP to continue (email sending disabled in dev)"
                 });
             }
             catch (Exception ex)
@@ -238,6 +246,87 @@ namespace FloodAid.Api.Controllers
             var hash = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 11);
             
             return Ok(new { PasswordHash = hash });
+        }
+
+        /// <summary>
+        /// Send OTP via email using Brevo service
+        /// </summary>
+        private async Task SendOtpEmailAsync(string adminEmail, string otp)
+        {
+            try
+            {
+                var brevoApiKey = _configuration["Email:BrevoApiKey"];
+                var fromEmail = _configuration["Email:FromEmail"];
+                var fromName = _configuration["Email:FromName"];
+
+                _logger.LogInformation("Sending OTP email to {Email}", adminEmail);
+
+                // If API key is empty, log to console (development mode)
+                if (string.IsNullOrWhiteSpace(brevoApiKey))
+                {
+                    _logger.LogInformation(
+                        "=== OTP EMAIL (Console Mode) ===" +
+                        "\nTo: {ToEmail}" +
+                        "\nOTP: {OTP}" +
+                        "\nExpires in: 5 minutes" +
+                        "\n==================================",
+                        adminEmail, otp
+                    );
+                    return;
+                }
+
+                // Production: Send via Brevo API
+                using (var httpClient = new HttpClient())
+                {
+                    var emailPayload = new
+                    {
+                        sender = new { name = fromName ?? "Flood Aid", email = fromEmail ?? "noreply@floodaid.com" },
+                        to = new[] { new { email = adminEmail } },
+                        subject = "Flood Aid Admin Login - OTP Code",
+                        htmlContent = $@"
+                            <html>
+                            <body style='font-family: Arial, sans-serif;'>
+                                <h2>Flood Aid Admin Login</h2>
+                                <p>Your One-Time Password (OTP) for admin login is:</p>
+                                <h1 style='color: #e74c3c; letter-spacing: 5px; font-size: 32px;'>{otp}</h1>
+                                <p>This OTP will expire in <strong>5 minutes</strong>.</p>
+                                <p>If you did not request this OTP, please ignore this email.</p>
+                                <br/>
+                                <p>Best regards,<br/>Flood Aid Security Team</p>
+                            </body>
+                            </html>
+                        "
+                    };
+
+                    var request = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email")
+                    {
+                        Content = new StringContent(
+                            System.Text.Json.JsonSerializer.Serialize(emailPayload),
+                            System.Text.Encoding.UTF8,
+                            "application/json"
+                        )
+                    };
+                    request.Headers.Add("api-key", brevoApiKey);
+                    request.Headers.Add("accept", "application/json");
+
+                    var response = await httpClient.SendAsync(request);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation("OTP email sent successfully to {Email}", adminEmail);
+                    }
+                    else
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        _logger.LogError("Failed to send OTP email: {StatusCode} {Error}", response.StatusCode, errorContent);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending OTP email to {Email}", adminEmail);
+                // Don't throw - log only, as email failure shouldn't block login flow
+            }
         }
     }
 }

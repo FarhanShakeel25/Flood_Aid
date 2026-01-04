@@ -7,6 +7,16 @@ namespace FloodAid.Api.Models
     
     public class Donation
     {
+        // Parameterless constructor for EF Core
+        public Donation()
+        {
+            ReceiptId = Guid.NewGuid().ToString();
+            DonationDate = DateTime.Now;
+            Status = DonationStatus.Pending;
+            DonationType = DonationType.Cash;
+            DonorAccountNumber = string.Empty;
+        }
+
         public Donation(DonationType type, string accountnumber)
         {
             DonationType = type;
@@ -15,6 +25,9 @@ namespace FloodAid.Api.Models
             Status = DonationStatus.Pending;
             ReceiptId = Guid.NewGuid().ToString();
         }
+
+        [Key]
+        public int Id { get; set; }
 
         public string ReceiptId { get; set; }
         public decimal? DonationAmount { get; set; }
@@ -27,13 +40,13 @@ namespace FloodAid.Api.Models
         public string DonorAccountNumber { get; set; }
 
         [Required]
-        public DonationType DonationType { get; private set; }
+        public DonationType DonationType { get; set; }
         
         [Required]
-        public DateTime DonationDate{ get; private set; }
+        public DateTime DonationDate{ get; set; }
 
         [Required]
-        public DonationStatus Status { get; private set; }
+        public DonationStatus Status { get; set; }
 
         public void Approved()
         {
