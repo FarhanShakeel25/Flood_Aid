@@ -69,44 +69,99 @@ namespace FloodAid.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Error creating help request: {ex.Message}");
+                _logger.LogError(ex, "❌ Error creating help request");
                 return StatusCode(500, new { message = "Error creating help request", error = ex.Message });
             }
         }
 
         /// <summary>
-        /// Get all help requests (Admin Module)
+        /// Get all help requests (Admin Module) with pagination & filters
         /// </summary>
         [HttpGet]
         [Microsoft.AspNetCore.Authorization.AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<HelpRequest>>> GetAllHelpRequests(
+        public async Task<ActionResult<object>> GetAllHelpRequests(
+            [FromQuery] int? requestType = null,
             [FromQuery] RequestStatus? status = null,
-            [FromQuery] int pageNumber = 1,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
             try
             {
-                var query = _context.HelpRequests.AsQueryable();
+                if (requestType.HasValue && !Enum.IsDefined(typeof(RequestType), requestType.Value))
+                {
+                    return BadRequest(new { message = "Invalid request type" });
+                }
 
-                // Filter by status if provided
+                var safePage = Math.Max(1, page);
+                var safePageSize = Math.Clamp(pageSize, 1, 100);
+
+                DateTime? normalizedStart = null;
+                DateTime? normalizedEnd = null;
+
+                if (startDate.HasValue)
+                {
+                    normalizedStart = startDate.Value.Kind == DateTimeKind.Unspecified
+                        ? DateTime.SpecifyKind(startDate.Value, DateTimeKind.Utc)
+                        : startDate.Value.ToUniversalTime();
+                }
+
+                if (endDate.HasValue)
+                {
+                    normalizedEnd = endDate.Value.Kind == DateTimeKind.Unspecified
+                        ? DateTime.SpecifyKind(endDate.Value, DateTimeKind.Utc)
+                        : endDate.Value.ToUniversalTime();
+                }
+
+                var query = _context.HelpRequests.AsNoTracking().AsQueryable();
+
+                if (requestType.HasValue)
+                {
+                    query = query.Where(r => (int)r.RequestType == requestType.Value);
+                }
+
                 if (status.HasValue)
                 {
                     query = query.Where(r => r.Status == status.Value);
                 }
 
-                // Pagination
+                if (normalizedStart.HasValue)
+                {
+                    query = query.Where(r => r.CreatedAt >= normalizedStart.Value);
+                }
+
+                if (normalizedEnd.HasValue)
+                {
+                    query = query.Where(r => r.CreatedAt <= normalizedEnd.Value);
+                }
+
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    var term = searchTerm.Trim().ToLower();
+                    query = query.Where(r =>
+                        (r.RequestorName != null && r.RequestorName.ToLower().Contains(term)) ||
+                        (r.RequestorPhoneNumber != null && r.RequestorPhoneNumber.Contains(term)) ||
+                        (r.RequestorEmail != null && r.RequestorEmail.ToLower().Contains(term))
+                    );
+                }
+
                 var totalCount = await query.CountAsync();
+
                 var requests = await query
                     .OrderByDescending(r => r.CreatedAt)
-                    .Skip((pageNumber - 1) * pageSize)
-                    .Take(pageSize)
+                    .Skip((safePage - 1) * safePageSize)
+                    .Take(safePageSize)
                     .ToListAsync();
 
-                Response.Headers.Add("X-Total-Count", totalCount.ToString());
-                Response.Headers.Add("X-Page-Number", pageNumber.ToString());
-                Response.Headers.Add("X-Page-Size", pageSize.ToString());
-
-                return Ok(requests);
+                return Ok(new
+                {
+                    data = requests,
+                    totalCount,
+                    pageNumber = safePage,
+                    pageSize = safePageSize
+                });
             }
             catch (Exception ex)
             {
@@ -231,6 +286,41 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
+        /// Get aggregate counts for dashboard cards
+        /// </summary>
+        [HttpGet("stats")]
+        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        public async Task<ActionResult<object>> GetHelpRequestStats()
+        {
+            try
+            {
+                var query = _context.HelpRequests.AsNoTracking();
+
+                var total = await query.CountAsync();
+                var pending = await query.CountAsync(r => r.Status == RequestStatus.Pending);
+                var inProgress = await query.CountAsync(r => r.Status == RequestStatus.InProgress);
+                var fulfilled = await query.CountAsync(r => r.Status == RequestStatus.Fulfilled);
+                var cancelled = await query.CountAsync(r => r.Status == RequestStatus.Cancelled);
+                var onHold = await query.CountAsync(r => r.Status == RequestStatus.OnHold);
+
+                return Ok(new
+                {
+                    total,
+                    pending,
+                    inProgress,
+                    fulfilled,
+                    cancelled,
+                    onHold
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Error retrieving help request stats: {ex.Message}");
+                return StatusCode(500, new { message = "Error retrieving help request stats", error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Delete a help request (Admin only)
         /// </summary>
         [HttpDelete("{id}")]
@@ -269,7 +359,7 @@ namespace FloodAid.Api.Controllers
         public string? RequestorName { get; set; }
         public required string RequestorPhoneNumber { get; set; }
         public string? RequestorEmail { get; set; }
-        public int RequestType { get; set; } // 0=Food, 1=Medical, 2=Rescue
+        public int RequestType { get; set; } // Matches RequestType enum: 0=MedicalSuppliesRequired, 1=FoodRequired, 2=EvacuationRequired, 3=ClothesRequired, 4=EmergencyCase
         public required string RequestDescription { get; set; }
         public required double Latitude { get; set; }
         public required double Longitude { get; set; }

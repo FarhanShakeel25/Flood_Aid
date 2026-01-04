@@ -1,14 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Users,
-    Heart,
     AlertTriangle,
-    TrendingUp,
     Activity,
-    DollarSign
+    CheckCircle2,
+    Clock3,
+    XCircle,
+    BarChart2
 } from 'lucide-react';
-// import { Line, Doughnut } from 'react-chartjs-2'; // Assumed available or will stub
-// Chart.js registration would be needed typically, simplifying for now with CSS/HTML charts or basic indicators
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Line, Doughnut } from 'react-chartjs-2';
 
@@ -26,11 +24,51 @@ ChartJS.register(
 
 const AdminDashboard = () => {
     // Mock Data
-    const stats = [
-        { title: 'Total Donations', value: 'Rs. 24,50,000', change: '+12%', icon: DollarSign, color: 'bg-blue-500' },
-        { title: 'Active Volunteers', value: '1,234', change: '+5%', icon: Users, color: 'bg-purple-500' },
-        { title: 'Relief Requests', value: '45', change: '-2%', icon: AlertTriangle, color: 'bg-orange-500' },
-        { title: 'Cases Solved', value: '892', change: '+18%', icon: Activity, color: 'bg-green-500' },
+    const [stats, setStats] = useState({
+        total: 0,
+        pending: 0,
+        inProgress: 0,
+        fulfilled: 0,
+        cancelled: 0,
+        onHold: 0
+    });
+    const [loadingStats, setLoadingStats] = useState(true);
+    const [statsError, setStatsError] = useState('');
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                setLoadingStats(true);
+                const res = await fetch('http://localhost:5273/api/helpRequest/stats');
+                if (!res.ok) {
+                    throw new Error('Failed to load request stats');
+                }
+                const data = await res.json();
+                setStats({
+                    total: data.total ?? 0,
+                    pending: data.pending ?? 0,
+                    inProgress: data.inProgress ?? 0,
+                    fulfilled: data.fulfilled ?? 0,
+                    cancelled: data.cancelled ?? 0,
+                    onHold: data.onHold ?? 0
+                });
+                setStatsError('');
+            } catch (err) {
+                setStatsError(err.message || 'Failed to load stats');
+            } finally {
+                setLoadingStats(false);
+            }
+        };
+
+        fetchStats();
+    }, []);
+
+    const statCards = [
+        { title: 'Total Requests', value: stats.total, icon: BarChart2, color: '#e0f2fe' },
+        { title: 'Pending', value: stats.pending, icon: Clock3, color: '#fef9c3' },
+        { title: 'In Progress', value: stats.inProgress, icon: Activity, color: '#ede9fe' },
+        { title: 'Fulfilled', value: stats.fulfilled, icon: CheckCircle2, color: '#dcfce7' },
+        { title: 'Cancelled', value: stats.cancelled, icon: XCircle, color: '#fee2e2' },
     ];
 
     const lineChartData = {
@@ -77,7 +115,7 @@ const AdminDashboard = () => {
                 gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                 gap: '1.5rem'
             }}>
-                {stats.map((stat, index) => (
+                {statCards.map((stat, index) => (
                     <div key={index} style={{
                         background: 'white',
                         padding: '1.5rem',
@@ -91,29 +129,28 @@ const AdminDashboard = () => {
                             <div style={{
                                 padding: '0.75rem',
                                 borderRadius: '0.75rem',
-                                backgroundColor: 'rgba(241, 245, 249, 1)', // slate-100
-                                color: '#334155'
+                                backgroundColor: stat.color,
+                                color: '#0f172a'
                             }}>
                                 <stat.icon size={24} />
                             </div>
-                            <span style={{
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                color: stat.change.startsWith('+') ? '#16a34a' : '#ef4444',
-                                background: stat.change.startsWith('+') ? '#dcfce7' : '#fee2e2',
-                                padding: '0.25rem 0.5rem',
-                                borderRadius: '9999px'
-                            }}>
-                                {stat.change}
+                            <span style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                                {loadingStats ? 'Loading…' : ''}
                             </span>
                         </div>
                         <div>
                             <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>{stat.title}</p>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{stat.value}</h3>
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{loadingStats ? '—' : stat.value}</h3>
                         </div>
                     </div>
                 ))}
             </div>
+
+            {statsError && (
+                <div style={{ padding: '0.75rem 1rem', background: '#fef2f2', color: '#b91c1c', borderRadius: '0.75rem' }}>
+                    {statsError}
+                </div>
+            )}
 
             {/* Charts Section */}
             <div style={{

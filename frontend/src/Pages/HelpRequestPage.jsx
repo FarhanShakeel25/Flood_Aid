@@ -12,74 +12,70 @@ const HelpRequestPage = () => {
     requestorName: '',
     requestorPhoneNumber: '',
     requestorEmail: '',
-    requestType: 0, // 0=Food, 1=Medical, 2=Rescue
+    requestType: 0, // 0=Medical, 1=Food, 2=Rescue (aligns with backend enum ordering)
     requestDescription: '',
     longitude: null,
     latitude: null,
   });
 
+  const [selectedTags, setSelectedTags] = useState([]);
+
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [locationStatus, setLocationStatus] = useState('Getting location...');
-  const [showMap, setShowMap] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('📍 Click the locate button or click on the map to set your location');
+  const [showMap] = useState(true); // always render map to avoid flicker/visibility issues
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
 
-  // Get GPS location on component mount
-  useEffect(() => {
-    getLocation();
-  }, []);
-
-  const getLocation = () => {
-    setLocationStatus('Getting location...');
-    setShowMap(false);
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData((prev) => ({
-            ...prev,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          }));
-          setLocationStatus(`✅ Location found`);
-          setShowMap(false);
-        },
-        (error) => {
-          console.error('Geolocation error:', error);
-          setLocationStatus('📍 Click on map to set your location');
-          setShowMap(true);
-        },
-        {
-          enableHighAccuracy: false,
-          timeout: 8000,
-          maximumAge: 0,
-        }
-      );
-    } else {
-      setLocationStatus('📍 Click on map to set your location');
-      setShowMap(true);
-    }
-  };
-
-  // Initialize map when needed
-  useEffect(() => {
-    if (!showMap) return;
-
-    const container = mapRef.current;
-    if (!container) return;
-
-    // If map already exists, just invalidate size and return
-    if (mapInstanceRef.current) {
-      setTimeout(() => mapInstanceRef.current?.invalidateSize(), 0);
+  const locateMe = () => {
+    if (!('geolocation' in navigator)) {
+      setLocationStatus('⚠️ Geolocation not supported in this browser');
       return;
     }
 
-    // Default center (Pakistan center)
+    setLocationStatus('Getting your location...');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData((prev) => ({
+          ...prev,
+          latitude,
+          longitude,
+        }));
+        markerRef.current?.setLatLng([latitude, longitude]);
+        mapInstanceRef.current?.setView([latitude, longitude], 14);
+        setLocationStatus('✅ Centered on your location');
+      },
+      (err) => {
+        console.error('Locate me error:', err);
+        setLocationStatus('⚠️ Could not get your location');
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  // Initialize map once on mount
+  useEffect(() => {
+    const container = mapRef.current;
+    if (!container) return;
+
+    // Avoid double-initialization (React StrictMode) and Leaflet container reuse errors
+    if (mapInstanceRef.current) return;
+    if (container._leaflet_id) {
+      container.innerHTML = '';
+    }
+
     const defaultLat = 30.3753;
     const defaultLng = 69.3451;
 
-    const map = L.map(container).setView([defaultLat, defaultLng], 6);
+    const map = L.map(container, { zoomControl: true }).setView([defaultLat, defaultLng], 6);
     mapInstanceRef.current = map;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -88,6 +84,42 @@ const HelpRequestPage = () => {
     }).addTo(map);
 
     const marker = L.marker([defaultLat, defaultLng]).addTo(map);
+    markerRef.current = marker;
+
+    // Add a locate control inside the map (top-left)
+    const locateControl = L.control({ position: 'topleft' });
+    locateControl.onAdd = () => {
+      const btn = L.DomUtil.create('button', 'locate-control');
+      btn.type = 'button';
+      btn.title = 'Locate me';
+      btn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      `;
+      btn.style.width = '34px';
+      btn.style.height = '34px';
+      btn.style.border = 'none';
+      btn.style.borderRadius = '2px';
+      btn.style.background = 'white';
+      btn.style.color = '#666';
+      btn.style.cursor = 'pointer';
+      btn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
+      btn.style.display = 'flex';
+      btn.style.alignItems = 'center';
+      btn.style.justifyContent = 'center';
+      btn.style.padding = '0';
+      btn.style.transition = 'all 0.2s ease';
+
+      L.DomEvent.on(btn, 'click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        locateMe();
+      });
+
+      return btn;
+    };
+    locateControl.addTo(map);
 
     map.on('click', (e) => {
       const { lat, lng } = e.latlng;
@@ -97,25 +129,80 @@ const HelpRequestPage = () => {
         longitude: lng,
       }));
       marker.setLatLng([lat, lng]);
-      setShowMap(false);
       setLocationStatus('✅ Location set from map');
     });
 
-    // Ensure tiles render after mount
-    setTimeout(() => map.invalidateSize(), 0);
-  }, [showMap]);
+    setTimeout(() => map.invalidateSize(), 50);
+
+    return () => {
+      mapInstanceRef.current?.remove();
+      mapInstanceRef.current = null;
+      markerRef.current = null;
+    };
+  }, []);
+
+  // Update marker when coordinates change
+  useEffect(() => {
+    if (!markerRef.current || formData.latitude === null || formData.longitude === null) return;
+    markerRef.current.setLatLng([formData.latitude, formData.longitude]);
+    mapInstanceRef.current?.setView([formData.latitude, formData.longitude], 14);
+    setLocationStatus('✅ Location set');
+  }, [formData.latitude, formData.longitude]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'requestType') {
+      setSelectedTags([]);
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
+
+    // Clear field-level error on change
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const toggleTag = (tag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const newFieldErrors = {};
+
+    const phone = formData.requestorPhoneNumber?.trim();
+    const email = formData.requestorEmail?.trim();
+    const description = formData.requestDescription?.trim();
+
+    if (!phone) {
+      newFieldErrors.requestorPhoneNumber = 'Phone number is required.';
+    } else if (!/^[- +()0-9]{8,20}$/.test(phone)) {
+      newFieldErrors.requestorPhoneNumber = 'Enter a valid phone number (digits, +, -, spaces, parentheses).';
+    }
+
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+      newFieldErrors.requestorEmail = 'Enter a valid email address.';
+    }
+
+    if (!description) {
+      newFieldErrors.requestDescription = 'Please describe your request.';
+    }
+
+    if (formData.latitude === null || formData.longitude === null) {
+      newFieldErrors.location = 'Location is required. Use the locate button or click the map.';
+    }
+
+    setFieldErrors(newFieldErrors);
+    if (Object.keys(newFieldErrors).length > 0) {
+      return;
+    }
+
     setLoading(true);
 
     // Validation
@@ -132,7 +219,7 @@ const HelpRequestPage = () => {
     }
 
     if (formData.latitude === null || formData.longitude === null) {
-      setError('📍 Location is required. Please click "Get My Location" button and allow access to your location.');
+      setError('📍 Location is required. Please use the locate button on the map or click on the map to set your location.');
       setLoading(false);
       return;
     }
@@ -148,7 +235,7 @@ const HelpRequestPage = () => {
           requestorPhoneNumber: formData.requestorPhoneNumber,
           requestorEmail: formData.requestorEmail || null,
           requestType: parseInt(formData.requestType),
-          requestDescription: formData.requestDescription,
+          requestDescription: buildDescriptionWithTags(formData.requestDescription, selectedTags),
           latitude: formData.latitude,
           longitude: formData.longitude,
         }),
@@ -162,10 +249,10 @@ const HelpRequestPage = () => {
       const data = await response.json();
       setSuccess(true);
       
-      // Show success message for 2 seconds then redirect
+      // Show success message a bit longer before redirecting
       setTimeout(() => {
         navigate('/');
-      }, 2000);
+      }, 5500);
     } catch (err) {
       setError(err.message || 'Error submitting request. Please try again.');
       console.error('Error:', err);
@@ -175,9 +262,21 @@ const HelpRequestPage = () => {
   };
 
   const requestTypeLabels = {
-    0: 'Food & Supplies',
-    1: 'Medical Assistance',
+    0: 'Medical Assistance',
+    1: 'Food & Supplies',
     2: 'Rescue & Evacuation',
+  };
+
+  const tagOptions = {
+    0: ['First aid', 'Medication', 'Chronic condition', 'Injury', 'Illness'],
+    1: ['Food', 'Water', 'Hygiene', 'Baby supplies', 'Blankets'],
+    2: ['Evacuation needed', 'Stranded', 'Mobility issue', 'Shelter needed', 'Transport required'],
+  };
+
+  const buildDescriptionWithTags = (description, tags) => {
+    if (!tags.length) return description;
+    const tagsLine = `Tags: ${tags.join(', ')}`;
+    return description ? `${description}\n\n${tagsLine}` : tagsLine;
   };
 
   return (
@@ -186,10 +285,12 @@ const HelpRequestPage = () => {
       
       <main className="help-request-container">
         <div className="help-request-content">
-          <div className="help-request-header">
-            <h1>Request Emergency Relief</h1>
-            <p>Fill out this form to submit a help request during this emergency</p>
-          </div>
+          {!success && (
+            <div className="help-request-header">
+              <h1>Request Emergency Relief</h1>
+              <p>Fill out this form to submit a help request during this emergency</p>
+            </div>
+          )}
 
           {success && (
             <div className="success-message">
@@ -240,6 +341,9 @@ const HelpRequestPage = () => {
                     placeholder="03001234567"
                     required
                   />
+                  {fieldErrors.requestorPhoneNumber && (
+                    <p style={{ color: '#b91c1c', fontSize: '0.85rem', marginTop: '0.35rem' }}>{fieldErrors.requestorPhoneNumber}</p>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -252,6 +356,9 @@ const HelpRequestPage = () => {
                     onChange={handleChange}
                     placeholder="your.email@example.com"
                   />
+                  {fieldErrors.requestorEmail && (
+                    <p style={{ color: '#b91c1c', fontSize: '0.85rem', marginTop: '0.35rem' }}>{fieldErrors.requestorEmail}</p>
+                  )}
                 </div>
               </fieldset>
 
@@ -266,17 +373,41 @@ const HelpRequestPage = () => {
                         type="radio"
                         name="requestType"
                         value={type}
-                        checked={formData.requestType === type.toString()}
+                        checked={parseInt(formData.requestType) === type}
                         onChange={handleChange}
                       />
                       <span className="request-type-text">
-                        {type === 0 && '🍽️'}
-                        {type === 1 && '⚕️'}
+                        {type === 0 && '⚕️'}
+                        {type === 1 && '🍽️'}
                         {type === 2 && '🆘'}
                         {requestTypeLabels[type]}
                       </span>
                     </label>
                   ))}
+                </div>
+
+                <div style={{ marginTop: '0.75rem' }}>
+                  <p style={{ margin: '0 0 0.25rem 0', fontSize: '13px', color: '#475569' }}>Select specific needs (optional)</p>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {tagOptions[parseInt(formData.requestType)]?.map((tag) => (
+                      <button
+                        type="button"
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '999px',
+                          border: selectedTags.includes(tag) ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                          background: selectedTags.includes(tag) ? '#eff6ff' : '#fff',
+                          color: '#0f172a',
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}
+                      >
+                        {selectedTags.includes(tag) ? '✓ ' : ''}{tag}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </fieldset>
 
@@ -291,10 +422,13 @@ const HelpRequestPage = () => {
                     name="requestDescription"
                     value={formData.requestDescription}
                     onChange={handleChange}
-                    placeholder="Please describe what help you need, any family members, medical conditions, etc."
+                    placeholder="Describe what you need and any details that help us respond quickly. Tags selected above will be added for clarity."
                     rows="5"
                     required
                   />
+                  {fieldErrors.requestDescription && (
+                    <p style={{ color: '#b91c1c', fontSize: '0.85rem', marginTop: '0.35rem' }}>{fieldErrors.requestDescription}</p>
+                  )}
                 </div>
 
                 {/* Location Status */}
@@ -304,40 +438,6 @@ const HelpRequestPage = () => {
                   </svg>
                   <span>{locationStatus}</span>
                 </div>
-
-                <p style={{
-                  fontSize: '13px',
-                  color: '#555',
-                  marginTop: '10px',
-                  marginBottom: '10px',
-                  fontStyle: 'italic'
-                }}
-                >
-                  We need your exact location so volunteers can find you quickly to provide help.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={getLocation}
-                  style={{
-                    width: '100%',
-                    marginBottom: '15px',
-                    padding: '12px 16px',
-                    backgroundColor: formData.latitude && formData.longitude ? '#4CAF50' : '#2196F3',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {formData.latitude && formData.longitude ? (
-                    '✅ Location Captured'
-                  ) : (
-                    '📍 Get My Location'
-                  )}
-                </button>
 
                 {formData.latitude && formData.longitude && (
                   <div className="location-coordinates" style={{
@@ -352,34 +452,39 @@ const HelpRequestPage = () => {
                     <p style={{ margin: '0' }}>✅ Your location is set and ready</p>
                   </div>
                 )}
-
-                {showMap && (
-                  <div style={{
-                    marginTop: '15px',
-                    padding: '15px',
-                    backgroundColor: '#e3f2fd',
-                    borderRadius: '4px',
-                    borderLeft: '4px solid #2196F3'
-                  }}>
-                    <p style={{ marginTop: '0', fontSize: '13px', fontWeight: 'bold', color: '#1976d2' }}>
-                      📍 Click on the map to set your location
-                    </p>
-                    
-                    <div ref={mapRef} className="location-map" />
-                    
-                    <p style={{ marginBottom: '0', fontSize: '12px', color: '#666', marginTop: '10px' }}>
-                      Drag the map and click where you are located
-                    </p>
+                {fieldErrors.location && (
+                  <div style={{ marginTop: '8px', color: '#b91c1c', fontSize: '0.85rem' }}>
+                    {fieldErrors.location}
                   </div>
                 )}
+
+                <div style={{
+                  marginTop: '15px',
+                  padding: '15px',
+                  backgroundColor: '#e3f2fd',
+                  borderRadius: '8px',
+                  borderLeft: '4px solid #2196F3'
+                }}>
+                  <p style={{ marginTop: '0', fontSize: '14px', fontWeight: '500', color: '#1976d2', marginBottom: '12px' }}>
+                    📍 Set Your Location
+                  </p>
+                  
+                  <div ref={mapRef} className="location-map" />
+                  
+                  <p style={{ marginBottom: '0', fontSize: '12px', color: '#666', marginTop: '10px' }}>
+                    Use the locate button (top-left of map) or click anywhere on the map
+                  </p>
+                </div>
               </fieldset>
 
               {/* Submit Button */}
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={loading}
-              >
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem' }}>
+                <button
+                  type="submit"
+                  className="submit-btn"
+                  disabled={loading}
+                  style={{ maxWidth: '400px' }}
+                >
                 {loading ? (
                   <>
                     <span className="loading-spinner"></span>
@@ -393,9 +498,10 @@ const HelpRequestPage = () => {
                     Submit Request
                   </>
                 )}
-              </button>
+                </button>
+              </div>
 
-              <p className="required-note">* Required fields</p>
+              <p className="required-note" style={{ textAlign: 'center' }}>* Required fields</p>
             </form>
           )}
         </div>
