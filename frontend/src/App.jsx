@@ -6,6 +6,7 @@ import Donations from './components/donations';
 import HelpRequestPage from './Pages/HelpRequestPage';
 import SuccessPage from './Pages/SuccessPage';
 import CancelPage from './Pages/CancelPage';
+import AcceptInvitation from './Pages/AcceptInvitation';
 import FloodAidChatbot from './components/FloodAidChatbot';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AdminAuthProvider } from './context/AdminAuthContext';
@@ -110,6 +111,7 @@ function AppContent() {
         <Route path="/help-request" element={<HelpRequestPage />} />
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/cancel" element={<CancelPage />} />
+        <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
         {/* ===== ADMIN ROUTES ===== */}
         <Route path="/admin/login" element={<AdminLogin />} />

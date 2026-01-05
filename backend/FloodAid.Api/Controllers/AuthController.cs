@@ -64,7 +64,13 @@ namespace FloodAid.Api.Controllers
                 }
 
                 // Verify password using BCrypt (Work Factor 11 as per SRS)
+                _logger.LogInformation("Attempting password verification for {Email}", adminUser.Email);
+                _logger.LogInformation("Stored hash: {Hash}", adminUser.PasswordHash);
+                _logger.LogInformation("Provided password length: {Length}", request.Password?.Length ?? 0);
+                
                 bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, adminUser.PasswordHash);
+                
+                _logger.LogInformation("Password verification result: {Result}", isPasswordValid);
                 
                 if (!isPasswordValid)
                 {
@@ -111,7 +117,7 @@ namespace FloodAid.Api.Controllers
         /// Step 2: Verify OTP and generate JWT token
         /// </summary>
         [HttpPost("verify-otp")]
-        public ActionResult<LoginResponse> VerifyOTP([FromBody] VerifyOtpRequest request)
+        public async Task<ActionResult<LoginResponse>> VerifyOTP([FromBody] VerifyOtpRequest request)
         {
             try
             {
@@ -155,16 +161,18 @@ namespace FloodAid.Api.Controllers
                 _otpStore.Remove(request.Email);
 
                 // Generate JWT token
-                var token = GenerateJwtToken(request.Email);
+                var token = await GenerateJwtToken(request.Email);
 
-                // Get admin user details
-                var adminUser = new AdminUserDto
+                // Get admin user details from database
+                var adminUser = await _context.Admins.FirstOrDefaultAsync(a => a.Email == request.Email);
+                
+                var adminDto = new AdminUserDto
                 {
-                    Id = 1,
-                    Name = _configuration["AdminCredentials:Name"] ?? "Admin",
+                    Id = adminUser?.Id ?? 1,
+                    Name = adminUser?.Name ?? _configuration["AdminCredentials:Name"] ?? "Admin",
                     Email = request.Email,
-                    Username = _configuration["AdminCredentials:Username"] ?? "",
-                    Role = "super_admin",
+                    Username = adminUser?.Username ?? _configuration["AdminCredentials:Username"] ?? "",
+                    Role = adminUser?.Role ?? "SuperAdmin",
                     Permissions = new[] { "all" },
                     LoginTime = DateTime.UtcNow
                 };
@@ -174,7 +182,7 @@ namespace FloodAid.Api.Controllers
                     Success = true,
                     NextStep = "authenticated",
                     Token = token,
-                    User = adminUser,
+                    User = adminDto,
                     Message = "Login successful"
                 });
             }
@@ -199,9 +207,9 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Utility: Generate JWT token as per SRS requirements
+        /// Utility: Generate JWT token as per SRS requirements with role and scope claims
         /// </summary>
-        private string GenerateJwtToken(string email)
+        private async Task<string> GenerateJwtToken(string email)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"];
@@ -209,16 +217,25 @@ namespace FloodAid.Api.Controllers
             var audience = jwtSettings["Audience"];
             var expiryMinutes = int.Parse(jwtSettings["ExpiryMinutes"] ?? "1440"); // 24 hours default
 
+            // Fetch admin user details from database
+            var adminUser = await _context.Admins.FirstOrDefaultAsync(a => a.Email == email);
+
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Email, email),
-                new Claim(ClaimTypes.Role, "super_admin"),
+                new Claim(ClaimTypes.Role, adminUser?.Role ?? "SuperAdmin"),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
             };
+
+            // Add scope claims if admin has province assignment
+            if (adminUser?.ProvinceId.HasValue == true)
+            {
+                claims.Add(new Claim("provinceId", adminUser.ProvinceId.Value.ToString()));
+            }
 
             var token = new JwtSecurityToken(
                 issuer: issuer,

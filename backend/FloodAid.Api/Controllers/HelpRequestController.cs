@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using FloodAid.Api.Enums;
+using System.Security.Claims;
 
 namespace FloodAid.Api.Controllers
 {
@@ -76,6 +77,7 @@ namespace FloodAid.Api.Controllers
 
         /// <summary>
         /// Get all help requests (Admin Module) with pagination & filters
+        /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only, Volunteer sees their city only
         /// </summary>
         [HttpGet]
         [Microsoft.AspNetCore.Authorization.AllowAnonymous]
@@ -116,6 +118,22 @@ namespace FloodAid.Api.Controllers
                 }
 
                 var query = _context.HelpRequests.AsNoTracking().AsQueryable();
+
+                // Apply role-based scoping for admin users
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null)
+                    {
+                        if (admin.Role == "ProvinceAdmin")
+                        {
+                            // ProvinceAdmin can only see requests in their province
+                            query = query.Where(h => h.ProvinceId == admin.ProvinceId);
+                        }
+                        // SuperAdmin sees all (no filter)
+                    }
+                }
 
                 if (requestType.HasValue)
                 {

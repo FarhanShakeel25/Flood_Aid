@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { API_BASE } from '../config/apiBase';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -238,7 +239,7 @@ const HelpRequestPage = () => {
     }
 
     try {
-      const response = await fetch('https://floodaid-api.onrender.com/api/helpRequest', {
+      const response = await fetch(`${API_BASE}/api/helpRequest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

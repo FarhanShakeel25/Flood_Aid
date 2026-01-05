@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FloodAid.Api.Data;
 using FloodAid.Api.Models;
+using System.Security.Claims;
 
 namespace FloodAid.Api.Controllers
 {
@@ -19,7 +20,7 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Register as a volunteer or donor (public endpoint)
+        /// Register as a donor (public endpoint) - Volunteers must be invited
         /// </summary>
         [HttpPost("register")]
         [Microsoft.AspNetCore.Authorization.AllowAnonymous]
@@ -42,9 +43,10 @@ namespace FloodAid.Api.Controllers
                     return BadRequest(new { message = "Phone number is required" });
                 }
 
-                if (dto.Role < 0 || dto.Role > 2)
+                // Only allow donors to register publicly - Volunteers must be invited
+                if (dto.Role != 1)
                 {
-                    return BadRequest(new { message = "Invalid role. 0=Volunteer, 1=Donor, 2=Both" });
+                    return BadRequest(new { message = "Only donors can register directly. Volunteers must be invited by admins." });
                 }
 
                 // Check if user already exists
@@ -82,6 +84,7 @@ namespace FloodAid.Api.Controllers
 
         /// <summary>
         /// Get all users (admin only) with optional filtering
+        /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only
         /// </summary>
         [HttpGet]
         [Microsoft.AspNetCore.Authorization.AllowAnonymous]
@@ -95,6 +98,19 @@ namespace FloodAid.Api.Controllers
             try
             {
                 var query = _context.Users.AsNoTracking().AsQueryable();
+
+                // Apply role-based scoping for admin users
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        // ProvinceAdmin can only see users in their province
+                        query = query.Where(u => u.ProvinceId == admin.ProvinceId);
+                    }
+                    // SuperAdmin sees all (no filter)
+                }
 
                 if (status.HasValue)
                 {

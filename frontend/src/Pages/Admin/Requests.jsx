@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, AlertTriangle, CheckCircle, XCircle, Filter, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, MapPin, AlertTriangle, CheckCircle, XCircle, Filter, Eye, ChevronLeft, ChevronRight, Shield, Building2 } from 'lucide-react';
 import '../../styles/AdminTables.css';
 import RequestDetailModal from './RequestDetailModal';
+import { API_BASE } from '../../config/apiBase';
 
 const AdminRequests = () => {
     const [requests, setRequests] = useState([]);
@@ -47,7 +48,12 @@ const AdminRequests = () => {
                     params.append('searchTerm', searchTerm);
                 }
 
-                const response = await fetch(`https://floodaid-api.onrender.com/api/helpRequest?${params.toString()}`);
+                const token = localStorage.getItem('floodaid_token');
+                const response = await fetch(`${API_BASE}/api/helpRequest?${params.toString()}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 if (!response.ok) {
                     throw new Error('Failed to fetch requests');
                 }
@@ -130,10 +136,12 @@ const AdminRequests = () => {
     const handleStatusUpdate = async (requestId, newStatus) => {
         try {
             const statusInt = mapStatusToInt(newStatus);
-            const response = await fetch(`https://floodaid-api.onrender.com/api/helpRequest/${requestId}/status`, {
+            const token = localStorage.getItem('floodaid_token');
+            const response = await fetch(`${API_BASE}/api/helpRequest/${requestId}/status`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ status: statusInt }),
             });
@@ -195,6 +203,30 @@ const AdminRequests = () => {
                 <div className="page-title">
                     <h1>Relief Requests</h1>
                     <p>Monitor and respond to emergency relief requests.</p>
+                </div>
+                <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.75rem',
+                    padding: '0.75rem 1.25rem',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    borderRadius: '12px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
+                }}>
+                    <Shield size={20} />
+                    <span>Viewing: All Requests</span>
+                    <span style={{ 
+                        marginLeft: '0.5rem',
+                        padding: '0.25rem 0.75rem',
+                        background: 'rgba(255,255,255,0.2)',
+                        borderRadius: '20px',
+                        fontSize: '0.85rem'
+                    }}>
+                        {totalCount} total
+                    </span>
                 </div>
             </div>
 
