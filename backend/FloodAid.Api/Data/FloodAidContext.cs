@@ -12,6 +12,7 @@ namespace FloodAid.Api.Data
         public DbSet<AdminUser> Admins { get; set; } = null!;
         public DbSet<Donation> Donations { get; set; } = null!;
         public DbSet<HelpRequest> HelpRequests { get; set; } = null!;
+        public DbSet<User> Users { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
