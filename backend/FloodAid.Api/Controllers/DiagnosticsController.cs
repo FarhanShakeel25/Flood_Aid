@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Net.Sockets;
+using FloodAid.Api.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace FloodAid.Api.Controllers
 {
@@ -10,11 +12,13 @@ namespace FloodAid.Api.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<DiagnosticsController> _logger;
+        private readonly FloodAidContext _context;
 
-        public DiagnosticsController(IConfiguration configuration, ILogger<DiagnosticsController> logger)
+        public DiagnosticsController(IConfiguration configuration, ILogger<DiagnosticsController> logger, FloodAidContext context)
         {
             _configuration = configuration;
             _logger = logger;
+            _context = context;
         }
 
         [HttpGet("diagnose")]
@@ -67,6 +71,47 @@ namespace FloodAid.Api.Controllers
             }
 
             return Ok(result);
+        }
+
+        [HttpGet("admin-check")]
+        public async Task<IActionResult> CheckAdmin([FromQuery] string? email = null)
+        {
+            try
+            {
+                var configEmail = _configuration["AdminCredentials:Email"];
+                var searchEmail = email ?? configEmail ?? "24cs.se.secb@gmail.com";
+
+                var admin = await _context.Admins
+                    .Where(a => a.Email == searchEmail)
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Email,
+                        a.Username,
+                        a.Role,
+                        a.IsActive,
+                        a.ProvinceId,
+                        PasswordHashPrefix = a.PasswordHash.Substring(0, Math.Min(20, a.PasswordHash.Length)),
+                        a.CreatedAt,
+                        a.LastLoginAt
+                    })
+                    .FirstOrDefaultAsync();
+
+                var result = new
+                {
+                    searchEmail,
+                    configEmail,
+                    found = admin != null,
+                    admin,
+                    totalAdmins = await _context.Admins.CountAsync()
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { error = ex.Message, stackTrace = ex.StackTrace });
+            }
         }
     }
 }
