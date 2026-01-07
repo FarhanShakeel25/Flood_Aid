@@ -1,7 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import { X, Phone, Mail, MapPin, Clock, Tag } from 'lucide-react';
+
+// Fix Leaflet marker icon issue
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+L.Marker.prototype.setIcon(DefaultIcon);
 
 const RequestDetailModal = ({ request, onClose, onStatusUpdate }) => {
     const [mapKey, setMapKey] = useState(0);

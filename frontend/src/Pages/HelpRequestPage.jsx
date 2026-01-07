@@ -4,7 +4,20 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import '../styles/HelpRequest.css';
+
+// Fix Leaflet marker icon issue
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+L.Marker.prototype.setIcon(DefaultIcon);
 
 const HelpRequestPage = () => {
   const navigate = useNavigate();
