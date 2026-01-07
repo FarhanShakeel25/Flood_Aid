@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Npgsql;
 using System.Data.Common;
+using System.Data;
 
 namespace FloodAid.Api
 {
@@ -237,7 +238,12 @@ namespace FloodAid.Api
         static async Task EnsureGeoTablesAsync(FloodAidContext context, ILogger logger)
         {
             var connection = context.Database.GetDbConnection();
-            await connection.OpenAsync();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
 
             var provincesExists = await TableExistsAsync(connection, "Provinces");
             var citiesExists = await TableExistsAsync(connection, "Cities");
@@ -278,6 +284,11 @@ namespace FloodAid.Api
             }
 
             logger.LogInformation("Geo tables ensured/created successfully.");
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
         }
 
         static async Task<bool> TableExistsAsync(DbConnection connection, string tableName)
@@ -298,7 +309,12 @@ namespace FloodAid.Api
         static async Task EnsureAdminScopeAsync(FloodAidContext context, ILogger logger)
         {
             var connection = context.Database.GetDbConnection();
-            await connection.OpenAsync();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
 
             // Check if column exists
             const string columnSql = @"SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = @t AND column_name = @c";
@@ -347,6 +363,11 @@ namespace FloodAid.Api
             }
 
             logger.LogInformation("Admins scope ensured.");
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
         }
     }
 }
