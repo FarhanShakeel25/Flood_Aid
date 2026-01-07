@@ -185,6 +185,8 @@ namespace FloodAid.Api
 
             // Ensure Provinces/Cities tables exist for legacy databases where baseline partially existed
             await EnsureGeoTablesAsync(context, logger);
+            // Ensure Admins.ProvinceId column exists for legacy Admins table
+            await EnsureAdminScopeAsync(context, logger);
             
             // Seed provinces and cities from CSV
             await SeedData.SeedProvincesAndCitiesAsync(context, loggerFactory.CreateLogger("DatabaseInit"));
@@ -291,6 +293,60 @@ namespace FloodAid.Api
 
             var result = await cmd.ExecuteScalarAsync();
             return result != null;
+        }
+
+        static async Task EnsureAdminScopeAsync(FloodAidContext context, ILogger logger)
+        {
+            var connection = context.Database.GetDbConnection();
+            await connection.OpenAsync();
+
+            // Check if column exists
+            const string columnSql = @"SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = @t AND column_name = @c";
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = columnSql;
+                var pTable = cmd.CreateParameter();
+                pTable.ParameterName = "@t";
+                pTable.Value = "Admins";
+                cmd.Parameters.Add(pTable);
+
+                var pCol = cmd.CreateParameter();
+                pCol.ParameterName = "@c";
+                pCol.Value = "ProvinceId";
+                cmd.Parameters.Add(pCol);
+
+                var exists = await cmd.ExecuteScalarAsync() != null;
+                if (!exists)
+                {
+                    logger.LogWarning("Admins.ProvinceId missing; adding nullable column and FK.");
+                    // Add column
+                    const string addCol = "ALTER TABLE \"Admins\" ADD COLUMN \"ProvinceId\" integer NULL;";
+                    using (var alter = connection.CreateCommand())
+                    {
+                        alter.CommandText = addCol;
+                        await alter.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+
+            // Ensure FK exists
+            const string fkCheck = @"SELECT 1 FROM pg_constraint WHERE conname = 'FK_Admins_Provinces_ProvinceId'";
+            using (var fkCmd = connection.CreateCommand())
+            {
+                fkCmd.CommandText = fkCheck;
+                var fkExists = await fkCmd.ExecuteScalarAsync() != null;
+                if (!fkExists)
+                {
+                    const string addFk = @"ALTER TABLE ""Admins"" ADD CONSTRAINT ""FK_Admins_Provinces_ProvinceId"" FOREIGN KEY (""ProvinceId"") REFERENCES ""Provinces"" (""Id"") ON DELETE SET NULL;";
+                    using (var addFkCmd = connection.CreateCommand())
+                    {
+                        addFkCmd.CommandText = addFk;
+                        await addFkCmd.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+
+            logger.LogInformation("Admins scope ensured.");
         }
     }
 }
