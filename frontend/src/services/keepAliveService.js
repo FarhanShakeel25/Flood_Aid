@@ -5,18 +5,14 @@
  * This service ensures the backend stays warm by pinging every 10 minutes
  */
 
+import { API_BASE } from '../config/apiBase';
+
 const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes in milliseconds
 let pingInterval = null;
 
 export const startKeepAlive = () => {
   // Start if API base is configured (both dev and prod)
   if (pingInterval) {
-    return;
-  }
-
-  const apiBase = import.meta.env.VITE_API_BASE;
-  if (!apiBase) {
-    console.warn('VITE_API_BASE not configured, keep-alive disabled');
     return;
   }
 
@@ -39,8 +35,7 @@ export const stopKeepAlive = () => {
 
 const pingBackend = async () => {
   try {
-    const apiBase = import.meta.env.VITE_API_BASE;
-    const response = await fetch(`${apiBase}/health`, {
+    const response = await fetch(`${API_BASE}/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });

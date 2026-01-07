@@ -19,7 +19,11 @@ namespace FloodAid.Api.Models
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
         
-        public string Role { get; set; } = "super_admin";
+        public string Role { get; set; } = "SuperAdmin"; // SuperAdmin or ProvinceAdmin
+
+        // Geographic scope for ProvinceAdmin
+        public int? ProvinceId { get; set; }
+        public Province? Province { get; set; }
 
         public bool IsActive { get; set; } = true;
         

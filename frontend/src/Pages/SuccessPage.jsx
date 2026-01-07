@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import '../styles/donations.css';
+import { API_BASE } from '../config/apiBase';
 
 const SuccessPage = () => {
   const [searchParams] = useSearchParams();
@@ -19,7 +20,7 @@ const SuccessPage = () => {
         return;
       }
       try {
-        const apiUrl = `${import.meta.env.VITE_API_BASE}/api/donation/session/${sessionId}`;
+        const apiUrl = `${API_BASE}/api/donation/session/${sessionId}`;
         const res = await fetch(apiUrl);
         if (!res.ok) {
           throw new Error('Failed to retrieve session details');

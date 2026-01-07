@@ -1,10 +1,8 @@
 // frontend/src/context/AdminAuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { API_BASE } from '../config/apiBase';
 
 const AdminAuthContext = createContext(null);
-
-// Get API base URL from environment variable
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5055';
 
 export const AdminAuthProvider = ({ children }) => {
   const [admin, setAdmin] = useState(null);

@@ -3,6 +3,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import '../styles/donations.css';
+import { API_BASE } from '../config/apiBase';
 
 // Initialize Stripe with public key
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
@@ -138,7 +139,7 @@ const Donations = () => {
 
       if (donationType === 'Cash') {
         // For Cash donations: call Stripe session creation endpoint (Instruction #4)
-        const apiUrl = `${import.meta.env.VITE_API_BASE}/api/donation/create-session`;
+        const apiUrl = `${API_BASE}/api/donation/create-session`;
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
@@ -168,7 +169,7 @@ const Donations = () => {
         }
       } else {
         // For OtherSupplies donations
-        const apiUrl = `${import.meta.env.VITE_API_BASE}/api/donation/create-supplies`;
+        const apiUrl = `${API_BASE}/api/donation/create-supplies`;
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {

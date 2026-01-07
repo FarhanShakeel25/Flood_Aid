@@ -7,6 +7,7 @@ import {
     XCircle,
     BarChart2
 } from 'lucide-react';
+import { API_BASE } from '../../config/apiBase';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Line, Doughnut } from 'react-chartjs-2';
 
@@ -39,7 +40,7 @@ const AdminDashboard = () => {
         const fetchStats = async () => {
             try {
                 setLoadingStats(true);
-                const res = await fetch('https://floodaid-api.onrender.com/api/helpRequest/stats');
+                const res = await fetch(`${API_BASE}/api/helpRequest/stats`);
                 if (!res.ok) {
                     throw new Error('Failed to load request stats');
                 }

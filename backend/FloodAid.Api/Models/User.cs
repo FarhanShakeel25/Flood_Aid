@@ -19,7 +19,7 @@ namespace FloodAid.Api.Models
         public string PhoneNumber { get; set; }
 
         /// <summary>
-        /// Role: 0=Volunteer, 1=Donor, 2=Volunteer+Donor
+        /// Role: 0=Volunteer, 1=Donor, 2=Both, 3=ProvinceAdmin, 4=SuperAdmin
         /// </summary>
         [Required]
         public int Role { get; set; }
@@ -29,6 +29,18 @@ namespace FloodAid.Api.Models
         /// </summary>
         [Required]
         public int Status { get; set; } = 0; // Default: Pending
+
+        /// <summary>
+        /// Province assignment (for ProvinceAdmin)
+        /// </summary>
+        public int? ProvinceId { get; set; }
+        public Province? Province { get; set; }
+
+        /// <summary>
+        /// City assignment (for Volunteer)
+        /// </summary>
+        public int? CityId { get; set; }
+        public City? City { get; set; }
 
         public string? ReasonForRejection { get; set; }
 

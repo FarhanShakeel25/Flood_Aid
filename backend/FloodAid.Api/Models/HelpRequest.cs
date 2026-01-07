@@ -27,6 +27,18 @@ namespace FloodAid.Api.Models
         [Required]
         public required double Latitude { get; set; }
 
+        /// <summary>
+        /// Geographic scope: Province where help is needed
+        /// </summary>
+        public int? ProvinceId { get; set; }
+        public Province? Province { get; set; }
+
+        /// <summary>
+        /// Geographic scope: City where help is needed
+        /// </summary>
+        public int? CityId { get; set; }
+        public City? City { get; set; }
+
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
