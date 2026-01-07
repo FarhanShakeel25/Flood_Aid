@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
+using Npgsql;
 
 namespace FloodAid.Api
 {
@@ -149,7 +150,7 @@ namespace FloodAid.Api
                 .WithName("HealthCheck")
                 .WithOpenApi();
 
-            // Initialize database, seed provinces/cities, and admin
+            // Initialize database, seed provinces/cities, and admin (safe for existing DB)
             await app.InitializeDatabaseAsync(app.Configuration);
 
             app.Run();
@@ -162,49 +163,69 @@ namespace FloodAid.Api
             var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
             var logger = loggerFactory.CreateLogger("DatabaseInit");
             
-            // Run migrations
-            await context.Database.MigrateAsync();
-            logger.LogInformation("Database migrations applied");
+            // Run migrations, but skip if schema already exists to avoid baseline conflicts
+            try
+            {
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Database migrations applied");
+            }
+            catch (Exception ex)
+            {
+                var pgEx = ex as PostgresException ?? ex.InnerException as PostgresException;
+                if (pgEx != null && pgEx.SqlState == "42P07") // relation already exists
+                {
+                    logger.LogWarning("Existing schema detected; skipping initial baseline migration.");
+                }
+                else
+                {
+                    throw;
+                }
+            }
             
             // Seed provinces and cities from CSV
             await SeedData.SeedProvincesAndCitiesAsync(context, loggerFactory.CreateLogger("DatabaseInit"));
             
-            // Sync admin user with runtime hash generation
+            // Create or update admin from configuration (no deletion; safe updates only)
             var adminConfig = configuration.GetSection("AdminCredentials");
-            var email = adminConfig["Email"];
-            var configPassword = "admin123"; // Use plain password temporarily
-            
-            logger.LogInformation("Syncing admin user: {Email}", email);
-            
-            var existingAdmin = await context.Admins.FirstOrDefaultAsync(a => a.Email == email);
-            
-            // Delete and recreate to ensure clean state with correct hash
-            if (existingAdmin != null)
+            if (adminConfig.Exists() &&
+                !string.IsNullOrWhiteSpace(adminConfig["Email"]) &&
+                !string.IsNullOrWhiteSpace(adminConfig["Username"]) &&
+                !string.IsNullOrWhiteSpace(adminConfig["PasswordHash"]) &&
+                !string.IsNullOrWhiteSpace(adminConfig["Name"]))
             {
-                context.Admins.Remove(existingAdmin);
+                var email = adminConfig["Email"]!;
+                var existingAdmin = await context.Admins.FirstOrDefaultAsync(a => a.Email == email);
+
+                if (existingAdmin == null)
+                {
+                    var newAdmin = new AdminUser
+                    {
+                        Email = email,
+                        Username = adminConfig["Username"]!,
+                        PasswordHash = adminConfig["PasswordHash"]!,
+                        Name = adminConfig["Name"]!,
+                        Role = "SuperAdmin",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        LastLoginAt = null
+                    };
+                    context.Admins.Add(newAdmin);
+                }
+                else
+                {
+                    existingAdmin.Username = adminConfig["Username"]!;
+                    existingAdmin.PasswordHash = adminConfig["PasswordHash"]!;
+                    existingAdmin.Name = adminConfig["Name"]!;
+                    existingAdmin.Role = "SuperAdmin";
+                    existingAdmin.IsActive = true;
+                }
                 await context.SaveChangesAsync();
-                logger.LogInformation("Deleted existing admin for re-creation");
+                logger.LogInformation("Admin user created/updated successfully");
             }
-            
-            // Generate fresh BCrypt hash at runtime
-            var freshHash = BCrypt.Net.BCrypt.HashPassword(configPassword, workFactor: 11);
-            
-            var newAdmin = new AdminUser
+            else
             {
-                Email = adminConfig["Email"]!,
-                Username = adminConfig["Username"]!,
-                PasswordHash = freshHash,
-                Name = adminConfig["Name"]!,
-                Role = "SuperAdmin",
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-                LastLoginAt = null
-            };
-            
-            context.Admins.Add(newAdmin);
-            await context.SaveChangesAsync();
-            
-            logger.LogInformation("Admin user created/updated successfully");
+                logger.LogWarning("AdminCredentials not fully configured; skipping admin sync.");
+            }
         }
     }
 }
