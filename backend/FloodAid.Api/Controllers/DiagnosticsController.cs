@@ -113,5 +113,46 @@ namespace FloodAid.Api.Controllers
                 return Ok(new { error = ex.Message, stackTrace = ex.StackTrace });
             }
         }
+
+        [HttpPost("reset-admin-password")]
+        public async Task<IActionResult> ResetAdminPassword([FromQuery] string email, [FromQuery] string password)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+                {
+                    return BadRequest(new { error = "Email and password are required" });
+                }
+
+                var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == email);
+                if (admin == null)
+                {
+                    return NotFound(new { error = $"Admin with email {email} not found" });
+                }
+
+                // Generate new hash
+                var newHash = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 11);
+                var oldHashPrefix = admin.PasswordHash.Substring(0, Math.Min(20, admin.PasswordHash.Length));
+
+                // Update admin
+                admin.PasswordHash = newHash;
+                admin.Role = "SuperAdmin";
+                admin.IsActive = true;
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Password updated successfully",
+                    email = admin.Email,
+                    oldHashPrefix,
+                    newHashPrefix = newHash.Substring(0, 20),
+                    role = admin.Role
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { error = ex.Message, stackTrace = ex.StackTrace });
+            }
+        }
     }
 }
