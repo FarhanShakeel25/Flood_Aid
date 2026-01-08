@@ -114,7 +114,7 @@ namespace FloodAid.Api.Controllers
             }
         }
 
-        [HttpPost("reset-admin-password")]
+        [HttpGet("reset-admin-password")]
         public async Task<IActionResult> ResetAdminPassword([FromQuery] string email, [FromQuery] string password)
         {
             try
