@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using FloodAid.Api.Enums;
+using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
 namespace FloodAid.Api.Controllers
@@ -80,7 +81,7 @@ namespace FloodAid.Api.Controllers
         /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only, Volunteer sees their city only
         /// </summary>
         [HttpGet]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<object>> GetAllHelpRequests(
             [FromQuery] int? requestType = null,
             [FromQuery] RequestStatus? status = null,
@@ -217,7 +218,7 @@ namespace FloodAid.Api.Controllers
         /// Update help request status (Admin/Volunteer Module)
         /// </summary>
         [HttpPut("{id}/status")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<HelpRequest>> UpdateRequestStatus(int id, [FromBody] UpdateRequestStatusDto dto)
         {
             try

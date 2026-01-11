@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Search, UserPlus, Shield, User, Heart, Trash2, Mail, RotateCw, X as XIcon, MapPin, Building2 } from 'lucide-react';
 import '../../styles/AdminTables.css';
 import { API_BASE } from '../../config/apiBase';
+import { useAdminAuth } from '../../context/AdminAuthContext';
 
 const AdminUsers = () => {
+    const { admin } = useAdminAuth();
     const [users, setUsers] = useState([]);
     const [invitations, setInvitations] = useState([]);
     const [provinces, setProvinces] = useState([]);
@@ -18,6 +20,13 @@ const AdminUsers = () => {
     const [totalCount, setTotalCount] = useState(0);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [inviteForm, setInviteForm] = useState({ email: '', role: 3, provinceId: '', cityId: '' });
+
+    // Adjust default invite role based on admin type
+    useEffect(() => {
+        if (admin?.role === 'ProvinceAdmin') {
+            setInviteForm((prev) => ({ ...prev, role: 0 })); // ProvinceAdmin can only invite Volunteers
+        }
+    }, [admin]);
     const [activeTab, setActiveTab] = useState('users'); // 'users' or 'invitations'
 
     useEffect(() => {
@@ -448,8 +457,9 @@ const AdminUsers = () => {
                                         borderRadius: '8px',
                                         fontSize: '0.95rem'
                                     }}
+                                    disabled={admin?.role === 'ProvinceAdmin'}
                                 >
-                                    <option value={3}>Province Admin</option>
+                                    {admin?.role === 'SuperAdmin' && <option value={3}>Province Admin</option>}
                                     <option value={0}>Volunteer</option>
                                 </select>
                             </div>
