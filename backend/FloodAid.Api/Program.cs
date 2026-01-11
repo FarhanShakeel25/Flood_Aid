@@ -188,6 +188,10 @@ namespace FloodAid.Api
             await EnsureGeoTablesAsync(context, logger);
             // Ensure Admins.ProvinceId column exists for legacy Admins table
             await EnsureAdminScopeAsync(context, logger);
+            // Ensure HelpRequests has province/city scoping columns
+            await EnsureHelpRequestScopeAsync(context, logger);
+            // Ensure Users table exists for legacy databases
+            await EnsureUsersTableAsync(context, logger);
             
             // Seed provinces and cities from CSV
             await SeedData.SeedProvincesAndCitiesAsync(context, loggerFactory.CreateLogger("DatabaseInit"));
@@ -306,6 +310,27 @@ namespace FloodAid.Api
             return result != null;
         }
 
+        static async Task<bool> ColumnExistsAsync(DbConnection connection, string tableName, string columnName)
+        {
+            const string sql = @"SELECT 1 FROM information_schema.columns 
+                WHERE table_schema = 'public' AND table_name = @table AND column_name = @column";
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+
+            var tableParam = cmd.CreateParameter();
+            tableParam.ParameterName = "@table";
+            tableParam.Value = tableName;
+            cmd.Parameters.Add(tableParam);
+
+            var columnParam = cmd.CreateParameter();
+            columnParam.ParameterName = "@column";
+            columnParam.Value = columnName;
+            cmd.Parameters.Add(columnParam);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return result != null;
+        }
+
         static async Task EnsureAdminScopeAsync(FloodAidContext context, ILogger logger)
         {
             var connection = context.Database.GetDbConnection();
@@ -363,6 +388,158 @@ namespace FloodAid.Api
             }
 
             logger.LogInformation("Admins scope ensured.");
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
+        }
+
+        static async Task EnsureHelpRequestScopeAsync(FloodAidContext context, ILogger logger)
+        {
+            var connection = context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
+
+            // Check if CityId column exists
+            var cityIdExists = await ColumnExistsAsync(connection, "HelpRequests", "CityId");
+            var provinceIdExists = await ColumnExistsAsync(connection, "HelpRequests", "ProvinceId");
+
+            if (cityIdExists && provinceIdExists)
+            {
+                if (openedHere) await connection.CloseAsync();
+                return;
+            }
+
+            logger.LogWarning("HelpRequests missing scope columns; adding...");
+
+            // Add CityId column if missing
+            if (!cityIdExists)
+            {
+                const string addCityId = @"ALTER TABLE ""HelpRequests"" ADD COLUMN ""CityId"" integer NULL;";
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = addCityId;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                logger.LogInformation("Added CityId column to HelpRequests");
+
+                // Add foreign key constraint
+                const string addCityFk = @"ALTER TABLE ""HelpRequests"" ADD CONSTRAINT ""FK_HelpRequests_Cities_CityId"" 
+                    FOREIGN KEY (""CityId"") REFERENCES ""Cities"" (""Id"") ON DELETE RESTRICT;";
+                try
+                {
+                    using (var fkCmd = connection.CreateCommand())
+                    {
+                        fkCmd.CommandText = addCityFk;
+                        await fkCmd.ExecuteNonQueryAsync();
+                    }
+                }
+                catch (PostgresException ex) when (ex.SqlState == "42710") // duplicate object
+                {
+                    logger.LogWarning("FK_HelpRequests_Cities_CityId already exists; skipping.");
+                }
+
+                // Add index
+                const string addCityIndex = @"CREATE INDEX IF NOT EXISTS ""IX_HelpRequests_CityId"" ON ""HelpRequests"" (""CityId"");";
+                using (var idxCmd = connection.CreateCommand())
+                {
+                    idxCmd.CommandText = addCityIndex;
+                    await idxCmd.ExecuteNonQueryAsync();
+                }
+            }
+
+            // Add ProvinceId column if missing
+            if (!provinceIdExists)
+            {
+                const string addProvinceId = @"ALTER TABLE ""HelpRequests"" ADD COLUMN ""ProvinceId"" integer NULL;";
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = addProvinceId;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                logger.LogInformation("Added ProvinceId column to HelpRequests");
+
+                // Add foreign key constraint
+                const string addProvinceFk = @"ALTER TABLE ""HelpRequests"" ADD CONSTRAINT ""FK_HelpRequests_Provinces_ProvinceId"" 
+                    FOREIGN KEY (""ProvinceId"") REFERENCES ""Provinces"" (""Id"") ON DELETE RESTRICT;";
+                try
+                {
+                    using (var fkCmd = connection.CreateCommand())
+                    {
+                        fkCmd.CommandText = addProvinceFk;
+                        await fkCmd.ExecuteNonQueryAsync();
+                    }
+                }
+                catch (PostgresException ex) when (ex.SqlState == "42710") // duplicate object
+                {
+                    logger.LogWarning("FK_HelpRequests_Provinces_ProvinceId already exists; skipping.");
+                }
+
+                // Add index
+                const string addProvinceIndex = @"CREATE INDEX IF NOT EXISTS ""IX_HelpRequests_ProvinceId"" ON ""HelpRequests"" (""ProvinceId"");";
+                using (var idxCmd = connection.CreateCommand())
+                {
+                    idxCmd.CommandText = addProvinceIndex;
+                    await idxCmd.ExecuteNonQueryAsync();
+                }
+            }
+
+            logger.LogInformation("HelpRequests scope ensured.");
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
+        }
+
+        static async Task EnsureUsersTableAsync(FloodAidContext context, ILogger logger)
+        {
+            var connection = context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
+
+            var usersExists = await TableExistsAsync(connection, "Users");
+            if (usersExists)
+            {
+                if (openedHere) await connection.CloseAsync();
+                return;
+            }
+
+            logger.LogWarning("Users table missing; creating...");
+
+            const string createUsers = @"CREATE TABLE IF NOT EXISTS ""Users"" (
+                ""Id"" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                ""Name"" text NOT NULL,
+                ""Email"" text NOT NULL,
+                ""PhoneNumber"" text NOT NULL,
+                ""Role"" integer NOT NULL,
+                ""Status"" integer NOT NULL DEFAULT 0,
+                ""ProvinceId"" integer NULL,
+                ""CityId"" integer NULL,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+                ""ApprovedAt"" timestamp with time zone NULL,
+                ""ReasonForRejection"" text NULL,
+                ""VerificationNotes"" text NULL,
+                CONSTRAINT ""FK_Users_Provinces_ProvinceId"" FOREIGN KEY (""ProvinceId"") REFERENCES ""Provinces"" (""Id"") ON DELETE SET NULL,
+                CONSTRAINT ""FK_Users_Cities_CityId"" FOREIGN KEY (""CityId"") REFERENCES ""Cities"" (""Id"") ON DELETE SET NULL
+            );";
+
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = createUsers;
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            logger.LogInformation("Users table created successfully.");
 
             if (openedHere)
             {
