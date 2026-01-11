@@ -1,66 +1,74 @@
 import React, { useEffect, useRef, useState } from 'react';
 import '../styles/Experience.css';
 
-// Importing from assets as requested
-import floodVideoMP4 from '../assets/Flood_Vid.webm'; 
+import floodVideoWebM from '../assets/Flood_Vid.webm'; 
 import posterImg from '../assets/poster.jpg';
 
 const Experience = ({ onComplete }) => {
     const videoRef = useRef(null);
     const [videoReady, setVideoReady] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
+    const [showForcePlay, setShowForcePlay] = useState(false);
 
     useEffect(() => {
         document.body.style.overflow = 'hidden';
 
-        // Timer for the 26.7s duration
-        const exitTimer = setTimeout(() => {
-            handleStartExit();
-        }, 26700);
+        // Timer for auto-exit (26.7s)
+        const exitTimer = setTimeout(() => handleStartExit(), 26700);
 
-        // Click handler to enable audio
-        const handleUserClick = () => {
-            if (videoRef.current) {
-                videoRef.current.muted = false;
-                videoRef.current.play().catch(() => {});
+        // If video hasn't started playing in 3 seconds, show the Force Play button
+        const forcePlayTimer = setTimeout(() => {
+            if (videoRef.current && videoRef.current.paused) {
+                setShowForcePlay(true);
             }
-        };
-        window.addEventListener('click', handleUserClick, { once: true });
+        }, 3000);
 
         return () => {
             clearTimeout(exitTimer);
-            window.removeEventListener('click', handleUserClick);
+            clearTimeout(forcePlayTimer);
             document.body.style.overflow = 'auto';
         };
     }, []);
 
     const handleStartExit = () => {
-        setIsExiting(true); // Triggers CSS Fade-out
-        setTimeout(() => {
-            terminateExperience();
-        }, 1000); // 1 second delay for cinematic effect
+        setIsExiting(true);
+        setTimeout(onComplete, 1000); 
     };
 
-    const terminateExperience = () => {
+    const handleForcePlay = () => {
         if (videoRef.current) {
-            videoRef.current.pause();
-            videoRef.current.src = ""; 
+            videoRef.current.muted = false; // Unmute immediately on click
+            videoRef.current.play()
+                .then(() => {
+                    setShowForcePlay(false);
+                    setVideoReady(true);
+                })
+                .catch(err => console.error("Playback failed:", err));
         }
-        onComplete();
     };
 
     return (
         <div className={`flood-exp-stage ${isExiting ? 'exit-active' : ''}`}>
-            {/* UI Layer: Fades out when exiting */}
-            <div style={{ opacity: videoReady && !isExiting ? 1 : 0, transition: 'opacity 0.8s ease' }}>
+            
+            {/* Force Play Overlay - Appears only if autoplay fails */}
+            {showForcePlay && (
+                <div className="flood-exp-force-play-overlay">
+                    <button className="play-trigger-button" onClick={handleForcePlay}>
+                        <span className="play-icon">▶</span>
+                        START EXPERIENCE
+                    </button>
+                    <p>Click to enable audio & video</p>
+                </div>
+            )}
+
+            {/* Main UI Layer */}
+            <div className={`flood-exp-ui ${videoReady && !showForcePlay ? 'is-visible' : ''}`}>
                 <div className="flood-exp-header">
                     <h2>Flood Experience</h2>
                 </div>
-
                 <button className="flood-exp-skip-button" onClick={handleStartExit}>
                     Skip Video
                 </button>
-                
                 <div className="flood-exp-alarm-glow"></div>
             </div>
             
@@ -72,11 +80,14 @@ const Experience = ({ onComplete }) => {
                     playsInline 
                     loop 
                     preload="auto"
-                    poster={posterImg} // Using the imported asset
-                    onLoadedData={() => setVideoReady(true)}
+                    poster={posterImg} 
+                    onPlay={() => {
+                        setVideoReady(true);
+                        setShowForcePlay(false);
+                    }}
                     className="flood-exp-video-content"
                 >
-                    <source src={floodVideoMP4} type="video/mp4" />
+                    <source src={floodVideoWebM} type="video/webm" />
                 </video>
             </div>
         </div>
