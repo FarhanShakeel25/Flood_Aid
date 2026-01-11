@@ -223,17 +223,18 @@ namespace FloodAid.Api
                         LastLoginAt = null
                     };
                     context.Admins.Add(newAdmin);
+                    logger.LogInformation("Admin user created successfully");
                 }
                 else
                 {
+                    // Only update non-password fields on existing admin
                     existingAdmin.Username = adminConfig["Username"]!;
-                    existingAdmin.PasswordHash = adminConfig["PasswordHash"]!;
                     existingAdmin.Name = adminConfig["Name"]!;
                     existingAdmin.Role = "SuperAdmin";
                     existingAdmin.IsActive = true;
+                    logger.LogInformation("Admin user updated (password preserved)");
                 }
                 await context.SaveChangesAsync();
-                logger.LogInformation("Admin user created/updated successfully");
             }
             else
             {
