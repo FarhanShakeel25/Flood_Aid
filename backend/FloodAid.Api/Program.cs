@@ -192,6 +192,8 @@ namespace FloodAid.Api
             await EnsureHelpRequestScopeAsync(context, logger);
             // Ensure Users table exists for legacy databases
             await EnsureUsersTableAsync(context, logger);
+            // Ensure Users table has all required columns
+            await EnsureUsersColumnsAsync(context, logger);
             
             // Seed provinces and cities from CSV
             await SeedData.SeedProvincesAndCitiesAsync(context, loggerFactory.CreateLogger("DatabaseInit"));
@@ -546,10 +548,36 @@ namespace FloodAid.Api
                 await connection.CloseAsync();
             }
         }
+
+        static async Task EnsureUsersColumnsAsync(FloodAidContext context, ILogger logger)
+        {
+            var connection = context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
+
+            // Check if UpdatedAt column exists
+            var updatedAtExists = await ColumnExistsAsync(connection, "Users", "UpdatedAt");
+            if (!updatedAtExists)
+            {
+                logger.LogWarning("Users table missing UpdatedAt column; adding...");
+                const string addUpdatedAt = @"ALTER TABLE ""Users"" ADD COLUMN ""UpdatedAt"" timestamp with time zone NULL;";
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = addUpdatedAt;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                logger.LogInformation("Added UpdatedAt column to Users");
+            }
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
+        }
     }
 }
-
-
-
-
 
