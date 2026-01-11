@@ -1,0 +1,107 @@
+/* Unique class names to prevent style leakage */
+.flood-exp-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 99999; /* Highest priority */
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.flood-exp-header {
+    position: absolute;
+    top: -5px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    z-index: 100001;
+    pointer-events: none;
+}
+
+.flood-exp-header h2 {
+    font-size: clamp(1.2rem, 5vw, 2.5rem);
+    font-weight: bolder;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    color: #ff0000;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+.flood-exp-video-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.flood-exp-video-content {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(0.7) contrast(1.1);
+}
+
+.flood-exp-alarm-glow {
+    position: absolute;
+    inset: 0;
+    z-index: 100000;
+    pointer-events: none;
+    box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.3);
+    animation: flood-exp-pulse 2s infinite ease-in-out;
+}
+
+/* ... other styles remain the same ... */
+
+.flood-exp-skip-button {
+    position: absolute;
+    z-index: 100005;
+    padding: 10px 22px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 600;
+}
+
+.flood-exp-skip-button:hover {
+    background: rgba(255, 0, 0, 0.6);
+    border-color: #ff0000;
+}
+
+@media (min-width: 769px) {
+    .flood-exp-skip-button {
+        top: 25px;
+        right: 25px;
+    }
+    .flood-exp-skip-button:hover {
+        background: rgba(255, 0, 0, 0.7);
+        border-color: #ff0000;
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+    }
+}
+
+@media (max-width: 768px) {
+    .flood-exp-skip-button {
+        bottom: 30px; /* Positioned for thumb reach */
+        left: 20px;
+        padding: 12px 20px; /* Slightly larger hit area for touch */
+    }
+}
+
+/* Ensure no conflicts with global layout */
+.home-page {
+    position: relative;
+    width: 100%;
+}
+
+@keyframes flood-exp-pulse {
+    0%, 100% { opacity: 0.2; background: rgba(0, 0, 0, 0); }
+    50% { opacity: 0.8; background: rgba(255, 0, 0, 0.1); }
+}
