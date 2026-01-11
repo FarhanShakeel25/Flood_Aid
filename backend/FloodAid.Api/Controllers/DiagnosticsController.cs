@@ -146,7 +146,9 @@ namespace FloodAid.Api.Controllers
                     email = admin.Email,
                     oldHashPrefix,
                     newHashPrefix = newHash.Substring(0, 20),
-                    role = admin.Role
+                    newHashFull = newHash, // TEMPORARY: Return full hash to copy to appsettings.json
+                    role = admin.Role,
+                    instructions = "Copy newHashFull to appsettings.json AdminCredentials.PasswordHash"
                 });
             }
             catch (Exception ex)
