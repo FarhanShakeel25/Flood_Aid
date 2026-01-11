@@ -1,57 +1,58 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import '../styles/Experience.css';
 
+// Importing from assets as requested
+import floodVideoMP4 from '../assets/Flood_Vid.webm'; 
+import posterImg from '../assets/poster.jpg';
+
 const Experience = ({ onComplete }) => {
+    const videoRef = useRef(null);
     const [videoReady, setVideoReady] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
 
     useEffect(() => {
-        // Prevent scroll
         document.body.style.overflow = 'hidden';
 
-        // SAFETY: If the video hasn't loaded in 5 seconds, just show the skip button/header anyway
-        const safetyTimer = setTimeout(() => {
-            setVideoReady(true);
-        }, 5000);
-
-        // Auto-end after video duration
+        // Timer for the 26.7s duration
         const exitTimer = setTimeout(() => {
             handleStartExit();
         }, 26700);
 
-        const handleGlobalClick = () => {
-            const vid = document.getElementById('flood-video-player');
-            if (vid) {
-                vid.muted = false;
-                vid.play().catch(() => {});
+        // Click handler to enable audio
+        const handleUserClick = () => {
+            if (videoRef.current) {
+                videoRef.current.muted = false;
+                videoRef.current.play().catch(() => {});
             }
         };
-
-        window.addEventListener('click', handleGlobalClick, { once: true });
+        window.addEventListener('click', handleUserClick, { once: true });
 
         return () => {
-            clearTimeout(safetyTimer);
             clearTimeout(exitTimer);
-            window.removeEventListener('click', handleGlobalClick);
+            window.removeEventListener('click', handleUserClick);
             document.body.style.overflow = 'auto';
         };
     }, []);
 
     const handleStartExit = () => {
-        setIsExiting(true);
-        // Trigger the home page load after the 1s fade-out
-        setTimeout(onComplete, 1000); 
+        setIsExiting(true); // Triggers CSS Fade-out
+        setTimeout(() => {
+            terminateExperience();
+        }, 1000); // 1 second delay for cinematic effect
+    };
+
+    const terminateExperience = () => {
+        if (videoRef.current) {
+            videoRef.current.pause();
+            videoRef.current.src = ""; 
+        }
+        onComplete();
     };
 
     return (
         <div className={`flood-exp-stage ${isExiting ? 'exit-active' : ''}`}>
-            {/* UI Overlay */}
-            <div style={{ 
-                opacity: videoReady && !isExiting ? 1 : 0, 
-                transition: 'opacity 0.8s ease',
-                pointerEvents: isExiting ? 'none' : 'auto',
-                zIndex: 10
-            }}>
+            {/* UI Layer: Fades out when exiting */}
+            <div style={{ opacity: videoReady && !isExiting ? 1 : 0, transition: 'opacity 0.8s ease' }}>
                 <div className="flood-exp-header">
                     <h2>Flood Experience</h2>
                 </div>
@@ -65,20 +66,17 @@ const Experience = ({ onComplete }) => {
             
             <div className="flood-exp-video-wrapper">
                 <video 
-                    id="flood-video-player"
+                    ref={videoRef}
                     autoPlay 
                     muted 
                     playsInline 
                     loop 
                     preload="auto"
-                    /* If poster.jpg is in public, use /poster.jpg */
-                    poster="/poster.jpg" 
+                    poster={posterImg} // Using the imported asset
                     onLoadedData={() => setVideoReady(true)}
                     className="flood-exp-video-content"
                 >
-                    {/* These MUST be in your 'public' folder */}
-                    <source src="/Flood_Vid.webm" type="video/webm" />
-                    <source src="/Flood_Vid.mp4" type="video/mp4" />
+                    <source src={floodVideoMP4} type="video/mp4" />
                 </video>
             </div>
         </div>
