@@ -49,6 +49,11 @@ namespace FloodAid.Api.Controllers
             {
                 if (admin.Role != "SuperAdmin")
                     return Forbid(); // Only SuperAdmin can invite ProvinceAdmins
+                
+                if (!dto.ProvinceId.HasValue)
+                {
+                    return BadRequest(new { message = "ProvinceId is required for ProvinceAdmin invitations" });
+                }
             }
 
             // Only ProvinceAdmin can invite Volunteer (not SuperAdmin directly inviting Volunteers)
@@ -56,22 +61,13 @@ namespace FloodAid.Api.Controllers
             {
                 if (admin.Role != "ProvinceAdmin")
                     return Forbid(); // Only ProvinceAdmin can invite Volunteers
-            }
-
-            // Validate scope assignments
-            if (dto.Role == UserRole.ProvinceAdmin && !dto.ProvinceId.HasValue)
-            {
-                return BadRequest(new { message = "ProvinceId is required for ProvinceAdmin invitations" });
-            }
-
-            if (dto.Role == UserRole.Volunteer && !dto.CityId.HasValue)
-            {
-                return BadRequest(new { message = "CityId is required for Volunteer invitations" });
-            }
-
-            // For ProvinceAdmin creating Volunteer: ensure city is within their province
-            if (admin.Role == "ProvinceAdmin" && dto.Role == UserRole.Volunteer)
-            {
+                
+                if (!dto.CityId.HasValue)
+                {
+                    return BadRequest(new { message = "CityId is required for Volunteer invitations" });
+                }
+                
+                // Ensure city is within ProvinceAdmin's province
                 var city = await _context.Cities.FindAsync(dto.CityId);
                 if (city == null || city.ProvinceId != admin.ProvinceId)
                 {
@@ -251,8 +247,10 @@ namespace FloodAid.Api.Controllers
                 return BadRequest(new { message = "Invitation has expired" });
             }
 
+            // Mark invitation as accepted immediately and save
             invitation.Status = InvitationStatus.Accepted;
             invitation.AcceptedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
 
             // Determine if this is an admin invitation or volunteer invitation
             var invitationRole = (UserRole)invitation.Role;

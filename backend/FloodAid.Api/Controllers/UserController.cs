@@ -3,11 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FloodAid.Api.Controllers
 {
     [ApiController]
     [Route("api/users")]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly FloodAidContext _context;
@@ -23,7 +25,7 @@ namespace FloodAid.Api.Controllers
         /// Register as a donor (public endpoint) - Volunteers must be invited
         /// </summary>
         [HttpPost("register")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [AllowAnonymous]
         public async Task<ActionResult<UserResponseDto>> RegisterUser([FromBody] CreateUserDto dto)
         {
             try
@@ -87,7 +89,7 @@ namespace FloodAid.Api.Controllers
         /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only
         /// </summary>
         [HttpGet]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<object>> GetAllUsers(
             [FromQuery] int? status = null,
             [FromQuery] int? role = null,
@@ -159,7 +161,7 @@ namespace FloodAid.Api.Controllers
         /// Get a specific user by ID
         /// </summary>
         [HttpGet("{id}")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<UserResponseDto>> GetUser(int id)
         {
             try
@@ -169,6 +171,20 @@ namespace FloodAid.Api.Controllers
                 if (user == null)
                 {
                     return NotFound(new { message = "User not found" });
+                }
+
+                // Scope check for ProvinceAdmin
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        if (user.ProvinceId != admin.ProvinceId)
+                        {
+                            return Forbid();
+                        }
+                    }
                 }
 
                 return Ok(MapToResponseDto(user));
@@ -184,7 +200,7 @@ namespace FloodAid.Api.Controllers
         /// Update user status (approve or reject) - admin only
         /// </summary>
         [HttpPut("{id}/status")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<UserResponseDto>> UpdateUserStatus(int id, [FromBody] UpdateUserStatusDto dto)
         {
             try
@@ -194,6 +210,20 @@ namespace FloodAid.Api.Controllers
                 if (user == null)
                 {
                     return NotFound(new { message = "User not found" });
+                }
+
+                // Scope check for ProvinceAdmin
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        if (user.ProvinceId != admin.ProvinceId)
+                        {
+                            return Forbid();
+                        }
+                    }
                 }
 
                 if (dto.Status < 0 || dto.Status > 2)
@@ -237,7 +267,7 @@ namespace FloodAid.Api.Controllers
         /// Delete a user (admin only)
         /// </summary>
         [HttpDelete("{id}")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult> DeleteUser(int id)
         {
             try
@@ -247,6 +277,20 @@ namespace FloodAid.Api.Controllers
                 if (user == null)
                 {
                     return NotFound(new { message = "User not found" });
+                }
+
+                // Scope check for ProvinceAdmin
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        if (user.ProvinceId != admin.ProvinceId)
+                        {
+                            return Forbid();
+                        }
+                    }
                 }
 
                 _context.Users.Remove(user);
@@ -267,12 +311,23 @@ namespace FloodAid.Api.Controllers
         /// Get user statistics (admin dashboard)
         /// </summary>
         [HttpGet("stats/summary")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<object>> GetUserStats()
         {
             try
             {
                 var query = _context.Users.AsNoTracking();
+
+                // Apply scope for ProvinceAdmin
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        query = query.Where(u => u.ProvinceId == admin.ProvinceId);
+                    }
+                }
 
                 var total = await query.CountAsync();
                 var pending = await query.CountAsync(u => u.Status == 0);
