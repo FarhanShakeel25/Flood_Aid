@@ -91,6 +91,7 @@ namespace FloodAid.Api.Controllers
                         a.Role,
                         a.IsActive,
                         a.ProvinceId,
+                        ProvinceName = a.Province != null ? a.Province.Name : null,
                         PasswordHashPrefix = a.PasswordHash.Substring(0, Math.Min(20, a.PasswordHash.Length)),
                         a.CreatedAt,
                         a.LastLoginAt
@@ -147,6 +148,54 @@ namespace FloodAid.Api.Controllers
                     oldHashPrefix,
                     newHashPrefix = newHash.Substring(0, 20),
                     role = admin.Role
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { error = ex.Message, stackTrace = ex.StackTrace });
+            }
+        }
+
+        [HttpGet("province-scope-check")]
+        public async Task<IActionResult> CheckProvinceScope()
+        {
+            try
+            {
+                var provinces = await _context.Provinces
+                    .Select(p => new { p.Id, p.Name })
+                    .ToListAsync();
+
+                var admins = await _context.Admins
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Email,
+                        a.Role,
+                        a.ProvinceId,
+                        ProvinceName = a.Province != null ? a.Province.Name : null
+                    })
+                    .ToListAsync();
+
+                var helpRequestStats = await _context.HelpRequests
+                    .GroupBy(h => h.ProvinceId)
+                    .Select(g => new
+                    {
+                        ProvinceId = g.Key,
+                        Count = g.Count()
+                    })
+                    .ToListAsync();
+
+                var requestsWithoutProvince = await _context.HelpRequests
+                    .Where(h => h.ProvinceId == null)
+                    .CountAsync();
+
+                return Ok(new
+                {
+                    provinces,
+                    admins,
+                    helpRequestStats,
+                    requestsWithoutProvince,
+                    totalRequests = await _context.HelpRequests.CountAsync()
                 });
             }
             catch (Exception ex)

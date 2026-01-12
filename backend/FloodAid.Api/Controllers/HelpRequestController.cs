@@ -5,6 +5,7 @@ using FloodAid.Api.Models;
 using FloodAid.Api.Enums;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace FloodAid.Api.Controllers
 {
@@ -14,11 +15,13 @@ namespace FloodAid.Api.Controllers
     {
         private readonly FloodAidContext _context;
         private readonly ILogger<HelpRequestController> _logger;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public HelpRequestController(FloodAidContext context, ILogger<HelpRequestController> logger)
+        public HelpRequestController(FloodAidContext context, ILogger<HelpRequestController> logger, IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         /// <summary>
@@ -48,6 +51,12 @@ namespace FloodAid.Api.Controllers
                     return BadRequest(new { message = "Invalid request type" });
                 }
 
+                int? provinceId = dto.ProvinceId;
+                if (!provinceId.HasValue)
+                {
+                    provinceId = await ResolveProvinceIdAsync(dto.Latitude, dto.Longitude);
+                }
+
                 var helpRequest = new HelpRequest
                 {
                     RequestorName = dto.RequestorName ?? "Anonymous",
@@ -58,6 +67,7 @@ namespace FloodAid.Api.Controllers
                     RequestDescription = dto.RequestDescription,
                     Latitude = dto.Latitude,
                     Longitude = dto.Longitude,
+                    ProvinceId = provinceId,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -73,6 +83,71 @@ namespace FloodAid.Api.Controllers
             {
                 _logger.LogError(ex, "❌ Error creating help request");
                 return StatusCode(500, new { message = "Error creating help request", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Resolve province id from latitude/longitude via Nominatim reverse geocoding.
+        /// </summary>
+        private async Task<int?> ResolveProvinceIdAsync(double latitude, double longitude)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "FloodAid/1.0 (support@floodaid.local)");
+
+                var url = $"https://nominatim.openstreetmap.org/reverse?format=json&lat={latitude}&lon={longitude}&zoom=5&addressdetails=1";
+                var response = await client.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Reverse geocode failed with status {Status}", response.StatusCode);
+                    return null;
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                if (!doc.RootElement.TryGetProperty("address", out var address))
+                {
+                    return null;
+                }
+
+                string? state = null;
+                if (address.TryGetProperty("state", out var stateProp))
+                {
+                    state = stateProp.GetString();
+                }
+                else if (address.TryGetProperty("region", out var regionProp))
+                {
+                    state = regionProp.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(state))
+                {
+                    return null;
+                }
+
+                // Normalize common province names/aliases
+                state = state.Trim();
+                var normalized = state.ToLowerInvariant();
+                string canonical = normalized switch
+                {
+                    var s when s.Contains("punjab") => "Punjab",
+                    var s when s.Contains("sindh") => "Sindh",
+                    var s when s.Contains("khyber") || s.Contains("kpk") || s.Contains("pakhtunkhwa") => "Khyber Pakhtunkhwa",
+                    var s when s.Contains("baloch") => "Balochistan",
+                    var s when s.Contains("gilgit") => "Gilgit-Baltistan",
+                    var s when s.Contains("kashmir") || s.Contains("azad") => "Azad Kashmir",
+                    var s when s.Contains("islamabad") => "Islamabad Capital Territory",
+                    _ => state
+                };
+
+                var province = await _context.Provinces.FirstOrDefaultAsync(p => p.Name.ToLower() == canonical.ToLower());
+                return province?.Id;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Reverse geocode failed for lat {Lat}, lon {Lon}", latitude, longitude);
+                return null;
             }
         }
 
@@ -382,6 +457,7 @@ namespace FloodAid.Api.Controllers
         public required string RequestDescription { get; set; }
         public required double Latitude { get; set; }
         public required double Longitude { get; set; }
+        public int? ProvinceId { get; set; } // optional client-provided province
     }
 
     /// <summary>

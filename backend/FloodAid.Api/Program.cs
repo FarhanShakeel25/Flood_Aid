@@ -200,6 +200,9 @@ namespace FloodAid.Api
             // Seed provinces and cities from CSV
             await SeedData.SeedProvincesAndCitiesAsync(context, loggerFactory.CreateLogger("DatabaseInit"));
             
+            // Backfill ProvinceId for existing HelpRequests with null ProvinceId
+            await BackfillHelpRequestProvincesAsync(context, logger);
+            
             // Create or update admin from configuration (no deletion; safe updates only)
             var adminConfig = configuration.GetSection("AdminCredentials");
             if (adminConfig.Exists() &&
@@ -637,6 +640,101 @@ namespace FloodAid.Api
             {
                 await connection.CloseAsync();
             }
+        }
+
+        static async Task BackfillHelpRequestProvincesAsync(FloodAidContext context, ILogger logger)
+        {
+            try
+            {
+                // Find help requests with coordinates but no ProvinceId
+                var requestsWithoutProvince = await context.HelpRequests
+                    .Where(h => h.ProvinceId == null && h.Latitude != 0 && h.Longitude != 0)
+                    .ToListAsync();
+
+                if (!requestsWithoutProvince.Any())
+                {
+                    logger.LogInformation("All help requests already have ProvinceId assigned.");
+                    return;
+                }
+
+                logger.LogInformation("Found {Count} help requests without ProvinceId. Attempting to backfill...", requestsWithoutProvince.Count);
+
+                // Load all provinces with cities for coordinate-based matching
+                var provinces = await context.Provinces.Include(p => p.Cities).ToListAsync();
+                var cities = await context.Cities.Include(c => c.Province).ToListAsync();
+
+                int updated = 0;
+                foreach (var request in requestsWithoutProvince)
+                {
+                    // Simple heuristic: Find nearest city by name match or coordinate proximity
+                    // For Pakistan, we can use rough bounding boxes or nearest-city lookup
+                    var provinceId = await InferProvinceFromCoordinatesAsync(request.Latitude, request.Longitude, provinces, logger);
+                    
+                    if (provinceId.HasValue)
+                    {
+                        request.ProvinceId = provinceId.Value;
+                        updated++;
+                    }
+                }
+
+                if (updated > 0)
+                {
+                    await context.SaveChangesAsync();
+                    logger.LogInformation("Backfilled ProvinceId for {Updated} help requests.", updated);
+                }
+                else
+                {
+                    logger.LogWarning("Could not infer province for any requests. They will remain unscoped.");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error backfilling help request provinces");
+            }
+        }
+
+        static async Task<int?> InferProvinceFromCoordinatesAsync(double latitude, double longitude, List<Province> provinces, ILogger logger)
+        {
+            // Pakistan approximate bounding boxes for provinces (rough estimates)
+            // Punjab: ~27-35N, 69-76E
+            // Sindh: ~23-29N, 66-72E
+            // KPK: ~33-37N, 69-74E
+            // Balochistan: ~24-32N, 60-72E
+            // Gilgit-Baltistan: ~35-37N, 72-78E
+            // Azad Kashmir: ~33-35N, 73-75E
+            // Islamabad: ~33.5-33.8N, 72.8-73.2E
+
+            if (latitude >= 33.5 && latitude <= 33.8 && longitude >= 72.8 && longitude <= 73.2)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Islamabad"))?.Id;
+            }
+            if (latitude >= 35 && latitude <= 37 && longitude >= 72 && longitude <= 78)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Gilgit"))?.Id;
+            }
+            if (latitude >= 33 && latitude <= 37 && longitude >= 69 && longitude <= 74)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Khyber") || p.Name.Contains("KPK"))?.Id;
+            }
+            if (latitude >= 33 && latitude <= 35 && longitude >= 73 && longitude <= 75)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Kashmir") || p.Name.Contains("Azad"))?.Id;
+            }
+            if (latitude >= 27 && latitude <= 35 && longitude >= 69 && longitude <= 76)
+            {
+                return provinces.FirstOrDefault(p => p.Name == "Punjab")?.Id;
+            }
+            if (latitude >= 23 && latitude <= 29 && longitude >= 66 && longitude <= 72)
+            {
+                return provinces.FirstOrDefault(p => p.Name == "Sindh")?.Id;
+            }
+            if (latitude >= 24 && latitude <= 32 && longitude >= 60 && longitude <= 72)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Baloch"))?.Id;
+            }
+
+            logger.LogWarning("Could not infer province for coordinates ({Lat}, {Lon})", latitude, longitude);
+            return null;
         }
     }
 }
