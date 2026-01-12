@@ -193,22 +193,32 @@ namespace FloodAid.Api.Controllers
                         : endDate.Value.ToUniversalTime();
                 }
 
-                var query = _context.HelpRequests.AsNoTracking().AsQueryable();
-
-                // Apply role-based scoping for admin users
+                // Apply role-based scoping for admin users BEFORE building query
                 var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                int? scopedProvinceId = null;
+                string? adminRole = null;
+                
                 if (!string.IsNullOrEmpty(adminEmail))
                 {
                     var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
                     if (admin != null)
                     {
+                        adminRole = admin.Role;
                         if (admin.Role == "ProvinceAdmin")
                         {
-                            // ProvinceAdmin can only see requests in their province
-                            query = query.Where(h => h.ProvinceId == admin.ProvinceId);
+                            scopedProvinceId = admin.ProvinceId;
+                            _logger.LogInformation("ProvinceAdmin {Email} scoped to ProvinceId={ProvinceId}", adminEmail, scopedProvinceId);
                         }
-                        // SuperAdmin sees all (no filter)
                     }
+                }
+
+                var query = _context.HelpRequests.AsNoTracking().AsQueryable();
+
+                // Apply province scope filter
+                if (scopedProvinceId.HasValue)
+                {
+                    query = query.Where(h => h.ProvinceId == scopedProvinceId.Value);
+                    _logger.LogInformation("Applied province filter: ProvinceId={ProvinceId}", scopedProvinceId.Value);
                 }
 
                 if (requestType.HasValue)
@@ -303,6 +313,21 @@ namespace FloodAid.Api.Controllers
                 if (request == null)
                 {
                     return NotFound(new { message = "Help request not found" });
+                }
+
+                // Apply scoping - ProvinceAdmin can only update requests in their province
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        if (request.ProvinceId != admin.ProvinceId)
+                        {
+                            _logger.LogWarning("ProvinceAdmin {Email} attempted to update request {RequestId} outside their province", adminEmail, id);
+                            return Forbid();
+                        }
+                    }
                 }
 
                 // Validate status

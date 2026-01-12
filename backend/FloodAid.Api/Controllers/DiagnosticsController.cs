@@ -203,5 +203,55 @@ namespace FloodAid.Api.Controllers
                 return Ok(new { error = ex.Message, stackTrace = ex.StackTrace });
             }
         }
+
+        [HttpGet("test-scope")]
+        public async Task<IActionResult> TestScope([FromQuery] string email)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    return BadRequest(new { error = "Email parameter is required" });
+                }
+
+                var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == email);
+                if (admin == null)
+                {
+                    return NotFound(new { error = $"Admin with email {email} not found" });
+                }
+
+                // Simulate the scoping logic
+                var allRequests = await _context.HelpRequests.Select(r => new
+                {
+                    r.Id,
+                    r.ProvinceId,
+                    r.RequestorName,
+                    r.Status
+                }).ToListAsync();
+
+                var scopedRequests = admin.Role == "ProvinceAdmin"
+                    ? allRequests.Where(r => r.ProvinceId == admin.ProvinceId).ToList()
+                    : allRequests;
+
+                return Ok(new
+                {
+                    admin = new
+                    {
+                        admin.Email,
+                        admin.Role,
+                        admin.ProvinceId,
+                        ProvinceName = (await _context.Provinces.FindAsync(admin.ProvinceId))?.Name
+                    },
+                    allRequestsCount = allRequests.Count,
+                    scopedRequestsCount = scopedRequests.Count(),
+                    allRequests,
+                    scopedRequests
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { error = ex.Message, stackTrace = ex.StackTrace });
+            }
+        }
     }
 }
