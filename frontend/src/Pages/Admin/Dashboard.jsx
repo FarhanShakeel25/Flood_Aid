@@ -40,7 +40,12 @@ const AdminDashboard = () => {
         const fetchStats = async () => {
             try {
                 setLoadingStats(true);
-                const res = await fetch(`${API_BASE}/api/helpRequest/stats`);
+                const token = localStorage.getItem('floodaid_token');
+                const res = await fetch(`${API_BASE}/api/helpRequest/stats`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 if (!res.ok) {
                     throw new Error('Failed to load request stats');
                 }

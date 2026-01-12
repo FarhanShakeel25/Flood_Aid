@@ -75,6 +75,7 @@ const AdminRequests = () => {
                     updatedAt: req.updatedAt,
                     latitude: req.latitude,
                     longitude: req.longitude,
+                    provinceId: req.provinceId,
                 }));
 
                 setRequests(mappedRequests);
@@ -219,7 +220,7 @@ const AdminRequests = () => {
                     boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
                 }}>
                         <Shield size={20} />
-                        <span>Viewing: {admin?.role === 'ProvinceAdmin' ? 'Your Province' : 'All Requests'}</span>
+                        <span>Viewing: {admin?.role === 'ProvinceAdmin' ? admin?.provinceName || 'Your Province' : 'All Requests'}</span>
                     <span style={{ 
                         marginLeft: '0.5rem',
                         padding: '0.25rem 0.75rem',

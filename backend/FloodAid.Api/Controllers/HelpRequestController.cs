@@ -406,14 +406,27 @@ namespace FloodAid.Api.Controllers
 
         /// <summary>
         /// Get aggregate counts for dashboard cards
+        /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only
         /// </summary>
         [HttpGet("stats")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<object>> GetHelpRequestStats()
         {
             try
             {
                 var query = _context.HelpRequests.AsNoTracking();
+
+                // Apply province scope for ProvinceAdmin
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        query = query.Where(h => h.ProvinceId == admin.ProvinceId);
+                        _logger.LogInformation("Stats scoped to ProvinceId={ProvinceId} for {Email}", admin.ProvinceId, adminEmail);
+                    }
+                }
 
                 var total = await query.CountAsync();
                 var pending = await query.CountAsync(r => r.Status == RequestStatus.Pending);
