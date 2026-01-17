@@ -540,6 +540,209 @@ namespace FloodAid.Api.Controllers
                 return StatusCode(500, new { message = "Error deleting help request", error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Assign a help request to a volunteer (SuperAdmin/ProvinceAdmin only)
+        /// </summary>
+        [HttpPost("{id}/assign")]
+        [Authorize]
+        public async Task<ActionResult> AssignHelpRequest(int id, [FromBody] AssignHelpRequestDto dto)
+        {
+            try
+            {
+                var adminEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+                var adminRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+                if (adminRole != "SuperAdmin" && adminRole != "ProvinceAdmin")
+                {
+                    return Forbid("Only admins can assign help requests");
+                }
+
+                var request = await _context.HelpRequests
+                    .FirstOrDefaultAsync(r => r.Id == id);
+
+                if (request == null)
+                {
+                    return NotFound(new { message = "Help request not found" });
+                }
+
+                // Verify volunteer exists
+                var volunteer = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == dto.VolunteerId);
+
+                if (volunteer == null)
+                {
+                    return BadRequest(new { message = "Volunteer not found" });
+                }
+
+                // ProvinceAdmin can only assign volunteers from their province
+                if (adminRole == "ProvinceAdmin")
+                {
+                    var adminProvinceId = User.FindFirst("ProvinceId") != null 
+                        ? int.Parse(User.FindFirst("ProvinceId").Value)
+                        : 0;
+
+                    // Verify request is in admin's province
+                    if (request.ProvinceId != adminProvinceId)
+                    {
+                        return Forbid("ProvinceAdmins can only assign requests in their province");
+                    }
+
+                    // Verify volunteer is in admin's province
+                    if (volunteer.ProvinceId != adminProvinceId)
+                    {
+                        return BadRequest(new { message = "Volunteer is not in your province" });
+                    }
+                }
+
+                // Perform assignment
+                request.AssignedToVolunteerId = dto.VolunteerId;
+                request.AssignmentStatus = AssignmentStatus.Assigned;
+                request.AssignedAt = DateTime.UtcNow;
+                request.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("✅ Help request {RequestId} assigned to volunteer {VolunteerId} by {Email}", id, dto.VolunteerId, adminEmail);
+
+                return Ok(new { message = "Help request assigned successfully", assignmentStatus = "Assigned" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("❌ Error assigning request {RequestId}: {Error}", id, ex.Message);
+                return StatusCode(500, new { message = "Error assigning help request", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Unassign a help request from volunteer (SuperAdmin/ProvinceAdmin only, or self-unassign by volunteer)
+        /// </summary>
+        [HttpPost("{id}/unassign")]
+        [Authorize]
+        public async Task<ActionResult> UnassignHelpRequest(int id, [FromBody] UnassignHelpRequestDto dto)
+        {
+            try
+            {
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                var userId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id_parse) ? id_parse : 0;
+
+                var request = await _context.HelpRequests
+                    .FirstOrDefaultAsync(r => r.Id == id);
+
+                if (request == null)
+                {
+                    return NotFound(new { message = "Help request not found" });
+                }
+
+                // Only admins can force unassign, or the assigned volunteer can unassign themselves
+                if (userRole != "SuperAdmin" && userRole != "ProvinceAdmin" && request.AssignedToVolunteerId != userId)
+                {
+                    return Forbid("You cannot unassign this request");
+                }
+
+                // ProvinceAdmin can only unassign their province's requests
+                if (userRole == "ProvinceAdmin")
+                {
+                    var adminProvinceId = User.FindFirst("ProvinceId") != null 
+                        ? int.Parse(User.FindFirst("ProvinceId").Value)
+                        : 0;
+
+                    if (request.ProvinceId != adminProvinceId)
+                    {
+                        return Forbid("ProvinceAdmins can only unassign requests in their province");
+                    }
+                }
+
+                request.AssignedToVolunteerId = null;
+                request.AssignmentStatus = AssignmentStatus.Unassigned;
+                request.AssignedAt = null;
+                request.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("✅ Help request {RequestId} unassigned by {Email} (Reason: {Reason})", id, userEmail, dto.Reason ?? "None");
+
+                return Ok(new { message = "Help request unassigned successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("❌ Error unassigning request {RequestId}: {Error}", id, ex.Message);
+                return StatusCode(500, new { message = "Error unassigning help request", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Update assignment status (InProgress, Completed, Cancelled by assigned volunteer)
+        /// </summary>
+        [HttpPut("{id}/assignment-status")]
+        [Authorize]
+        public async Task<ActionResult> UpdateAssignmentStatus(int id, [FromBody] UpdateAssignmentStatusDto dto)
+        {
+            try
+            {
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+                var userId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id_parse) ? id_parse : 0;
+
+                var request = await _context.HelpRequests
+                    .FirstOrDefaultAsync(r => r.Id == id);
+
+                if (request == null)
+                {
+                    return NotFound(new { message = "Help request not found" });
+                }
+
+                // Only assigned volunteer can update status
+                if (request.AssignedToVolunteerId != userId)
+                {
+                    return Forbid("Only the assigned volunteer can update status");
+                }
+
+                // Validate status transition
+                if (!Enum.IsDefined(typeof(AssignmentStatus), dto.Status))
+                {
+                    return BadRequest(new { message = "Invalid assignment status" });
+                }
+
+                request.AssignmentStatus = (AssignmentStatus)dto.Status;
+                request.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("✅ Help request {RequestId} status updated to {Status} by volunteer {Email}", id, request.AssignmentStatus, userEmail);
+
+                return Ok(new { message = "Assignment status updated successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("❌ Error updating assignment status {RequestId}: {Error}", id, ex.Message);
+                return StatusCode(500, new { message = "Error updating assignment status", error = ex.Message });
+            }
+        }
+    }
+
+    /// <summary>
+    /// DTO for assigning a help request
+    /// </summary>
+    public class AssignHelpRequestDto
+    {
+        public required int VolunteerId { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for unassigning a help request
+    /// </summary>
+    public class UnassignHelpRequestDto
+    {
+        public string? Reason { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for updating assignment status
+    /// </summary>
+    public class UpdateAssignmentStatusDto
+    {
+        public int Status { get; set; } // AssignmentStatus enum value
     }
 
     /// <summary>

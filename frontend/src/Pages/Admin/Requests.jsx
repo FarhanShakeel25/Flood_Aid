@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, AlertTriangle, CheckCircle, XCircle, Filter, Eye, ChevronLeft, ChevronRight, Shield, Building2 } from 'lucide-react';
+import { Search, MapPin, AlertTriangle, CheckCircle, XCircle, Filter, Eye, ChevronLeft, ChevronRight, Shield, Building2, User, X as XIcon } from 'lucide-react';
 import '../../styles/AdminTables.css';
 import RequestDetailModal from './RequestDetailModal';
 import { API_BASE } from '../../config/apiBase';
@@ -21,6 +21,11 @@ const AdminRequests = () => {
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [showModal, setShowModal] = useState(false);
+    const [volunteers, setVolunteers] = useState([]);
+    const [loadingVolunteers, setLoadingVolunteers] = useState(false);
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [assigningRequestId, setAssigningRequestId] = useState(null);
+    const [selectedVolunteer, setSelectedVolunteer] = useState(null);
 
     useEffect(() => {
         const fetchRequests = async () => {
@@ -121,6 +126,80 @@ const AdminRequests = () => {
         if (requestType === 'MedicalSuppliesRequired') return 'High';
         if (requestType === 'EmergencyCase') return 'High';
         return 'Medium';
+    };
+
+    const fetchVolunteers = async () => {
+        try {
+            setLoadingVolunteers(true);
+            const params = new URLSearchParams();
+            params.append('pageSize', 100); // get first 100 volunteers
+
+            const token = localStorage.getItem('floodaid_token');
+            const response = await fetch(`${API_BASE}/api/users?${params.toString()}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch volunteers');
+            }
+
+            const result = await response.json();
+            setVolunteers(result.data || []);
+        } catch (err) {
+            console.error('Error fetching volunteers:', err);
+        } finally {
+            setLoadingVolunteers(false);
+        }
+    };
+
+    const handleAssignClick = (requestId, e) => {
+        e.stopPropagation();
+        setAssigningRequestId(requestId);
+        setShowAssignModal(true);
+        if (volunteers.length === 0) {
+            fetchVolunteers();
+        }
+    };
+
+    const handleConfirmAssignment = async () => {
+        if (!selectedVolunteer || !assigningRequestId) return;
+
+        try {
+            const token = localStorage.getItem('floodaid_token');
+            const response = await fetch(
+                `${API_BASE}/api/helpRequest/${assigningRequestId}/assign`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ volunteerId: selectedVolunteer.id })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to assign request');
+            }
+
+            // Update the request in the UI
+            setRequests(prevRequests =>
+                prevRequests.map(r =>
+                    r.id === assigningRequestId
+                        ? { ...r, assignedTo: selectedVolunteer.name, assignmentStatus: 'Assigned' }
+                        : r
+                )
+            );
+
+            setShowAssignModal(false);
+            setSelectedVolunteer(null);
+            setAssigningRequestId(null);
+            alert('Request assigned successfully!');
+        } catch (err) {
+            alert(`Error assigning request: ${err.message}`);
+        }
     };
 
     // Map status string to integer for API
@@ -298,6 +377,7 @@ const AdminRequests = () => {
                                 <th>Location</th>
                                 <th>Priority</th>
                                 <th>Reported By</th>
+                                <th>Assigned To</th>
                                 <th>Status</th>
                                 <th style={{ textAlign: 'right' }}>Actions</th>
                             </tr>
@@ -333,6 +413,32 @@ const AdminRequests = () => {
                                         </span>
                                     </td>
                                     <td>{r.reportedBy}</td>
+                                    <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            {r.assignedTo ? (
+                                                <span style={{ fontSize: '0.875rem', color: '#0f172a', fontWeight: 500 }}>
+                                                    {r.assignedTo}
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    onClick={(e) => handleAssignClick(r.id, e)}
+                                                    style={{
+                                                        padding: '0.4rem 0.8rem',
+                                                        background: '#4f46e5',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        fontSize: '0.85rem',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <User size={14} style={{ display: 'inline', marginRight: '0.3rem' }} />
+                                                    Assign
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td>
                                         <span className={`badge ${r.status === 'Fulfilled' ? 'badge-green' : r.status === 'Cancelled' ? 'badge-red' : r.status === 'InProgress' ? 'badge-orange' : 'badge-blue'
                                             }`}>
@@ -423,6 +529,106 @@ const AdminRequests = () => {
                     onClose={handleCloseModal}
                     onStatusUpdate={(status) => handleStatusUpdate(selectedRequest.id, status)}
                 />
+            )}
+
+            {/* Assignment Modal */}
+            {showAssignModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '2rem',
+                        width: '90%',
+                        maxWidth: '500px',
+                        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>Assign Request</h2>
+                            <button
+                                onClick={() => { setShowAssignModal(false); setSelectedVolunteer(null); }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                            >
+                                <XIcon size={24} />
+                            </button>
+                        </div>
+
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.75rem' }}>
+                                Select Volunteer
+                            </label>
+                            {loadingVolunteers ? (
+                                <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>
+                                    Loading volunteers...
+                                </div>
+                            ) : (
+                                <select
+                                    value={selectedVolunteer?.id || ''}
+                                    onChange={(e) => {
+                                        const vol = volunteers.find(v => v.id === parseInt(e.target.value));
+                                        setSelectedVolunteer(vol);
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '8px',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    <option value="">-- Select a volunteer --</option>
+                                    {volunteers.filter(v => v.role === 'Volunteer').map(v => (
+                                        <option key={v.id} value={v.id}>
+                                            {v.name} ({v.email})
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => { setShowAssignModal(false); setSelectedVolunteer(null); }}
+                                style={{
+                                    padding: '0.75rem 1.5rem',
+                                    background: '#f1f5f9',
+                                    color: '#475569',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmAssignment}
+                                disabled={!selectedVolunteer}
+                                style={{
+                                    padding: '0.75rem 1.5rem',
+                                    background: selectedVolunteer ? '#4f46e5' : '#cbd5e1',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontWeight: 600,
+                                    cursor: selectedVolunteer ? 'pointer' : 'not-allowed'
+                                }}
+                            >
+                                Assign
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

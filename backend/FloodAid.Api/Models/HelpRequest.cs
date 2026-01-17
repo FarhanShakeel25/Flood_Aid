@@ -44,5 +44,22 @@ namespace FloodAid.Api.Models
 
         [Required]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Assignment status: Unassigned, Assigned, InProgress, Completed, Cancelled
+        /// </summary>
+        [Required]
+        public AssignmentStatus AssignmentStatus { get; set; } = AssignmentStatus.Unassigned;
+
+        /// <summary>
+        /// FK to User (Volunteer) assigned to handle this request
+        /// </summary>
+        public int? AssignedToVolunteerId { get; set; }
+        public User? AssignedToVolunteer { get; set; }
+
+        /// <summary>
+        /// Timestamp when assignment was made
+        /// </summary>
+        public DateTime? AssignedAt { get; set; }
     }
 }
