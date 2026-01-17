@@ -180,7 +180,7 @@ namespace FloodAid.Api.Controllers
         /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only, Volunteer sees their city only
         /// </summary>
         [HttpGet]
-        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
+        [Authorize]
         public async Task<ActionResult<object>> GetAllHelpRequests(
             [FromQuery] int? requestType = null,
             [FromQuery] RequestStatus? status = null,

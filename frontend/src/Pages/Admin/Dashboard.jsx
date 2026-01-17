@@ -114,7 +114,7 @@ const AdminDashboard = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-slate-400">{admin.Role === 'SuperAdmin' ? 'All Requests Metrics' : `${admin.ProvinceName} Province Metrics`}</p>
+        <p className="text-slate-400">{admin.Role === 'SuperAdmin' ? 'All Requests Metrics' : `${admin.ProvinceName || admin.provinceName || 'All Regions'} Province Metrics`}</p>
       </div>
 
       {/* Key Metrics Cards */}
@@ -122,21 +122,21 @@ const AdminDashboard = () => {
         {/* Total Requests */}
         <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-6 hover:border-slate-700 transition">
           <p className="text-slate-400 text-sm mb-1">Total Requests</p>
-          <p className="text-3xl font-bold text-blue-400">{metrics?.totalRequests ?? 0}</p>
+          <p className="text-3xl font-bold text-blue-400">{(metrics?.totalRequests ?? 0).toLocaleString()}</p>
           <p className="text-slate-500 text-xs mt-2">All submitted requests</p>
         </div>
 
         {/* Fulfilled Requests */}
         <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-6 hover:border-slate-700 transition">
           <p className="text-slate-400 text-sm mb-1">Fulfilled</p>
-          <p className="text-3xl font-bold text-emerald-400">{metrics?.fulfilledRequests ?? 0}</p>
+          <p className="text-3xl font-bold text-emerald-400">{(metrics?.fulfilledRequests ?? 0).toLocaleString()}</p>
           <p className="text-slate-500 text-xs mt-2">Completed requests</p>
         </div>
 
         {/* Completion Rate */}
         <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-6 hover:border-slate-700 transition">
           <p className="text-slate-400 text-sm mb-1">Completion Rate</p>
-          <p className="text-3xl font-bold text-orange-400">{metrics?.completionRate ?? 0}%</p>
+          <p className="text-3xl font-bold text-orange-400">{((metrics?.completionRate ?? 0)).toFixed(2)}%</p>
           <p className="text-slate-500 text-xs mt-2">Success rate</p>
         </div>
 
