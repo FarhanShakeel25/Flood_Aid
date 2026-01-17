@@ -676,50 +676,8 @@ const AdminUsers = () => {
                 </div>
             )}
 
-            {/* Filters */}
-            {activeTab === 'users' && (
-                <div className="table-controls" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
-                        <Search className="search-icon" size={20} />
-                        <input
-                            type="text"
-                            placeholder="Search name/email/phone..."
-                            className="search-input"
-                            value={searchTerm}
-                            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                        />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                            className="status-dropdown"
-                            style={{ minWidth: '140px' }}
-                        >
-                            <option value="All">All Statuses</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Approved">Approved</option>
-                            <option value="Rejected">Rejected</option>
-                        </select>
-
-                        <select
-                            value={roleFilter}
-                            onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-                            className="status-dropdown"
-                            style={{ minWidth: '140px' }}
-                        >
-                            <option value="All">All Roles</option>
-                            <option value="Volunteer">Volunteer</option>
-                            <option value="Donor">Donor</option>
-                            <option value="ProvinceAdmin">Province Admin</option>
-                        </select>
-                    </div>
-                </div>
-            ) : null}
-
             {/* Context-aware Users tab filters */}
-            {activeTab === 'users' && (
+            {activeTab === 'users' ? (
                 <div className="table-controls" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
                         <Search className="search-icon" size={20} />
@@ -775,7 +733,7 @@ const AdminUsers = () => {
                         )}
                     </div>
                 </div>
-            )}
+            ) : null}
 
             {error && (
                 <div style={{ padding: '0.75rem 1rem', background: '#fef2f2', color: '#b91c1c', borderRadius: '0.75rem', marginBottom: '1rem' }}>
