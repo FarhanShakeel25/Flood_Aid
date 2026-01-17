@@ -698,6 +698,44 @@ export const adminApi = {
       message: 'Settings updated successfully',
       settings: settingsData
     };
+  },
+
+  // Real API call for dashboard metrics
+  getDashboardMetrics: async (token) => {
+    const API_BASE = process.env.REACT_APP_API_BASE || 'https://floodaid-api.onrender.com';
+    const response = await fetch(`${API_BASE}/api/metrics/dashboard`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to fetch metrics');
+    }
+
+    return await response.json();
+  },
+
+  // Real API call for assignment status metrics
+  getAssignmentStatusMetrics: async (token) => {
+    const API_BASE = process.env.REACT_APP_API_BASE || 'https://floodaid-api.onrender.com';
+    const response = await fetch(`${API_BASE}/api/metrics/assignment-status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to fetch metrics');
+    }
+
+    return await response.json();
   }
 };
 
