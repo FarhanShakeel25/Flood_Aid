@@ -78,20 +78,20 @@ const AdminDashboard = () => {
     );
   }
 
-  // Prepare data for charts
-  const priorityData = metrics?.PriorityBreakdown ? [
-    { name: 'Low', value: metrics.PriorityBreakdown.Low || 0 },
-    { name: 'Medium', value: metrics.PriorityBreakdown.Medium || 0 },
-    { name: 'High', value: metrics.PriorityBreakdown.High || 0 },
-    { name: 'Critical', value: metrics.PriorityBreakdown.Critical || 0 }
+  // Prepare data for charts (API uses camelCase)
+  const priorityData = metrics?.priorityBreakdown ? [
+    { name: 'Low', value: metrics.priorityBreakdown.low || 0 },
+    { name: 'Medium', value: metrics.priorityBreakdown.medium || 0 },
+    { name: 'High', value: metrics.priorityBreakdown.high || 0 },
+    { name: 'Critical', value: metrics.priorityBreakdown.critical || 0 }
   ] : [];
 
-  const statusData = metrics?.StatusBreakdown ? [
-    { name: 'Pending', value: metrics.StatusBreakdown.Pending || 0 },
-    { name: 'In Progress', value: metrics.StatusBreakdown.InProgress || 0 },
-    { name: 'Fulfilled', value: metrics.StatusBreakdown.Fulfilled || 0 },
-    { name: 'On Hold', value: metrics.StatusBreakdown.OnHold || 0 },
-    { name: 'Cancelled', value: metrics.StatusBreakdown.Cancelled || 0 }
+  const statusData = metrics?.statusBreakdown ? [
+    { name: 'Pending', value: metrics.statusBreakdown.pending || 0 },
+    { name: 'In Progress', value: metrics.statusBreakdown.inProgress || 0 },
+    { name: 'Fulfilled', value: metrics.statusBreakdown.fulfilled || 0 },
+    { name: 'On Hold', value: metrics.statusBreakdown.onHold || 0 },
+    { name: 'Cancelled', value: metrics.statusBreakdown.cancelled || 0 }
   ] : [];
 
   const PRIORITY_COLORS = {
@@ -122,28 +122,28 @@ const AdminDashboard = () => {
         {/* Total Requests */}
         <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-6 hover:border-slate-700 transition">
           <p className="text-slate-400 text-sm mb-1">Total Requests</p>
-          <p className="text-3xl font-bold text-blue-400">{metrics?.TotalRequests || 0}</p>
+          <p className="text-3xl font-bold text-blue-400">{metrics?.totalRequests ?? 0}</p>
           <p className="text-slate-500 text-xs mt-2">All submitted requests</p>
         </div>
 
         {/* Fulfilled Requests */}
         <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-6 hover:border-slate-700 transition">
           <p className="text-slate-400 text-sm mb-1">Fulfilled</p>
-          <p className="text-3xl font-bold text-emerald-400">{metrics?.FulfilledRequests || 0}</p>
+          <p className="text-3xl font-bold text-emerald-400">{metrics?.fulfilledRequests ?? 0}</p>
           <p className="text-slate-500 text-xs mt-2">Completed requests</p>
         </div>
 
         {/* Completion Rate */}
         <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-6 hover:border-slate-700 transition">
           <p className="text-slate-400 text-sm mb-1">Completion Rate</p>
-          <p className="text-3xl font-bold text-orange-400">{metrics?.CompletionRate || 0}%</p>
+          <p className="text-3xl font-bold text-orange-400">{metrics?.completionRate ?? 0}%</p>
           <p className="text-slate-500 text-xs mt-2">Success rate</p>
         </div>
 
         {/* Avg Response Time */}
         <div className="rounded-xl border border-slate-800 bg-slate-800/60 p-6 hover:border-slate-700 transition">
           <p className="text-slate-400 text-sm mb-1">Avg Response Time</p>
-          <p className="text-3xl font-bold text-purple-400">{Math.round(metrics?.AverageResponseTimeHours || 0)}</p>
+          <p className="text-3xl font-bold text-purple-400">{Math.round(metrics?.averageResponseTimeHours ?? 0)}</p>
           <p className="text-slate-500 text-xs mt-2">hours to fulfill</p>
         </div>
       </div>
@@ -211,7 +211,7 @@ const AdminDashboard = () => {
           <h2 className="text-xl font-semibold mb-4">Average Assignment Time</h2>
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-4xl font-bold text-blue-400">{Math.round(metrics?.AverageAssignmentTimeHours || 0)}</p>
+              <p className="text-4xl font-bold text-blue-400">{Math.round(metrics?.averageAssignmentTimeHours ?? 0)}</p>
               <p className="text-slate-400 text-sm mt-2">hours from request to assignment</p>
             </div>
             <div className="text-5xl opacity-20">⏱️</div>
@@ -224,19 +224,19 @@ const AdminDashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center pb-3 border-b border-slate-700">
               <span className="text-slate-400">🔴 Critical Priority</span>
-              <span className="text-xl font-semibold text-red-400">{metrics?.PriorityBreakdown?.Critical || 0}</span>
+              <span className="text-xl font-semibold text-red-400">{metrics?.priorityBreakdown?.critical ?? 0}</span>
             </div>
             <div className="flex justify-between items-center pb-3 border-b border-slate-700">
               <span className="text-slate-400">⏳ Pending</span>
-              <span className="text-xl font-semibold text-yellow-400">{metrics?.StatusBreakdown?.Pending || 0}</span>
+              <span className="text-xl font-semibold text-yellow-400">{metrics?.statusBreakdown?.pending ?? 0}</span>
             </div>
             <div className="flex justify-between items-center pb-3 border-b border-slate-700">
               <span className="text-slate-400">🔄 In Progress</span>
-              <span className="text-xl font-semibold text-blue-400">{metrics?.StatusBreakdown?.InProgress || 0}</span>
+              <span className="text-xl font-semibold text-blue-400">{metrics?.statusBreakdown?.inProgress ?? 0}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-400">✅ Fulfilled</span>
-              <span className="text-xl font-semibold text-emerald-400">{metrics?.StatusBreakdown?.Fulfilled || 0}</span>
+              <span className="text-xl font-semibold text-emerald-400">{metrics?.statusBreakdown?.fulfilled ?? 0}</span>
             </div>
           </div>
         </div>
