@@ -453,10 +453,10 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Delete a help request (Admin only)
+        /// Delete a help request (SuperAdmin any, ProvinceAdmin scoped to province, Volunteer scoped to city)
         /// </summary>
         [HttpDelete("{id}")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize]
         public async Task<ActionResult> DeleteHelpRequest(int id)
         {
             try
@@ -468,16 +468,75 @@ namespace FloodAid.Api.Controllers
                     return NotFound(new { message = "Help request not found" });
                 }
 
+                var requesterEmail = User.FindFirstValue(ClaimTypes.Email);
+
+                // Try admin identity first (SuperAdmin or ProvinceAdmin)
+                AdminUser? admin = null;
+                if (!string.IsNullOrWhiteSpace(requesterEmail))
+                {
+                    admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == requesterEmail);
+                }
+
+                if (admin != null)
+                {
+                    if (admin.Role == "ProvinceAdmin" && request.ProvinceId != admin.ProvinceId)
+                    {
+                        _logger.LogWarning("ProvinceAdmin {Email} attempted to delete request {RequestId} outside their province", requesterEmail, id);
+                        return Forbid();
+                    }
+                }
+                else
+                {
+                    // Fallback to volunteer scope (city-scoped user)
+                    User? volunteer = null;
+                    if (!string.IsNullOrWhiteSpace(requesterEmail))
+                    {
+                        volunteer = await _context.Users.FirstOrDefaultAsync(u => u.Email == requesterEmail);
+                    }
+
+                    var volunteerRole = (UserRole?)volunteer?.Role;
+                    var isVolunteer = volunteerRole == UserRole.Volunteer || volunteerRole == UserRole.Both;
+
+                    if (!isVolunteer)
+                    {
+                        _logger.LogWarning("Unauthorized delete attempt for request {RequestId} by {Email}", id, requesterEmail ?? "unknown");
+                        return Forbid();
+                    }
+
+                    // City-scoped validation for volunteers
+                    if (request.CityId.HasValue)
+                    {
+                        if (volunteer?.CityId != request.CityId)
+                        {
+                            _logger.LogWarning("Volunteer {Email} attempted to delete request {RequestId} outside their city", requesterEmail, id);
+                            return Forbid();
+                        }
+                    }
+                    else if (request.ProvinceId.HasValue)
+                    {
+                        if (volunteer?.ProvinceId != request.ProvinceId)
+                        {
+                            _logger.LogWarning("Volunteer {Email} attempted to delete request {RequestId} outside their province", requesterEmail, id);
+                            return Forbid();
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Volunteer {Email} attempted to delete request {RequestId} with no scope information", requesterEmail, id);
+                        return Forbid();
+                    }
+                }
+
                 _context.HelpRequests.Remove(request);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Help request {id} deleted");
+                _logger.LogInformation("✅ Help request {RequestId} deleted by {Email}", id, requesterEmail ?? "unknown");
 
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Error deleting request {id}: {ex.Message}");
+                _logger.LogError("❌ Error deleting request {RequestId}: {Error}", id, ex.Message);
                 return StatusCode(500, new { message = "Error deleting help request", error = ex.Message });
             }
         }
