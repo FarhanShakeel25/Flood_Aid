@@ -58,6 +58,9 @@ namespace FloodAid.Api.Controllers
                     _logger.LogInformation("MetricsController: Applied province filter for ProvinceId={ProvinceId}", scopedProvinceId.Value);
                 }
 
+                var totalCount = await query.CountAsync();
+                _logger.LogInformation("MetricsController: Query returned {Count} requests after scoping", totalCount);
+
                 // 1. Total requests by priority
                 var byPriority = await query
                     .GroupBy(r => r.Priority)

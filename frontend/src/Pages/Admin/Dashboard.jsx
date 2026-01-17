@@ -9,7 +9,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const token = useMemo(() => localStorage.getItem('floodaid_admin_token'), []);
+  const token = useMemo(() => localStorage.getItem('floodaid_token'), []);
   const admin = useMemo(() => {
     const stored = localStorage.getItem('floodaid_admin');
     return stored ? JSON.parse(stored) : null;
