@@ -25,6 +25,10 @@ import AdminDonations from './Pages/Admin/Donations';
 import AdminRequests from './Pages/Admin/Requests';
 import AdminSettings from './Pages/Admin/Settings';
 
+// Volunteer Components
+import VolunteerLogin from './Pages/VolunteerLogin';
+import VolunteerDashboard from './Pages/VolunteerDashboard';
+
 // ============================================================================
 // ADMIN FLOATING BUTTON (GPT-Style)
 // ============================================================================
@@ -112,6 +116,10 @@ function AppContent() {
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/cancel" element={<CancelPage />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
+
+        {/* ===== VOLUNTEER ROUTES ===== */}
+        <Route path="/volunteer/login" element={<VolunteerLogin />} />
+        <Route path="/volunteer/dashboard" element={<VolunteerDashboard />} />
 
         {/* ===== ADMIN ROUTES ===== */}
         <Route path="/admin/login" element={<AdminLogin />} />

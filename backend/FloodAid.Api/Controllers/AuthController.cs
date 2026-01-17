@@ -198,6 +198,172 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
+        /// User login for Volunteer/Donor (no OTP, direct email+password)
+        /// </summary>
+        [HttpPost("user-login")]
+        [AllowAnonymous]
+        public async Task<ActionResult<UserLoginResponse>> UserLogin([FromBody] UserLoginRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+                {
+                    return BadRequest(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Email and password are required"
+                    });
+                }
+
+                // Find user by email
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+
+                if (user == null)
+                {
+                    return Unauthorized(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Invalid credentials"
+                    });
+                }
+
+                // Check if password hash exists
+                if (string.IsNullOrWhiteSpace(user.PasswordHash))
+                {
+                    return Unauthorized(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Invalid credentials"
+                    });
+                }
+
+                // Verify password using BCrypt
+                bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+
+                if (!isPasswordValid)
+                {
+                    return Unauthorized(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Invalid credentials"
+                    });
+                }
+
+                // Check if user is approved
+                if (user.Status != 1) // 1 = Approved
+                {
+                    return Unauthorized(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Your account is not yet approved"
+                    });
+                }
+
+                // Generate JWT token for user
+                var token = await GenerateUserJwtToken(user.Email);
+
+                _logger.LogInformation("User {Email} (ID={UserId}) logged in successfully", user.Email, user.Id);
+
+                return Ok(new UserLoginResponse
+                {
+                    Success = true,
+                    Token = token,
+                    User = new UserDto
+                    {
+                        Id = user.Id,
+                        Name = user.Name,
+                        Email = user.Email,
+                        Role = mapRoleIntToString(user.Role),
+                        CityId = user.CityId,
+                        ProvinceId = user.ProvinceId,
+                        LoginTime = DateTime.UtcNow
+                    },
+                    Message = "Login successful"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during user login");
+                return StatusCode(500, new UserLoginResponse
+                {
+                    Success = false,
+                    Message = "An error occurred during login"
+                });
+            }
+        }
+
+        /// <summary>
+        /// Utility: Generate JWT token for users (Volunteer/Donor) with role and scope claims
+        /// </summary>
+        private async Task<string> GenerateUserJwtToken(string email)
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"];
+            var issuer = jwtSettings["Issuer"];
+            var audience = jwtSettings["Audience"];
+            var expiryMinutes = int.Parse(jwtSettings["ExpiryMinutes"] ?? "1440"); // 24 hours default
+
+            // Fetch user details from database
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var roleString = user?.Role switch
+            {
+                0 => "Volunteer",
+                1 => "Donor",
+                2 => "Both",
+                _ => "User"
+            };
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Email, email),
+                new Claim(ClaimTypes.Role, roleString),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
+            };
+
+            // Add scope claims if user has city/province assignment
+            if (user?.CityId.HasValue == true)
+            {
+                claims.Add(new Claim("cityId", user.CityId.Value.ToString()));
+            }
+
+            if (user?.ProvinceId.HasValue == true)
+            {
+                claims.Add(new Claim("provinceId", user.ProvinceId.Value.ToString()));
+            }
+
+            var token = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        /// <summary>
+        /// Utility: Map role int to string
+        /// </summary>
+        private string mapRoleIntToString(int role)
+        {
+            return role switch
+            {
+                0 => "Volunteer",
+                1 => "Donor",
+                2 => "Both",
+                3 => "ProvinceAdmin",
+                4 => "SuperAdmin",
+                _ => "Unknown"
+            };
+        }
+
+        /// <summary>
         /// Utility: Generate 6-digit OTP
         /// </summary>
         private string GenerateOTP()
@@ -346,4 +512,31 @@ namespace FloodAid.Api.Controllers
             }
         }
     }
-}
+
+    /// <summary>
+    /// DTO for user (volunteer/donor) login
+    /// </summary>
+    public class UserLoginRequest
+    {
+        public required string Email { get; set; }
+        public required string Password { get; set; }
+    }
+
+    public class UserLoginResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? Token { get; set; }
+        public UserDto? User { get; set; }
+    }
+
+    public class UserDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public int? CityId { get; set; }
+        public int? ProvinceId { get; set; }
+        public DateTime LoginTime { get; set; }
+    }}

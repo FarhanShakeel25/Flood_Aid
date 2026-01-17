@@ -55,6 +55,11 @@ namespace FloodAid.Api.Models
         /// For volunteers: track if verified by admin
         /// </summary>
         public string? VerificationNotes { get; set; }
+
+        /// <summary>
+        /// Password hash for volunteer/donor login (BCrypt with work factor 11)
+        /// </summary>
+        public string? PasswordHash { get; set; }
     }
 
     /// <summary>

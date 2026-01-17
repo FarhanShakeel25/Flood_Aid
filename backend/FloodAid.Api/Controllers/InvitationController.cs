@@ -311,6 +311,9 @@ namespace FloodAid.Api.Controllers
                     return Conflict(new { message = "User with this email already exists" });
                 }
 
+                // Hash the password for volunteer/donor login (BCrypt with work factor 11)
+                var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, workFactor: 11);
+
                 var user = new User
                 {
                     Name = dto.Name,
@@ -320,6 +323,7 @@ namespace FloodAid.Api.Controllers
                     ProvinceId = invitation.ProvinceId,
                     CityId = invitation.CityId,
                     Status = 1, // 1 = Approved (auto-approved via invitation)
+                    PasswordHash = passwordHash,
                     CreatedAt = DateTime.UtcNow
                 };
 
