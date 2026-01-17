@@ -188,9 +188,20 @@ namespace FloodAid.Api
             await EnsureGeoTablesAsync(context, logger);
             // Ensure Admins.ProvinceId column exists for legacy Admins table
             await EnsureAdminScopeAsync(context, logger);
+            // Ensure HelpRequests has province/city scoping columns
+            await EnsureHelpRequestScopeAsync(context, logger);
+            // Ensure Users table exists for legacy databases
+            await EnsureUsersTableAsync(context, logger);
+            // Ensure Users table has all required columns
+            await EnsureUsersColumnsAsync(context, logger);
+            // Ensure Invitations table exists
+            await EnsureInvitationsTableAsync(context, logger);
             
             // Seed provinces and cities from CSV
             await SeedData.SeedProvincesAndCitiesAsync(context, loggerFactory.CreateLogger("DatabaseInit"));
+            
+            // Backfill ProvinceId for existing HelpRequests with null ProvinceId
+            await BackfillHelpRequestProvincesAsync(context, logger);
             
             // Create or update admin from configuration (no deletion; safe updates only)
             var adminConfig = configuration.GetSection("AdminCredentials");
@@ -217,17 +228,18 @@ namespace FloodAid.Api
                         LastLoginAt = null
                     };
                     context.Admins.Add(newAdmin);
+                    logger.LogInformation("Admin user created successfully");
                 }
                 else
                 {
+                    // Only update non-password fields on existing admin
                     existingAdmin.Username = adminConfig["Username"]!;
-                    existingAdmin.PasswordHash = adminConfig["PasswordHash"]!;
                     existingAdmin.Name = adminConfig["Name"]!;
                     existingAdmin.Role = "SuperAdmin";
                     existingAdmin.IsActive = true;
+                    logger.LogInformation("Admin user updated (password preserved)");
                 }
                 await context.SaveChangesAsync();
-                logger.LogInformation("Admin user created/updated successfully");
             }
             else
             {
@@ -306,6 +318,27 @@ namespace FloodAid.Api
             return result != null;
         }
 
+        static async Task<bool> ColumnExistsAsync(DbConnection connection, string tableName, string columnName)
+        {
+            const string sql = @"SELECT 1 FROM information_schema.columns 
+                WHERE table_schema = 'public' AND table_name = @table AND column_name = @column";
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+
+            var tableParam = cmd.CreateParameter();
+            tableParam.ParameterName = "@table";
+            tableParam.Value = tableName;
+            cmd.Parameters.Add(tableParam);
+
+            var columnParam = cmd.CreateParameter();
+            columnParam.ParameterName = "@column";
+            columnParam.Value = columnName;
+            cmd.Parameters.Add(columnParam);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return result != null;
+        }
+
         static async Task EnsureAdminScopeAsync(FloodAidContext context, ILogger logger)
         {
             var connection = context.Database.GetDbConnection();
@@ -369,10 +402,340 @@ namespace FloodAid.Api
                 await connection.CloseAsync();
             }
         }
+
+        static async Task EnsureHelpRequestScopeAsync(FloodAidContext context, ILogger logger)
+        {
+            var connection = context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
+
+            // Check if CityId column exists
+            var cityIdExists = await ColumnExistsAsync(connection, "HelpRequests", "CityId");
+            var provinceIdExists = await ColumnExistsAsync(connection, "HelpRequests", "ProvinceId");
+
+            if (cityIdExists && provinceIdExists)
+            {
+                if (openedHere) await connection.CloseAsync();
+                return;
+            }
+
+            logger.LogWarning("HelpRequests missing scope columns; adding...");
+
+            // Add CityId column if missing
+            if (!cityIdExists)
+            {
+                const string addCityId = @"ALTER TABLE ""HelpRequests"" ADD COLUMN ""CityId"" integer NULL;";
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = addCityId;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                logger.LogInformation("Added CityId column to HelpRequests");
+
+                // Add foreign key constraint
+                const string addCityFk = @"ALTER TABLE ""HelpRequests"" ADD CONSTRAINT ""FK_HelpRequests_Cities_CityId"" 
+                    FOREIGN KEY (""CityId"") REFERENCES ""Cities"" (""Id"") ON DELETE RESTRICT;";
+                try
+                {
+                    using (var fkCmd = connection.CreateCommand())
+                    {
+                        fkCmd.CommandText = addCityFk;
+                        await fkCmd.ExecuteNonQueryAsync();
+                    }
+                }
+                catch (PostgresException ex) when (ex.SqlState == "42710") // duplicate object
+                {
+                    logger.LogWarning("FK_HelpRequests_Cities_CityId already exists; skipping.");
+                }
+
+                // Add index
+                const string addCityIndex = @"CREATE INDEX IF NOT EXISTS ""IX_HelpRequests_CityId"" ON ""HelpRequests"" (""CityId"");";
+                using (var idxCmd = connection.CreateCommand())
+                {
+                    idxCmd.CommandText = addCityIndex;
+                    await idxCmd.ExecuteNonQueryAsync();
+                }
+            }
+
+            // Add ProvinceId column if missing
+            if (!provinceIdExists)
+            {
+                const string addProvinceId = @"ALTER TABLE ""HelpRequests"" ADD COLUMN ""ProvinceId"" integer NULL;";
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = addProvinceId;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                logger.LogInformation("Added ProvinceId column to HelpRequests");
+
+                // Add foreign key constraint
+                const string addProvinceFk = @"ALTER TABLE ""HelpRequests"" ADD CONSTRAINT ""FK_HelpRequests_Provinces_ProvinceId"" 
+                    FOREIGN KEY (""ProvinceId"") REFERENCES ""Provinces"" (""Id"") ON DELETE RESTRICT;";
+                try
+                {
+                    using (var fkCmd = connection.CreateCommand())
+                    {
+                        fkCmd.CommandText = addProvinceFk;
+                        await fkCmd.ExecuteNonQueryAsync();
+                    }
+                }
+                catch (PostgresException ex) when (ex.SqlState == "42710") // duplicate object
+                {
+                    logger.LogWarning("FK_HelpRequests_Provinces_ProvinceId already exists; skipping.");
+                }
+
+                // Add index
+                const string addProvinceIndex = @"CREATE INDEX IF NOT EXISTS ""IX_HelpRequests_ProvinceId"" ON ""HelpRequests"" (""ProvinceId"");";
+                using (var idxCmd = connection.CreateCommand())
+                {
+                    idxCmd.CommandText = addProvinceIndex;
+                    await idxCmd.ExecuteNonQueryAsync();
+                }
+            }
+
+            logger.LogInformation("HelpRequests scope ensured.");
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
+        }
+
+        static async Task EnsureUsersTableAsync(FloodAidContext context, ILogger logger)
+        {
+            var connection = context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
+
+            var usersExists = await TableExistsAsync(connection, "Users");
+            if (usersExists)
+            {
+                if (openedHere) await connection.CloseAsync();
+                return;
+            }
+
+            logger.LogWarning("Users table missing; creating...");
+
+            const string createUsers = @"CREATE TABLE IF NOT EXISTS ""Users"" (
+                ""Id"" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                ""Name"" text NOT NULL,
+                ""Email"" text NOT NULL,
+                ""PhoneNumber"" text NOT NULL,
+                ""Role"" integer NOT NULL,
+                ""Status"" integer NOT NULL DEFAULT 0,
+                ""ProvinceId"" integer NULL,
+                ""CityId"" integer NULL,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+                ""ApprovedAt"" timestamp with time zone NULL,
+                ""ReasonForRejection"" text NULL,
+                ""VerificationNotes"" text NULL,
+                CONSTRAINT ""FK_Users_Provinces_ProvinceId"" FOREIGN KEY (""ProvinceId"") REFERENCES ""Provinces"" (""Id"") ON DELETE SET NULL,
+                CONSTRAINT ""FK_Users_Cities_CityId"" FOREIGN KEY (""CityId"") REFERENCES ""Cities"" (""Id"") ON DELETE SET NULL
+            );";
+
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = createUsers;
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            logger.LogInformation("Users table created successfully.");
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
+        }
+
+        static async Task EnsureUsersColumnsAsync(FloodAidContext context, ILogger logger)
+        {
+            var connection = context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
+
+            // Check if UpdatedAt column exists
+            var updatedAtExists = await ColumnExistsAsync(connection, "Users", "UpdatedAt");
+            if (!updatedAtExists)
+            {
+                logger.LogWarning("Users table missing UpdatedAt column; adding...");
+                const string addUpdatedAt = @"ALTER TABLE ""Users"" ADD COLUMN ""UpdatedAt"" timestamp with time zone NULL;";
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = addUpdatedAt;
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                logger.LogInformation("Added UpdatedAt column to Users");
+            }
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
+        }
+
+        static async Task EnsureInvitationsTableAsync(FloodAidContext context, ILogger logger)
+        {
+            var connection = context.Database.GetDbConnection();
+            var openedHere = false;
+            if (connection.State != ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+                openedHere = true;
+            }
+
+            var invitationsExists = await TableExistsAsync(connection, "Invitations");
+            if (invitationsExists)
+            {
+                if (openedHere) await connection.CloseAsync();
+                return;
+            }
+
+            logger.LogWarning("Invitations table missing; creating...");
+
+            const string createInvitations = @"CREATE TABLE IF NOT EXISTS ""Invitations"" (
+                ""Id"" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                ""Email"" text NOT NULL,
+                ""Token"" text NOT NULL,
+                ""Role"" integer NOT NULL,
+                ""ProvinceId"" integer NULL,
+                ""CityId"" integer NULL,
+                ""Status"" integer NOT NULL DEFAULT 0,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+                ""ExpiresAt"" timestamp with time zone NOT NULL,
+                ""AcceptedAt"" timestamp with time zone NULL,
+                ""RevokedAt"" timestamp with time zone NULL,
+                ""CreatedByAdminId"" integer NOT NULL,
+                ""InviterName"" text NULL,
+                CONSTRAINT ""FK_Invitations_Provinces_ProvinceId"" FOREIGN KEY (""ProvinceId"") REFERENCES ""Provinces"" (""Id"") ON DELETE RESTRICT,
+                CONSTRAINT ""FK_Invitations_Cities_CityId"" FOREIGN KEY (""CityId"") REFERENCES ""Cities"" (""Id"") ON DELETE RESTRICT,
+                CONSTRAINT ""FK_Invitations_Admins_CreatedByAdminId"" FOREIGN KEY (""CreatedByAdminId"") REFERENCES ""Admins"" (""Id"") ON DELETE CASCADE
+            );
+            
+            CREATE INDEX IF NOT EXISTS ""IX_Invitations_Email"" ON ""Invitations"" (""Email"");
+            CREATE INDEX IF NOT EXISTS ""IX_Invitations_Token"" ON ""Invitations"" (""Token"");
+            CREATE INDEX IF NOT EXISTS ""IX_Invitations_Status"" ON ""Invitations"" (""Status"");
+            ";
+
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = createInvitations;
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            logger.LogInformation("Invitations table created successfully.");
+
+            if (openedHere)
+            {
+                await connection.CloseAsync();
+            }
+        }
+
+        static async Task BackfillHelpRequestProvincesAsync(FloodAidContext context, ILogger logger)
+        {
+            try
+            {
+                // Find help requests with coordinates but no ProvinceId
+                var requestsWithoutProvince = await context.HelpRequests
+                    .Where(h => h.ProvinceId == null && h.Latitude != 0 && h.Longitude != 0)
+                    .ToListAsync();
+
+                if (!requestsWithoutProvince.Any())
+                {
+                    logger.LogInformation("All help requests already have ProvinceId assigned.");
+                    return;
+                }
+
+                logger.LogInformation("Found {Count} help requests without ProvinceId. Attempting to backfill...", requestsWithoutProvince.Count);
+
+                // Load all provinces with cities for coordinate-based matching
+                var provinces = await context.Provinces.Include(p => p.Cities).ToListAsync();
+                var cities = await context.Cities.Include(c => c.Province).ToListAsync();
+
+                int updated = 0;
+                foreach (var request in requestsWithoutProvince)
+                {
+                    // Simple heuristic: Find nearest city by name match or coordinate proximity
+                    // For Pakistan, we can use rough bounding boxes or nearest-city lookup
+                    var provinceId = await InferProvinceFromCoordinatesAsync(request.Latitude, request.Longitude, provinces, logger);
+                    
+                    if (provinceId.HasValue)
+                    {
+                        request.ProvinceId = provinceId.Value;
+                        updated++;
+                    }
+                }
+
+                if (updated > 0)
+                {
+                    await context.SaveChangesAsync();
+                    logger.LogInformation("Backfilled ProvinceId for {Updated} help requests.", updated);
+                }
+                else
+                {
+                    logger.LogWarning("Could not infer province for any requests. They will remain unscoped.");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error backfilling help request provinces");
+            }
+        }
+
+        static async Task<int?> InferProvinceFromCoordinatesAsync(double latitude, double longitude, List<Province> provinces, ILogger logger)
+        {
+            // Pakistan approximate bounding boxes for provinces (rough estimates)
+            // Punjab: ~27-35N, 69-76E
+            // Sindh: ~23-29N, 66-72E
+            // KPK: ~33-37N, 69-74E
+            // Balochistan: ~24-32N, 60-72E
+            // Gilgit-Baltistan: ~35-37N, 72-78E
+            // Azad Kashmir: ~33-35N, 73-75E
+            // Islamabad: ~33.5-33.8N, 72.8-73.2E
+
+            if (latitude >= 33.5 && latitude <= 33.8 && longitude >= 72.8 && longitude <= 73.2)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Islamabad"))?.Id;
+            }
+            if (latitude >= 35 && latitude <= 37 && longitude >= 72 && longitude <= 78)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Gilgit"))?.Id;
+            }
+            if (latitude >= 33 && latitude <= 37 && longitude >= 69 && longitude <= 74)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Khyber") || p.Name.Contains("KPK"))?.Id;
+            }
+            if (latitude >= 33 && latitude <= 35 && longitude >= 73 && longitude <= 75)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Kashmir") || p.Name.Contains("Azad"))?.Id;
+            }
+            if (latitude >= 27 && latitude <= 35 && longitude >= 69 && longitude <= 76)
+            {
+                return provinces.FirstOrDefault(p => p.Name == "Punjab")?.Id;
+            }
+            if (latitude >= 23 && latitude <= 29 && longitude >= 66 && longitude <= 72)
+            {
+                return provinces.FirstOrDefault(p => p.Name == "Sindh")?.Id;
+            }
+            if (latitude >= 24 && latitude <= 32 && longitude >= 60 && longitude <= 72)
+            {
+                return provinces.FirstOrDefault(p => p.Name.Contains("Baloch"))?.Id;
+            }
+
+            logger.LogWarning("Could not infer province for coordinates ({Lat}, {Lon})", latitude, longitude);
+            return null;
+        }
     }
 }
-
-
-
-
 

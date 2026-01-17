@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using FloodAid.Api.Enums;
+using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace FloodAid.Api.Controllers
 {
@@ -13,11 +15,13 @@ namespace FloodAid.Api.Controllers
     {
         private readonly FloodAidContext _context;
         private readonly ILogger<HelpRequestController> _logger;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public HelpRequestController(FloodAidContext context, ILogger<HelpRequestController> logger)
+        public HelpRequestController(FloodAidContext context, ILogger<HelpRequestController> logger, IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         /// <summary>
@@ -47,6 +51,12 @@ namespace FloodAid.Api.Controllers
                     return BadRequest(new { message = "Invalid request type" });
                 }
 
+                int? provinceId = dto.ProvinceId;
+                if (!provinceId.HasValue)
+                {
+                    provinceId = await ResolveProvinceIdAsync(dto.Latitude, dto.Longitude);
+                }
+
                 var helpRequest = new HelpRequest
                 {
                     RequestorName = dto.RequestorName ?? "Anonymous",
@@ -57,6 +67,7 @@ namespace FloodAid.Api.Controllers
                     RequestDescription = dto.RequestDescription,
                     Latitude = dto.Latitude,
                     Longitude = dto.Longitude,
+                    ProvinceId = provinceId,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -76,11 +87,76 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
+        /// Resolve province id from latitude/longitude via Nominatim reverse geocoding.
+        /// </summary>
+        private async Task<int?> ResolveProvinceIdAsync(double latitude, double longitude)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "FloodAid/1.0 (support@floodaid.local)");
+
+                var url = $"https://nominatim.openstreetmap.org/reverse?format=json&lat={latitude}&lon={longitude}&zoom=5&addressdetails=1";
+                var response = await client.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Reverse geocode failed with status {Status}", response.StatusCode);
+                    return null;
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                if (!doc.RootElement.TryGetProperty("address", out var address))
+                {
+                    return null;
+                }
+
+                string? state = null;
+                if (address.TryGetProperty("state", out var stateProp))
+                {
+                    state = stateProp.GetString();
+                }
+                else if (address.TryGetProperty("region", out var regionProp))
+                {
+                    state = regionProp.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(state))
+                {
+                    return null;
+                }
+
+                // Normalize common province names/aliases
+                state = state.Trim();
+                var normalized = state.ToLowerInvariant();
+                string canonical = normalized switch
+                {
+                    var s when s.Contains("punjab") => "Punjab",
+                    var s when s.Contains("sindh") => "Sindh",
+                    var s when s.Contains("khyber") || s.Contains("kpk") || s.Contains("pakhtunkhwa") => "Khyber Pakhtunkhwa",
+                    var s when s.Contains("baloch") => "Balochistan",
+                    var s when s.Contains("gilgit") => "Gilgit-Baltistan",
+                    var s when s.Contains("kashmir") || s.Contains("azad") => "Azad Kashmir",
+                    var s when s.Contains("islamabad") => "Islamabad Capital Territory",
+                    _ => state
+                };
+
+                var province = await _context.Provinces.FirstOrDefaultAsync(p => p.Name.ToLower() == canonical.ToLower());
+                return province?.Id;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Reverse geocode failed for lat {Lat}, lon {Lon}", latitude, longitude);
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Get all help requests (Admin Module) with pagination & filters
         /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only, Volunteer sees their city only
         /// </summary>
         [HttpGet]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<object>> GetAllHelpRequests(
             [FromQuery] int? requestType = null,
             [FromQuery] RequestStatus? status = null,
@@ -117,22 +193,32 @@ namespace FloodAid.Api.Controllers
                         : endDate.Value.ToUniversalTime();
                 }
 
-                var query = _context.HelpRequests.AsNoTracking().AsQueryable();
-
-                // Apply role-based scoping for admin users
+                // Apply role-based scoping for admin users BEFORE building query
                 var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                int? scopedProvinceId = null;
+                string? adminRole = null;
+                
                 if (!string.IsNullOrEmpty(adminEmail))
                 {
                     var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
                     if (admin != null)
                     {
+                        adminRole = admin.Role;
                         if (admin.Role == "ProvinceAdmin")
                         {
-                            // ProvinceAdmin can only see requests in their province
-                            query = query.Where(h => h.ProvinceId == admin.ProvinceId);
+                            scopedProvinceId = admin.ProvinceId;
+                            _logger.LogInformation("ProvinceAdmin {Email} scoped to ProvinceId={ProvinceId}", adminEmail, scopedProvinceId);
                         }
-                        // SuperAdmin sees all (no filter)
                     }
+                }
+
+                var query = _context.HelpRequests.AsNoTracking().AsQueryable();
+
+                // Apply province scope filter
+                if (scopedProvinceId.HasValue)
+                {
+                    query = query.Where(h => h.ProvinceId == scopedProvinceId.Value);
+                    _logger.LogInformation("Applied province filter: ProvinceId={ProvinceId}", scopedProvinceId.Value);
                 }
 
                 if (requestType.HasValue)
@@ -217,7 +303,7 @@ namespace FloodAid.Api.Controllers
         /// Update help request status (Admin/Volunteer Module)
         /// </summary>
         [HttpPut("{id}/status")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<HelpRequest>> UpdateRequestStatus(int id, [FromBody] UpdateRequestStatusDto dto)
         {
             try
@@ -227,6 +313,21 @@ namespace FloodAid.Api.Controllers
                 if (request == null)
                 {
                     return NotFound(new { message = "Help request not found" });
+                }
+
+                // Apply scoping - ProvinceAdmin can only update requests in their province
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        if (request.ProvinceId != admin.ProvinceId)
+                        {
+                            _logger.LogWarning("ProvinceAdmin {Email} attempted to update request {RequestId} outside their province", adminEmail, id);
+                            return Forbid();
+                        }
+                    }
                 }
 
                 // Validate status
@@ -305,14 +406,27 @@ namespace FloodAid.Api.Controllers
 
         /// <summary>
         /// Get aggregate counts for dashboard cards
+        /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only
         /// </summary>
         [HttpGet("stats")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<ActionResult<object>> GetHelpRequestStats()
         {
             try
             {
                 var query = _context.HelpRequests.AsNoTracking();
+
+                // Apply province scope for ProvinceAdmin
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                if (!string.IsNullOrEmpty(adminEmail))
+                {
+                    var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
+                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    {
+                        query = query.Where(h => h.ProvinceId == admin.ProvinceId);
+                        _logger.LogInformation("Stats scoped to ProvinceId={ProvinceId} for {Email}", admin.ProvinceId, adminEmail);
+                    }
+                }
 
                 var total = await query.CountAsync();
                 var pending = await query.CountAsync(r => r.Status == RequestStatus.Pending);
@@ -381,6 +495,7 @@ namespace FloodAid.Api.Controllers
         public required string RequestDescription { get; set; }
         public required double Latitude { get; set; }
         public required double Longitude { get; set; }
+        public int? ProvinceId { get; set; } // optional client-provided province
     }
 
     /// <summary>

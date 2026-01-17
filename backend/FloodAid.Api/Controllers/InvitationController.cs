@@ -32,113 +32,117 @@ namespace FloodAid.Api.Controllers
         [Authorize(Roles = "SuperAdmin,ProvinceAdmin")]
         public async Task<IActionResult> CreateInvitation([FromBody] CreateInvitationDto dto)
         {
-            var adminEmail = User.FindFirstValue(ClaimTypes.Email);
-            var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
-
-            if (admin == null)
-                return Unauthorized(new { message = "Admin not found" });
-
-            // Validate role-based creation permissions
-            if (dto.Role == UserRole.SuperAdmin)
+            try
             {
-                return BadRequest(new { message = "Cannot create SuperAdmin invitations" });
-            }
+                var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
 
-            // Only SuperAdmin can invite ProvinceAdmin
-            if (dto.Role == UserRole.ProvinceAdmin)
-            {
-                if (admin.Role != "SuperAdmin")
-                    return Forbid(); // Only SuperAdmin can invite ProvinceAdmins
-            }
+                if (admin == null)
+                    return Unauthorized(new { message = "Admin not found" });
 
-            // Only ProvinceAdmin can invite Volunteer (not SuperAdmin directly inviting Volunteers)
-            if (dto.Role == UserRole.Volunteer)
-            {
-                if (admin.Role != "ProvinceAdmin")
-                    return Forbid(); // Only ProvinceAdmin can invite Volunteers
-            }
-
-            // Validate scope assignments
-            if (dto.Role == UserRole.ProvinceAdmin && !dto.ProvinceId.HasValue)
-            {
-                return BadRequest(new { message = "ProvinceId is required for ProvinceAdmin invitations" });
-            }
-
-            if (dto.Role == UserRole.Volunteer && !dto.CityId.HasValue)
-            {
-                return BadRequest(new { message = "CityId is required for Volunteer invitations" });
-            }
-
-            // For ProvinceAdmin creating Volunteer: ensure city is within their province
-            if (admin.Role == "ProvinceAdmin" && dto.Role == UserRole.Volunteer)
-            {
-                var city = await _context.Cities.FindAsync(dto.CityId);
-                if (city == null || city.ProvinceId != admin.ProvinceId)
+                // Validate role-based creation permissions
+                if (dto.Role == UserRole.SuperAdmin)
                 {
-                    return BadRequest(new { message = "City must be within your province" });
+                    return BadRequest(new { message = "Cannot create SuperAdmin invitations" });
                 }
+
+                // Only SuperAdmin can invite ProvinceAdmin
+                if (dto.Role == UserRole.ProvinceAdmin)
+                {
+                    if (admin.Role != "SuperAdmin")
+                        return Forbid(); // Only SuperAdmin can invite ProvinceAdmins
+                    
+                    if (!dto.ProvinceId.HasValue)
+                    {
+                        return BadRequest(new { message = "ProvinceId is required for ProvinceAdmin invitations" });
+                    }
+                }
+
+                // Only ProvinceAdmin can invite Volunteer (not SuperAdmin directly inviting Volunteers)
+                if (dto.Role == UserRole.Volunteer)
+                {
+                    if (admin.Role != "ProvinceAdmin")
+                        return Forbid(); // Only ProvinceAdmin can invite Volunteers
+                    
+                    if (!dto.CityId.HasValue)
+                    {
+                        return BadRequest(new { message = "CityId is required for Volunteer invitations" });
+                    }
+                    
+                    // Ensure city is within ProvinceAdmin's province
+                    var city = await _context.Cities.FindAsync(dto.CityId);
+                    if (city == null || city.ProvinceId != admin.ProvinceId)
+                    {
+                        return BadRequest(new { message = "City must be within your province" });
+                    }
+                }
+
+                // Check for existing invitation
+                var existingInvitation = await _context.Invitations
+                    .FirstOrDefaultAsync(i => i.Email == dto.Email && i.Status == InvitationStatus.Pending);
+
+                if (existingInvitation != null)
+                {
+                    return Conflict(new { message = "Pending invitation already exists for this email" });
+                }
+
+                // Check if user already exists
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+                if (existingUser != null)
+                {
+                    return Conflict(new { message = "User with this email already exists" });
+                }
+
+                // Generate unique token
+                var token = Guid.NewGuid().ToString("N");
+
+                var invitation = new Invitation
+                {
+                    Email = dto.Email,
+                    Token = token,
+                    Role = (int)dto.Role,
+                    ProvinceId = dto.ProvinceId,
+                    CityId = dto.CityId,
+                    Status = InvitationStatus.Pending,
+                    ExpiresAt = DateTime.UtcNow.AddDays(7),
+                    CreatedByAdminId = admin.Id,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Invitations.Add(invitation);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Invitation created for {Email} by {AdminEmail}", dto.Email, adminEmail);
+
+                // Send invitation email
+                string? scopeInfo = null;
+                if (dto.Role == UserRole.ProvinceAdmin && dto.ProvinceId.HasValue)
+                {
+                    var province = await _context.Provinces.FirstOrDefaultAsync(p => p.Id == dto.ProvinceId);
+                    scopeInfo = province?.Name ?? $"Province {dto.ProvinceId}";
+                }
+                else if (dto.Role == UserRole.Volunteer && dto.CityId.HasValue)
+                {
+                    var city = await _context.Cities.Include(c => c.Province).FirstOrDefaultAsync(c => c.Id == dto.CityId);
+                    scopeInfo = city != null ? $"{city.Name}, {city.Province?.Name}" : $"City {dto.CityId}";
+                }
+
+                var roleName = dto.Role == UserRole.ProvinceAdmin ? "Province Admin" : "Volunteer";
+                await _emailService.SendInvitationEmailAsync(dto.Email, token, roleName, scopeInfo);
+
+                return Ok(new
+                {
+                    message = "Invitation sent successfully",
+                    invitationId = invitation.Id,
+                    token, // Remove in production
+                    expiresAt = invitation.ExpiresAt
+                });
             }
-
-            // Check for existing invitation
-            var existingInvitation = await _context.Invitations
-                .FirstOrDefaultAsync(i => i.Email == dto.Email && i.Status == InvitationStatus.Pending);
-
-            if (existingInvitation != null)
+            catch (Exception ex)
             {
-                return Conflict(new { message = "Pending invitation already exists for this email" });
+                _logger.LogError(ex, "Error creating invitation");
+                return StatusCode(500, new { message = "Error creating invitation", error = ex.Message });
             }
-
-            // Check if user already exists
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-            if (existingUser != null)
-            {
-                return Conflict(new { message = "User with this email already exists" });
-            }
-
-            // Generate unique token
-            var token = Guid.NewGuid().ToString("N");
-
-            var invitation = new Invitation
-            {
-                Email = dto.Email,
-                Token = token,
-                Role = (int)dto.Role,
-                ProvinceId = dto.ProvinceId,
-                CityId = dto.CityId,
-                Status = InvitationStatus.Pending,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
-                CreatedByAdminId = admin.Id,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Invitations.Add(invitation);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Invitation created for {Email} by {AdminEmail}", dto.Email, adminEmail);
-
-            // Send invitation email
-            string? scopeInfo = null;
-            if (dto.Role == UserRole.ProvinceAdmin && dto.ProvinceId.HasValue)
-            {
-                var province = await _context.Provinces.FirstOrDefaultAsync(p => p.Id == dto.ProvinceId);
-                scopeInfo = province?.Name ?? $"Province {dto.ProvinceId}";
-            }
-            else if (dto.Role == UserRole.Volunteer && dto.CityId.HasValue)
-            {
-                var city = await _context.Cities.Include(c => c.Province).FirstOrDefaultAsync(c => c.Id == dto.CityId);
-                scopeInfo = city != null ? $"{city.Name}, {city.Province?.Name}" : $"City {dto.CityId}";
-            }
-
-            var roleName = dto.Role == UserRole.ProvinceAdmin ? "Province Admin" : "Volunteer";
-            await _emailService.SendInvitationEmailAsync(dto.Email, token, roleName, scopeInfo);
-
-            return Ok(new
-            {
-                message = "Invitation sent successfully",
-                invitationId = invitation.Id,
-                token, // Remove in production
-                expiresAt = invitation.ExpiresAt
-            });
         }
 
         /// <summary>
@@ -251,8 +255,10 @@ namespace FloodAid.Api.Controllers
                 return BadRequest(new { message = "Invitation has expired" });
             }
 
+            // Mark invitation as accepted immediately and save
             invitation.Status = InvitationStatus.Accepted;
             invitation.AcceptedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
 
             // Determine if this is an admin invitation or volunteer invitation
             var invitationRole = (UserRole)invitation.Role;
