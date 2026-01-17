@@ -54,7 +54,7 @@ const VolunteerLogin = () => {
       <div className="login-card">
         {/* Header */}
         <div className="login-header">
-          <div className="login-icon">🤝</div>
+          <div className="login-icon">🌊</div>
           <h1 className="login-title">Volunteer Portal</h1>
           <p className="login-subtitle">
             Sign in with your invitation credentials
@@ -109,7 +109,7 @@ const VolunteerLogin = () => {
                 className="password-toggle"
                 title={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? '�' : '👁️'}
+                {showPassword ? '🙈' : '👁️'}
               </button>
             </div>
           </div>
