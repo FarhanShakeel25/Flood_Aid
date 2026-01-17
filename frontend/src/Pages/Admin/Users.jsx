@@ -48,26 +48,15 @@ const AdminUsers = () => {
             params.append('page', page);
             params.append('pageSize', pageSize);
 
-            // If SuperAdmin, fetch admins (ProvinceAdmins); if ProvinceAdmin, fetch volunteers
-            const isSuperAdmin = admin?.role === 'SuperAdmin';
-            const endpoint = isSuperAdmin ? '/api/admins' : '/api/users';
+            // Always fetch only volunteers/donors/both from users endpoint
+            if (statusFilter !== 'All') {
+                const statusMap = { 'Pending': 0, 'Approved': 1, 'Rejected': 2 };
+                params.append('status', statusMap[statusFilter]);
+            }
 
-            if (!isSuperAdmin) {
-                // For ProvinceAdmin viewing volunteers
-                if (statusFilter !== 'All') {
-                    const statusMap = { 'Pending': 0, 'Approved': 1, 'Rejected': 2 };
-                    params.append('status', statusMap[statusFilter]);
-                }
-
-                if (roleFilter !== 'All') {
-                    const roleMap = { 'Volunteer': 0, 'Donor': 1, 'Both': 2 };
-                    params.append('role', roleMap[roleFilter]);
-                }
-            } else {
-                // For SuperAdmin viewing ProvinceAdmins
-                if (adminRoleFilter !== 'All') {
-                    params.append('role', adminRoleFilter);
-                }
+            if (roleFilter !== 'All') {
+                const roleMap = { 'Volunteer': 0, 'Donor': 1, 'Both': 2 };
+                params.append('role', roleMap[roleFilter]);
             }
 
             if (searchTerm) {
@@ -75,7 +64,7 @@ const AdminUsers = () => {
             }
 
             const token = localStorage.getItem('floodaid_token');
-            const response = await fetch(`${API_BASE}${endpoint}?${params.toString()}`, {
+            const response = await fetch(`${API_BASE}/api/users?${params.toString()}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -85,42 +74,26 @@ const AdminUsers = () => {
             }
 
             const result = await response.json();
-            
-            if (isSuperAdmin) {
-                // Map admins data
-                const mappedUsers = (result.data || []).map(a => ({
-                    id: a.id,
-                    name: a.name,
-                    email: a.email,
-                    username: a.username,
-                    role: a.role,
-                    isActive: a.isActive,
-                    provinceId: a.provinceId,
-                    provinceName: a.provinceName || '-',
-                    createdAt: new Date(a.createdAt).toLocaleString(),
-                    lastLoginAt: a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : 'Never'
-                }));
-                setUsers(mappedUsers);
-                setTotalCount(result.totalCount || 0);
-            } else {
-                // Map users data
-                const mappedUsers = (result.data || []).map(u => ({
-                    id: u.id,
-                    name: u.name,
-                    email: u.email,
-                    phoneNumber: u.phoneNumber,
-                    role: mapRole(u.role),
-                    roleInt: u.role,
-                    status: mapStatus(u.status),
-                    statusInt: u.status,
-                    createdAt: new Date(u.createdAt).toLocaleString(),
-                    approvedAt: u.approvedAt ? new Date(u.approvedAt).toLocaleString() : '-',
-                    reasonForRejection: u.reasonForRejection || '-',
-                    verificationNotes: u.verificationNotes || '-'
-                }));
-                setUsers(mappedUsers);
-                setTotalCount(result.totalCount || 0);
-            }
+
+            const mappedUsers = (result.data || [])
+                .filter(u => u.role <= 2) // keep volunteers/donors only
+                .map(u => ({
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                phoneNumber: u.phoneNumber,
+                role: mapRole(u.role),
+                roleInt: u.role,
+                status: mapStatus(u.status),
+                statusInt: u.status,
+                createdAt: new Date(u.createdAt).toLocaleString(),
+                approvedAt: u.approvedAt ? new Date(u.approvedAt).toLocaleString() : '-',
+                reasonForRejection: u.reasonForRejection || '-',
+                verificationNotes: u.verificationNotes || '-'
+            }));
+
+            setUsers(mappedUsers);
+            setTotalCount(result.totalCount || 0);
             
             setError(null);
         } catch (err) {
@@ -678,59 +651,51 @@ const AdminUsers = () => {
 
             {/* Context-aware Users tab filters */}
             {activeTab === 'users' ? (
-                <div className="table-controls" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div className="table-controls" style={{ flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
                         <Search className="search-icon" size={20} />
                         <input
                             type="text"
-                            placeholder={admin?.role === 'SuperAdmin' ? "Search name/email..." : "Search name/email/phone..."}
+                            placeholder="Search name/email/phone..."
                             className="search-input"
                             value={searchTerm}
                             onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                         />
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {admin?.role === 'SuperAdmin' ? (
-                            // SuperAdmin viewing ProvinceAdmins
-                            <select
-                                value={adminRoleFilter}
-                                onChange={(e) => { setAdminRoleFilter(e.target.value); setPage(1); }}
-                                className="status-dropdown"
-                                style={{ minWidth: '140px' }}
-                            >
-                                <option value="All">All Roles</option>
-                                <option value="SuperAdmin">SuperAdmin</option>
-                                <option value="ProvinceAdmin">ProvinceAdmin</option>
-                            </select>
-                        ) : (
-                            // ProvinceAdmin viewing Volunteers
-                            <>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                                    className="status-dropdown"
-                                    style={{ minWidth: '140px' }}
-                                >
-                                    <option value="All">All Statuses</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Approved">Approved</option>
-                                    <option value="Rejected">Rejected</option>
-                                </select>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                            className="status-dropdown"
+                            style={{ minWidth: '140px' }}
+                        >
+                            <option value="All">All Statuses</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
 
-                                <select
-                                    value={roleFilter}
-                                    onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-                                    className="status-dropdown"
-                                    style={{ minWidth: '140px' }}
+                        <div className="tab-buttons" style={{ display: 'flex', gap: '0.5rem' }}>
+                            {['All', 'Volunteer', 'Donor', 'Both'].map((roleOpt) => (
+                                <button
+                                    key={roleOpt}
+                                    onClick={() => { setRoleFilter(roleOpt); setPage(1); }}
+                                    style={{
+                                        padding: '0.6rem 0.95rem',
+                                        background: roleFilter === roleOpt ? '#4f46e5' : 'transparent',
+                                        color: roleFilter === roleOpt ? 'white' : '#64748b',
+                                        border: '1px solid',
+                                        borderColor: roleFilter === roleOpt ? '#4f46e5' : '#e2e8f0',
+                                        borderRadius: '999px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
                                 >
-                                    <option value="All">All Roles</option>
-                                    <option value="Volunteer">Volunteer</option>
-                                    <option value="Donor">Donor</option>
-                                    <option value="Both">Both</option>
-                                </select>
-                            </>
-                        )}
+                                    {roleOpt === 'All' ? 'All' : roleOpt}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             ) : null}
