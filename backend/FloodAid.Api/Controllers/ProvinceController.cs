@@ -19,7 +19,7 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Get all provinces
+        /// Get all provinces - ProvinceAdmin sees only their own province, SuperAdmin sees all
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetProvinces()
@@ -32,9 +32,12 @@ namespace FloodAid.Api.Controllers
 
             IQueryable<Models.Province> query = _context.Provinces;
 
-            // ProvinceAdmin is scoped to their own province; SuperAdmin sees all
-            if (admin != null && admin.Role == "ProvinceAdmin" && admin.ProvinceId.HasValue)
+            // ProvinceAdmin is strictly scoped to only their own province; SuperAdmin sees all
+            if (admin != null && admin.Role == "ProvinceAdmin")
             {
+                if (!admin.ProvinceId.HasValue)
+                    return BadRequest(new { message = "ProvinceAdmin must have a ProvinceId assigned" });
+                
                 query = query.Where(p => p.Id == admin.ProvinceId.Value);
             }
 
@@ -51,7 +54,7 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Get cities for a specific province
+        /// Get cities for a specific province - ProvinceAdmin can only access their own province
         /// </summary>
         [HttpGet("{provinceId}/cities")]
         public async Task<IActionResult> GetCitiesForProvince(int provinceId)
@@ -62,12 +65,15 @@ namespace FloodAid.Api.Controllers
                 ? await _context.Admins.FirstOrDefaultAsync(a => a.Email == requesterEmail)
                 : null;
 
-            // ProvinceAdmin can only access cities within their own province
+            // ProvinceAdmin can ONLY access cities within their own province - strict enforcement
             if (admin != null && admin.Role == "ProvinceAdmin")
             {
-                if (!admin.ProvinceId.HasValue || admin.ProvinceId.Value != provinceId)
+                if (!admin.ProvinceId.HasValue)
+                    return BadRequest(new { message = "ProvinceAdmin must have a ProvinceId assigned" });
+                
+                if (admin.ProvinceId.Value != provinceId)
                 {
-                    return Forbid();
+                    return Forbid(); // ProvinceAdmin cannot access cities from other provinces
                 }
             }
 

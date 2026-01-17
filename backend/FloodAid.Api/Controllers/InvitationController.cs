@@ -76,6 +76,12 @@ namespace FloodAid.Api.Controllers
                         return BadRequest(new { message = "City must be within your province" });
                     }
                 }
+                else if (dto.Role == UserRole.ProvinceAdmin)
+                {
+                    // ProvinceAdmin cannot invite ProvinceAdmin - only SuperAdmin can
+                    if (admin.Role == "ProvinceAdmin")
+                        return Forbid(); // ProvinceAdmin cannot create ProvinceAdmin invitations
+                }
 
                 // Check for existing invitation
                 var existingInvitation = await _context.Invitations
