@@ -7,6 +7,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 const AdminUsers = () => {
     const { admin } = useAdminAuth();
     const [users, setUsers] = useState([]);
+    const [admins, setAdmins] = useState([]);
     const [invitations, setInvitations] = useState([]);
     const [provinces, setProvinces] = useState([]);
     const [cities, setCities] = useState([]);
@@ -15,6 +16,7 @@ const AdminUsers = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [roleFilter, setRoleFilter] = useState('All');
+    const [adminRoleFilter, setAdminRoleFilter] = useState('All');
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalCount, setTotalCount] = useState(0);
@@ -27,13 +29,17 @@ const AdminUsers = () => {
             setInviteForm((prev) => ({ ...prev, role: 0 })); // ProvinceAdmin can only invite Volunteers
         }
     }, [admin]);
-    const [activeTab, setActiveTab] = useState('users'); // 'users' or 'invitations'
+    const [activeTab, setActiveTab] = useState('users'); // 'users', 'admins', or 'invitations'
 
     useEffect(() => {
-        fetchUsers();
+        if (activeTab === 'users') {
+            fetchUsers();
+        } else if (activeTab === 'admins' && admin?.role === 'SuperAdmin') {
+            fetchAdmins();
+        }
         fetchInvitations();
         fetchProvinces();
-    }, [page, pageSize, statusFilter, roleFilter, searchTerm]);
+    }, [page, pageSize, statusFilter, roleFilter, adminRoleFilter, searchTerm, activeTab]);
 
     const fetchUsers = async () => {
         try {
@@ -101,6 +107,56 @@ const AdminUsers = () => {
     const mapStatus = (statusInt) => {
         const statusMap = { 0: 'Pending', 1: 'Approved', 2: 'Rejected' };
         return statusMap[statusInt] || 'Unknown';
+    };
+
+    const fetchAdmins = async () => {
+        try {
+            setLoading(true);
+            const params = new URLSearchParams();
+            params.append('page', page);
+            params.append('pageSize', pageSize);
+
+            if (adminRoleFilter !== 'All') {
+                params.append('role', adminRoleFilter);
+            }
+
+            if (searchTerm) {
+                params.append('searchTerm', searchTerm);
+            }
+
+            const token = localStorage.getItem('floodaid_token');
+            const response = await fetch(`${API_BASE}/api/admins?${params.toString()}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) {
+                throw new Error('Failed to fetch admins');
+            }
+
+            const result = await response.json();
+            const mappedAdmins = (result.data || []).map(a => ({
+                id: a.id,
+                name: a.name,
+                email: a.email,
+                username: a.username,
+                role: a.role,
+                isActive: a.isActive,
+                provinceId: a.provinceId,
+                provinceName: a.provinceName || '-',
+                createdAt: new Date(a.createdAt).toLocaleString(),
+                lastLoginAt: a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : 'Never'
+            }));
+
+            setAdmins(mappedAdmins);
+            setTotalCount(result.totalCount || 0);
+            setError(null);
+        } catch (err) {
+            setError(err.message);
+            console.error('Error fetching admins:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const fetchInvitations = async () => {
@@ -344,10 +400,27 @@ const AdminUsers = () => {
                             fontSize: '0.95rem',
                             fontWeight: 600
                         }}
-                        onClick={() => setActiveTab('users')}
+                        onClick={() => { setActiveTab('users'); setPage(1); }}
                     >
-                        Active Users ({totalCount})
+                        Volunteers & Donors ({activeTab === 'users' ? totalCount : users.length})
                     </button>
+                    {admin?.role === 'SuperAdmin' && (
+                        <button
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                background: activeTab === 'admins' ? '#4f46e5' : 'transparent',
+                                color: activeTab === 'admins' ? 'white' : '#64748b',
+                                border: 'none',
+                                borderBottom: activeTab === 'admins' ? '3px solid #4f46e5' : '3px solid transparent',
+                                cursor: 'pointer',
+                                fontSize: '0.95rem',
+                                fontWeight: 600
+                            }}
+                            onClick={() => { setActiveTab('admins'); setPage(1); }}
+                        >
+                            Province Admins ({activeTab === 'admins' ? totalCount : admins.length})
+                        </button>
+                    )}
                     <button
                         style={{
                             padding: '0.75rem 1.5rem',
@@ -359,7 +432,7 @@ const AdminUsers = () => {
                             fontSize: '0.95rem',
                             fontWeight: 600
                         }}
-                        onClick={() => setActiveTab('invitations')}
+                        onClick={() => { setActiveTab('invitations'); setPage(1); }}
                     >
                         Invitations ({invitations.length})
                     </button>
@@ -700,6 +773,99 @@ const AdminUsers = () => {
                             {users.length === 0 && (
                                 <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                                     No users found
+                                </div>
+                            )}
+                        </>
+                    ) : activeTab === 'admins' ? (
+                        /* Admins Table */
+                        <>
+                            {/* Admin Filters */}
+                            <div className="table-controls" style={{ flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
+                                    <Search className="search-icon" size={20} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search name/email..."
+                                        className="search-input"
+                                        value={searchTerm}
+                                        onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                                    />
+                                </div>
+                                <select
+                                    value={adminRoleFilter}
+                                    onChange={(e) => { setAdminRoleFilter(e.target.value); setPage(1); }}
+                                    className="status-dropdown"
+                                    style={{ minWidth: '140px' }}
+                                >
+                                    <option value="All">All Roles</option>
+                                    <option value="SuperAdmin">SuperAdmin</option>
+                                    <option value="ProvinceAdmin">ProvinceAdmin</option>
+                                </select>
+                            </div>
+
+                            <div className="table-container">
+                                <div className="table-wrapper">
+                                    <table className="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Email</th>
+                                                <th>Role</th>
+                                                <th>Province</th>
+                                                <th>Status</th>
+                                                <th>Created</th>
+                                                <th>Last Login</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {admins.map((admin) => (
+                                                <tr key={admin.id}>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                            <div style={{
+                                                                width: '36px',
+                                                                height: '36px',
+                                                                borderRadius: '50%',
+                                                                background: admin.role === 'SuperAdmin' ? '#ef4444' : '#3b82f6',
+                                                                color: 'white',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontWeight: 600
+                                                            }}>
+                                                                {admin.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontWeight: 500 }}>{admin.name}</div>
+                                                                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{admin.username}</div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>{admin.email}</td>
+                                                    <td>
+                                                        <span className={admin.role === 'SuperAdmin' ? 'badge-red' : 'badge-blue'}>
+                                                            {admin.role === 'SuperAdmin' ? <Shield size={12} /> : <Building2 size={12} />}
+                                                            {admin.role}
+                                                        </span>
+                                                    </td>
+                                                    <td>{admin.provinceName}</td>
+                                                    <td>
+                                                        <span className={admin.isActive ? 'badge-green' : 'badge-gray'}>
+                                                            {admin.isActive ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{admin.createdAt}</td>
+                                                    <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{admin.lastLoginAt}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {admins.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+                                    No admins found
                                 </div>
                             )}
                         </>
