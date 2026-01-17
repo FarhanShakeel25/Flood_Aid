@@ -86,6 +86,26 @@ const VolunteerDashboard = () => {
     }
   };
 
+  const mapPriority = (priorityInt) => {
+    const priorityMap = { 0: 'Low', 1: 'Medium', 2: 'High', 3: 'Critical' };
+    return priorityMap[priorityInt] || 'Medium';
+  };
+
+  const getTimeRemaining = (dueDate) => {
+    if (!dueDate) return '-';
+    const now = new Date();
+    const diffMs = new Date(dueDate) - now;
+    if (diffMs < 0) return 'Overdue';
+    
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  };
+
   if (!token || !user) {
     return null;
   }
@@ -160,6 +180,8 @@ const VolunteerDashboard = () => {
                     const status = req.status ?? req.Status;
                     const province = req.provinceId ?? req.ProvinceId;
                     const city = req.cityId ?? req.CityId;
+                    const priority = req.priority !== undefined ? mapPriority(req.priority) : 'Medium';
+                    const dueDate = req.dueDate ? new Date(req.dueDate) : null;
 
                     return (
                       <div key={id} className="rounded-xl border border-slate-800 bg-slate-800/60 p-4">
@@ -170,6 +192,8 @@ const VolunteerDashboard = () => {
                             <div className="text-sm text-slate-400 mt-2 space-y-1">
                               <p>Type: <span className="text-emerald-200">{type}</span></p>
                               <p>Status: <span className="text-emerald-200">{status}</span></p>
+                              <p>Priority: <span className={priority === 'Critical' ? 'text-red-200' : priority === 'High' ? 'text-orange-200' : 'text-blue-200'}>{priority}</span></p>
+                              {dueDate && <p>Due: <span className={getTimeRemaining(dueDate) === 'Overdue' ? 'text-red-200' : 'text-emerald-200'}>{dueDate.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} ({getTimeRemaining(dueDate)})</span></p>}
                               <p>ProvinceId: {province ?? 'N/A'} | CityId: {city ?? 'N/A'}</p>
                             </div>
                           </div>
@@ -203,6 +227,8 @@ const VolunteerDashboard = () => {
                     const assignStatus = req.assignmentStatus ?? 'Assigned';
                     const province = req.provinceId ?? req.ProvinceId;
                     const city = req.cityId ?? req.CityId;
+                    const priority = req.priority !== undefined ? mapPriority(req.priority) : 'Medium';
+                    const dueDate = req.dueDate ? new Date(req.dueDate) : null;
 
                     return (
                       <div key={id} className="rounded-xl border border-slate-800 bg-slate-800/60 p-4">
@@ -213,6 +239,8 @@ const VolunteerDashboard = () => {
                             <div className="text-sm text-slate-400 mt-2 space-y-1">
                               <p>Type: <span className="text-emerald-200">{type}</span></p>
                               <p>Assignment Status: <span className="text-yellow-200">{assignStatus}</span></p>
+                              <p>Priority: <span className={priority === 'Critical' ? 'text-red-200' : priority === 'High' ? 'text-orange-200' : 'text-blue-200'}>{priority}</span></p>
+                              {dueDate && <p>Due: <span className={getTimeRemaining(dueDate) === 'Overdue' ? 'text-red-200' : 'text-emerald-200'}>{dueDate.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} ({getTimeRemaining(dueDate)})</span></p>}
                               <p>ProvinceId: {province ?? 'N/A'} | CityId: {city ?? 'N/A'}</p>
                             </div>
                           </div>

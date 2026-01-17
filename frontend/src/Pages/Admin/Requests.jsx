@@ -13,6 +13,7 @@ const AdminRequests = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [requestTypeFilter, setRequestTypeFilter] = useState('All');
+    const [priorityFilter, setPriorityFilter] = useState('All');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [page, setPage] = useState(1);
@@ -70,12 +71,14 @@ const AdminRequests = () => {
                     id: req.id,
                     type: mapRequestType(req.requestType),
                     location: `${req.latitude.toFixed(4)}, ${req.longitude.toFixed(4)}`,
-                    priority: determinePriority(req.requestType),
+                    priority: req.priority !== undefined ? mapPriority(req.priority) : determinePriority(req.requestType),
+                    priorityInt: req.priority ?? 1,
                     status: req.status,
                     reportedBy: req.requestorName || 'Anonymous',
                     phone: req.requestorPhoneNumber,
                     email: req.requestorEmail,
                     description: req.requestDescription,
+                    dueDate: req.dueDate ? new Date(req.dueDate) : null,
                     createdAt: new Date(req.createdAt).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
                     updatedAt: req.updatedAt,
                     latitude: req.latitude,
@@ -126,6 +129,31 @@ const AdminRequests = () => {
         if (requestType === 'MedicalSuppliesRequired') return 'High';
         if (requestType === 'EmergencyCase') return 'High';
         return 'Medium';
+    };
+
+    const mapPriority = (priorityInt) => {
+        const priorityMap = { 0: 'Low', 1: 'Medium', 2: 'High', 3: 'Critical' };
+        return priorityMap[priorityInt] || 'Medium';
+    };
+
+    const getPriorityColor = (priorityInt) => {
+        const colorMap = { 0: '#3b82f6', 1: '#f59e0b', 2: '#ef4444', 3: '#dc2626' };
+        return colorMap[priorityInt] || '#3b82f6';
+    };
+
+    const getTimeRemaining = (dueDate) => {
+        if (!dueDate) return '-';
+        const now = new Date();
+        const diffMs = new Date(dueDate) - now;
+        if (diffMs < 0) return 'Overdue';
+        
+        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (days > 0) return `${days}d ${hours}h`;
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return `${mins}m`;
     };
 
     const fetchVolunteers = async () => {
@@ -350,6 +378,19 @@ const AdminRequests = () => {
                         <option value="Cancelled">Cancelled</option>
                     </select>
 
+                    <select
+                        value={priorityFilter}
+                        onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }}
+                        className="status-dropdown"
+                        style={{ minWidth: '140px' }}
+                    >
+                        <option value="All">All Priorities</option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                    </select>
+
                     <input
                         type="date"
                         value={startDate}
@@ -376,6 +417,7 @@ const AdminRequests = () => {
                                 <th>Type</th>
                                 <th>Location</th>
                                 <th>Priority</th>
+                                <th>Due Date</th>
                                 <th>Reported By</th>
                                 <th>Assigned To</th>
                                 <th>Status</th>
@@ -407,10 +449,25 @@ const AdminRequests = () => {
                                     <td>
                                         <span className={`badge ${r.priority === 'Critical' ? 'badge-red' :
                                             r.priority === 'High' ? 'badge-orange' :
+                                            r.priority === 'Medium' ? 'badge-yellow' :
                                                 'badge-blue'
                                             }`}>
                                             {r.priority}
                                         </span>
+                                    </td>
+                                    <td>
+                                        <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                                            {r.dueDate ? (
+                                                <div>
+                                                    <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                                                        {r.dueDate.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                    <div style={{ color: getTimeRemaining(r.dueDate) === 'Overdue' ? '#dc2626' : '#64748b' }}>
+                                                        {getTimeRemaining(r.dueDate)}
+                                                    </div>
+                                                </div>
+                                            ) : '-'}
+                                        </div>
                                     </td>
                                     <td>{r.reportedBy}</td>
                                     <td>

@@ -68,6 +68,10 @@ namespace FloodAid.Api.Controllers
                     Latitude = dto.Latitude,
                     Longitude = dto.Longitude,
                     ProvinceId = provinceId,
+                    Priority = dto.Priority.HasValue && Enum.IsDefined(typeof(Priority), dto.Priority.Value) 
+                        ? (Priority)dto.Priority.Value 
+                        : Priority.Medium,
+                    DueDate = CalculateDueDate((Priority)(dto.Priority ?? (int)Priority.Medium)),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -149,6 +153,26 @@ namespace FloodAid.Api.Controllers
                 _logger.LogWarning(ex, "Reverse geocode failed for lat {Lat}, lon {Lon}", latitude, longitude);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Calculate due date based on priority level
+        /// Critical: 1 hour
+        /// High: 4 hours
+        /// Medium: 24 hours (1 day)
+        /// Low: 7 days
+        /// </summary>
+        private DateTime CalculateDueDate(Priority priority)
+        {
+            var now = DateTime.UtcNow;
+            return priority switch
+            {
+                Priority.Critical => now.AddHours(1),
+                Priority.High => now.AddHours(4),
+                Priority.Medium => now.AddHours(24),
+                Priority.Low => now.AddDays(7),
+                _ => now.AddHours(24) // Default to Medium (24 hours)
+            };
         }
 
         /// <summary>
@@ -758,6 +782,7 @@ namespace FloodAid.Api.Controllers
         public required double Latitude { get; set; }
         public required double Longitude { get; set; }
         public int? ProvinceId { get; set; } // optional client-provided province
+        public int? Priority { get; set; } // 0=Low, 1=Medium (default), 2=High, 3=Critical
     }
 
     /// <summary>

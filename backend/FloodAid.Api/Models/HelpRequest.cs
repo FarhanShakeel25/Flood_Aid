@@ -61,5 +61,16 @@ namespace FloodAid.Api.Models
         /// Timestamp when assignment was made
         /// </summary>
         public DateTime? AssignedAt { get; set; }
+
+        /// <summary>
+        /// Priority level: Low, Medium, High, Critical
+        /// </summary>
+        [Required]
+        public Priority Priority { get; set; } = Priority.Medium;
+
+        /// <summary>
+        /// Due date calculated based on priority (Critical: 1hr, High: 4hrs, Medium: 24hrs, Low: 7 days)
+        /// </summary>
+        public DateTime? DueDate { get; set; }
     }
 }
