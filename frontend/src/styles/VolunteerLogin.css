@@ -9,7 +9,7 @@
   min-height: 100vh;
   width: 100vw;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   position: fixed;
   top: 0;
@@ -17,7 +17,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   background: linear-gradient(135deg, #a8dadc 0%, #e0e7ff 100%);
-  padding: 1.5rem;
+  padding: 2rem 1.5rem;
   margin: 0;
   border: none;
 }
