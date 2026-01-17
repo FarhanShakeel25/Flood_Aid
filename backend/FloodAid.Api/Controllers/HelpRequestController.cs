@@ -640,6 +640,7 @@ namespace FloodAid.Api.Controllers
 
         /// <summary>
         /// Unassign a help request from volunteer (SuperAdmin/ProvinceAdmin only, or self-unassign by volunteer)
+        /// When volunteer unassigns themselves, the reason is logged for audit trail
         /// </summary>
         [HttpPost("{id}/unassign")]
         [Authorize]
@@ -678,14 +679,28 @@ namespace FloodAid.Api.Controllers
                     }
                 }
 
+                // Determine if this is a self-unassign (by volunteer) or admin-forced unassign
+                var isSelfUnassign = request.AssignedToVolunteerId == userId && (userRole != "SuperAdmin" && userRole != "ProvinceAdmin");
+
                 request.AssignedToVolunteerId = null;
                 request.AssignmentStatus = AssignmentStatus.Unassigned;
                 request.AssignedAt = null;
                 request.UpdatedAt = DateTime.UtcNow;
 
+                // Log reason and timestamp only for volunteer self-unassign
+                if (isSelfUnassign)
+                {
+                    if (dto.Reason.HasValue && Enum.IsDefined(typeof(UnassignReason), dto.Reason.Value))
+                    {
+                        request.UnassignReason = (UnassignReason)dto.Reason.Value;
+                        request.UnassignedAt = DateTime.UtcNow;
+                    }
+                }
+
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Help request {RequestId} unassigned by {Email} (Reason: {Reason})", id, userEmail, dto.Reason ?? "None");
+                _logger.LogInformation("✅ Help request {RequestId} unassigned by {Email} (Self-unassign: {IsSelfUnassign}, Reason: {Reason})", 
+                    id, userEmail, isSelfUnassign, dto.Reason ?? null);
 
                 return Ok(new { message = "Help request unassigned successfully" });
             }
@@ -758,7 +773,7 @@ namespace FloodAid.Api.Controllers
     /// </summary>
     public class UnassignHelpRequestDto
     {
-        public string? Reason { get; set; }
+        public int? Reason { get; set; } // UnassignReason enum value (0=PersonalEmergency, 1=UnableToReach, 2=NeedBackup, 3=UnableToComplete, 4=Other)
     }
 
     /// <summary>

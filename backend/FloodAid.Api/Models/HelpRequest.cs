@@ -72,5 +72,15 @@ namespace FloodAid.Api.Models
         /// Due date calculated based on priority (Critical: 1hr, High: 4hrs, Medium: 24hrs, Low: 7 days)
         /// </summary>
         public DateTime? DueDate { get; set; }
+
+        /// <summary>
+        /// Reason for unassignment when volunteer unassigns themselves
+        /// </summary>
+        public UnassignReason? UnassignReason { get; set; }
+
+        /// <summary>
+        /// Timestamp when volunteer unassigned themselves
+        /// </summary>
+        public DateTime? UnassignedAt { get; set; }
     }
 }

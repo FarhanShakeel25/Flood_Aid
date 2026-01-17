@@ -53,3 +53,22 @@ export const deleteHelpRequest = async (id, token) => {
     throw new Error(message);
   }
 };
+
+export const unassignHelpRequest = async (id, reason, token) => {
+  const response = await fetch(`${API_BASE}/api/helpRequest/${id}/unassign`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ reason })
+  });
+
+  if (!response.ok) {
+    const payload = await parseJson(response);
+    const message = payload?.message || 'Failed to unassign request';
+    throw new Error(message);
+  }
+
+  return await parseJson(response);
+};

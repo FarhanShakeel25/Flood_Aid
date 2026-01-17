@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { deleteHelpRequest, fetchPendingRequests } from '../services/userApi';
+import { deleteHelpRequest, fetchPendingRequests, unassignHelpRequest } from '../services/userApi';
+import UnassignModal from '../components/UnassignModal';
 
 const VolunteerDashboard = () => {
   const navigate = useNavigate();
@@ -10,6 +11,8 @@ const VolunteerDashboard = () => {
   const [error, setError] = useState('');
   const [actionId, setActionId] = useState(null);
   const [activeTab, setActiveTab] = useState('available'); // 'available' or 'assigned'
+  const [showUnassignModal, setShowUnassignModal] = useState(false);
+  const [unassignRequestId, setUnassignRequestId] = useState(null);
 
   const token = useMemo(() => localStorage.getItem('floodaid_user_token'), []);
   const user = useMemo(() => {
@@ -83,6 +86,32 @@ const VolunteerDashboard = () => {
       setError(err.message || 'Failed to delete request');
     } finally {
       setActionId(null);
+    }
+  };
+
+  const handleUnassignClick = (requestId) => {
+    setUnassignRequestId(requestId);
+    setShowUnassignModal(true);
+  };
+
+  const handleUnassignConfirm = async (requestId, reason) => {
+    if (!token) {
+      navigate('/volunteer/login');
+      return;
+    }
+
+    try {
+      await unassignHelpRequest(requestId, reason, token);
+      // Move request from assigned to available
+      const request = assignedRequests.find((r) => (r.id ?? r.Id) === requestId);
+      if (request) {
+        request.assignmentStatus = 'Unassigned';
+        request.assignedToVolunteerId = null;
+        setRequests((prev) => [...prev, request]);
+        setAssignedRequests((prev) => prev.filter((r) => (r.id ?? r.Id) !== requestId));
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to unassign request');
     }
   };
 
@@ -248,13 +277,21 @@ const VolunteerDashboard = () => {
                             <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-200 mb-3">
                               Assigned
                             </span>
-                            <button
-                              onClick={() => handleDelete(id)}
-                              disabled={actionId === id}
-                              className="px-3 py-2 text-sm rounded-lg bg-red-500/90 hover:bg-red-400 text-white transition disabled:opacity-60 disabled:cursor-not-allowed block w-full"
-                            >
-                              {actionId === id ? 'Deleting...' : 'Delete'}
-                            </button>
+                            <div className="flex flex-col gap-2">
+                              <button
+                                onClick={() => handleUnassignClick(id)}
+                                className="px-3 py-2 text-sm rounded-lg bg-orange-500/90 hover:bg-orange-400 text-white transition"
+                              >
+                                Unassign
+                              </button>
+                              <button
+                                onClick={() => handleDelete(id)}
+                                disabled={actionId === id}
+                                className="px-3 py-2 text-sm rounded-lg bg-red-500/90 hover:bg-red-400 text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                {actionId === id ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -265,6 +302,16 @@ const VolunteerDashboard = () => {
             )}
           </>
         )}
+
+        <UnassignModal
+          requestId={unassignRequestId}
+          isOpen={showUnassignModal}
+          onClose={() => {
+            setShowUnassignModal(false);
+            setUnassignRequestId(null);
+          }}
+          onConfirm={handleUnassignConfirm}
+        />
       </div>
     </div>
   );
