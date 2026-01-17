@@ -7,6 +7,8 @@ import HelpRequestPage from './Pages/HelpRequestPage';
 import SuccessPage from './Pages/SuccessPage';
 import CancelPage from './Pages/CancelPage';
 import AcceptInvitation from './Pages/AcceptInvitation';
+import VolunteerLogin from './Pages/VolunteerLogin';
+import VolunteerDashboard from './Pages/VolunteerDashboard';
 import FloodAidChatbot from './components/FloodAidChatbot';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AdminAuthProvider } from './context/AdminAuthContext';
@@ -93,6 +95,11 @@ function AdminButton() {
 // ============================================================================
 // APP CONTENT
 // ============================================================================
+function VolunteerRoute({ children }) {
+  const hasToken = !!localStorage.getItem('floodaid_user_token');
+  return hasToken ? children : <Navigate to="/volunteer/login" replace />;
+}
+
 function AppContent() {
   const location = useLocation();
 
@@ -112,6 +119,15 @@ function AppContent() {
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/cancel" element={<CancelPage />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        <Route path="/volunteer/login" element={<VolunteerLogin />} />
+        <Route
+          path="/volunteer/dashboard"
+          element={
+            <VolunteerRoute>
+              <VolunteerDashboard />
+            </VolunteerRoute>
+          }
+        />
 
         {/* ===== ADMIN ROUTES ===== */}
         <Route path="/admin/login" element={<AdminLogin />} />
