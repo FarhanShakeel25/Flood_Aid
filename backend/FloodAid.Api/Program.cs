@@ -72,7 +72,11 @@ namespace FloodAid.Api
 
             // Register Database Context
             builder.Services.AddDbContext<FloodAidContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+            {
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+                // Suppress pending model changes warning - columns are added manually via DBeaver
+                options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+            });
 
             // Add controllers
             builder.Services.AddControllers()
