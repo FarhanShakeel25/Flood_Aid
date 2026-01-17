@@ -1,10 +1,19 @@
 /* Volunteer Login Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 .volunteer-login-container {
   min-height: 100vh;
+  width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
   overflow: hidden;
   background: linear-gradient(135deg, #a8dadc 0%, #e0e7ff 100%);
   padding: 1.5rem;
@@ -143,12 +152,7 @@
 }
 
 .input-icon {
-  position: absolute;
-  left: 1rem;
-  font-size: 1.25rem;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0;
+  display: none;
 }
 
 .form-input {

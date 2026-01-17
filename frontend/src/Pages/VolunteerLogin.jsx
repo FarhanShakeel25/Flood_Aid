@@ -76,7 +76,6 @@ const VolunteerLogin = () => {
               Email Address
             </label>
             <div className="input-wrapper">
-              <span className="input-icon">📧</span>
               <input
                 id="email"
                 type="email"
@@ -95,7 +94,6 @@ const VolunteerLogin = () => {
               Password
             </label>
             <div className="input-wrapper">
-              <span className="input-icon">🔒</span>
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
@@ -104,7 +102,6 @@ const VolunteerLogin = () => {
                 placeholder="Enter your password"
                 required
                 className="form-input"
-                style={{ paddingRight: '45px' }}
               />
               <button
                 type="button"
