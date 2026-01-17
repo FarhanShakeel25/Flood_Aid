@@ -109,7 +109,7 @@ const VolunteerLogin = () => {
                 className="password-toggle"
                 title={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
+                {showPassword ? '�' : '👁️'}
               </button>
             </div>
           </div>
