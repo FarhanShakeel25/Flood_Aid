@@ -1,399 +1,372 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { deleteHelpRequest, fetchPendingRequests } from '../services/userApi';
-import { MapPin, Clock, AlertCircle, CheckCircle, Heart, LogOut, Filter } from 'lucide-react';
+import { fetchPendingRequests } from '../services/userApi';
+import { Search, Filter, Eye, MapPin, Calendar, AlertCircle, User as UserIcon, CheckCircle, XCircle, LogOut } from 'lucide-react';
 import '../styles/VolunteerDashboard.css';
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://flood-aid.onrender.com';
 
 const VolunteerDashboard = () => {
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
-  const [assignedRequests, setAssignedRequests] = useState([]);
+  const [filteredRequests, setFilteredRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [actionId, setActionId] = useState(null);
-  const [activeTab, setActiveTab] = useState('available');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
+  const [activeTab, setActiveTab] = useState('available');
+  const [assigningId, setAssigningId] = useState(null);
 
-  const token = useMemo(() => localStorage.getItem('floodaid_user_token'), []);
-  const user = useMemo(() => {
-    const stored = localStorage.getItem('floodaid_user');
-    return stored ? JSON.parse(stored) : null;
-  }, []);
+  const token = localStorage.getItem('floodaid_user_token');
+  const user = JSON.parse(localStorage.getItem('floodaid_user') || '{}');
 
   useEffect(() => {
-    if (!token || !user) {
+    if (!token || !user.id) {
       navigate('/volunteer/login');
       return;
     }
+    loadRequests();
+  }, [token, user, navigate]);
 
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await fetchPendingRequests();
-        const scoped = scopeToVolunteer(data, user);
-        
-        // Separate available and assigned requests
-        const available = scoped.filter(r => !r.assignedToVolunteerId || r.assignmentStatus === 'Unassigned');
-        const assigned = scoped.filter(r => r.assignedToVolunteerId && r.assignmentStatus !== 'Unassigned');
-        
-        setRequests(available);
-        setAssignedRequests(assigned);
-      } catch (err) {
-        setError(err.message || 'Failed to load requests');
-      } finally {
-        setLoading(false);
-      }
-    };
+  useEffect(() => {
+    applyFilters();
+  }, [requests, searchTerm, filterType, filterStatus, filterPriority, activeTab]);
 
-    load();
-  }, [navigate, token, user]);
+  const loadRequests = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await fetchPendingRequests();
+      const scoped = scopeToVolunteer(data, user);
+      setRequests(scoped);
+    } catch (err) {
+      setError(err.message || 'Failed to load requests');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const scopeToVolunteer = (items, volunteer) => {
     if (!Array.isArray(items) || !volunteer) return [];
-
     const cityId = volunteer.cityId ?? volunteer.CityId;
-    const provinceId = volunteer.provinceId ?? volunteer.ProvinceId;
-
     return items.filter((item) => {
       const requestCityId = item.cityId ?? item.CityId;
-      const requestProvinceId = item.provinceId ?? item.ProvinceId;
-
-      if (cityId && requestCityId) {
-        return requestCityId === cityId;
-      }
-
-      if (provinceId && requestProvinceId) {
-        return requestProvinceId === provinceId;
-      }
-
-      return true;
+      return cityId && requestCityId === cityId;
     });
   };
 
-  const handleDelete = async (id) => {
-    if (!token) {
-      navigate('/volunteer/login');
-      return;
+  const applyFilters = () => {
+    let filtered = [...requests];
+
+    // Tab filter
+    if (activeTab === 'available') {
+      filtered = filtered.filter(r => !r.assignedToVolunteerId || r.assignmentStatus === 'Unassigned');
+    } else if (activeTab === 'assigned') {
+      filtered = filtered.filter(r => r.assignedToVolunteerId === user.id || r.assignedToVolunteerId === user.Id);
     }
 
-    setActionId(id);
-    setError('');
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(r => 
+        (r.requestDescription || '').toLowerCase().includes(term) ||
+        (r.requestorName || '').toLowerCase().includes(term) ||
+        (r.requestorEmail || '').toLowerCase().includes(term) ||
+        (r.requestorPhoneNumber || '').toLowerCase().includes(term)
+      );
+    }
+
+    // Type filter
+    if (filterType !== 'all') {
+      filtered = filtered.filter(r => r.requestType === filterType);
+    }
+
+    // Status filter
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(r => r.status === filterStatus);
+    }
+
+    // Priority filter
+    if (filterPriority !== 'all') {
+      filtered = filtered.filter(r => mapPriority(r.priority) === filterPriority);
+    }
+
+    setFilteredRequests(filtered);
+  };
+
+  const handleSelfAssign = async (requestId) => {
+    if (!window.confirm('Do you want to assign this request to yourself?')) return;
+
+    setAssigningId(requestId);
     try {
-      await deleteHelpRequest(id, token);
-      setRequests((prev) => prev.filter((r) => (r.id ?? r.Id) !== id));
-      setAssignedRequests((prev) => prev.filter((r) => (r.id ?? r.Id) !== id));
+      const response = await fetch(`${API_BASE}/api/helpRequest/${requestId}/assign`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ volunteerId: user.id || user.Id })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to assign request');
+      }
+
+      await loadRequests();
+      setActiveTab('assigned');
     } catch (err) {
-      setError(err.message || 'Failed to delete request');
+      alert(`Error: ${err.message}`);
     } finally {
-      setActionId(null);
+      setAssigningId(null);
     }
   };
 
-  const mapPriority = (priorityInt) => {
-    const priorityMap = { 0: 'Low', 1: 'Medium', 2: 'High', 3: 'Critical' };
-    return priorityMap[priorityInt] || 'Medium';
-  };
-
-  const getTimeRemaining = (dueDate) => {
-    if (!dueDate) return '-';
-    const now = new Date();
-    const diffMs = new Date(dueDate) - now;
-    if (diffMs < 0) return 'Overdue';
-    
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${mins}m`;
-    return `${mins}m`;
-  };
-
-  const getRequestTypeIcon = (type) => {
-    const typeMap = {
-      'Medical': '🏥',
-      'Food': '🍲',
-      'Shelter': '🏠',
-      'Water': '💧',
-      'Other': '❓'
-    };
-    return typeMap[type] || '❓';
+  const mapPriority = (priority) => {
+    const map = { 0: 'Low', 1: 'Medium', 2: 'High', 3: 'Critical' };
+    return map[priority] || 'Medium';
   };
 
   const getPriorityColor = (priority) => {
     switch(priority) {
-      case 'Critical': return '#ef4444';
-      case 'High': return '#f97316';
-      case 'Medium': return '#eab308';
-      default: return '#3b82f6';
+      case 'Critical': return '#dc2626';
+      case 'High': return '#ea580c';
+      case 'Medium': return '#ca8a04';
+      default: return '#2563eb';
     }
   };
 
-  const filterRequests = (reqs) => {
-    if (filterPriority === 'all') return reqs;
-    return reqs.filter(r => {
-      const priority = r.priority !== undefined ? mapPriority(r.priority) : 'Medium';
-      return priority === filterPriority;
+  const getTypeIcon = (type) => {
+    const icons = {
+      'Medical': '🏥',
+      'Food': '🍲',
+      'Shelter': '🏠',
+      'Water': '💧',
+      'Rescue': '🚑',
+      'Other': '📦'
+    };
+    return icons[type] || '📦';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
-  if (!token || !user) {
-    return null;
-  }
-
-  const filteredAvailable = filterRequests(requests);
-  const filteredAssigned = filterRequests(assignedRequests);
+  const availableCount = requests.filter(r => !r.assignedToVolunteerId || r.assignmentStatus === 'Unassigned').length;
+  const assignedCount = requests.filter(r => r.assignedToVolunteerId === (user.id || user.Id)).length;
 
   return (
-    <div className="volunteer-dashboard">
+    <div className="volunteer-dashboard-new">
       {/* Header */}
-      <header className="dashboard-header">
-        <div className="header-content">
-          <div className="user-info">
-            <div className="user-avatar">
-              <Heart size={24} style={{ color: '#ef4444' }} />
-            </div>
-            <div>
-              <h1 className="user-name">{user.name || user.Name}</h1>
-              <p className="user-email">{user.email || user.Email}</p>
-            </div>
+      <header className="dashboard-header-new">
+        <div className="header-container">
+          <div className="header-left">
+            <h1 className="dashboard-title">Relief Requests</h1>
+            <p className="dashboard-subtitle">Viewing: {activeTab === 'available' ? 'Available' : 'My Assigned'} Requests • {filteredRequests.length} total</p>
           </div>
-          <button
-            onClick={() => {
-              localStorage.removeItem('floodaid_user_token');
-              localStorage.removeItem('floodaid_user');
-              navigate('/volunteer/login');
-            }}
-            className="logout-btn"
-            title="Logout"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
+          <div className="header-right">
+            <div className="user-info-header">
+              <UserIcon size={20} />
+              <span>{user.name || user.Name}</span>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.removeItem('floodaid_user_token');
+                localStorage.removeItem('floodaid_user');
+                navigate('/volunteer/login');
+              }}
+              className="logout-btn-new"
+              title="Logout"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="dashboard-main">
-        <div className="dashboard-container">
-          {/* Error Message */}
+      {/* Main Content */}
+      <main className="dashboard-main-new">
+        <div className="dashboard-content">
+          {/* Tabs */}
+          <div className="tabs-row">
+            <button
+              onClick={() => setActiveTab('available')}
+              className={`tab-button ${activeTab === 'available' ? 'active' : ''}`}
+            >
+              <span className="tab-icon">📋</span>
+              Available Requests
+              <span className="tab-badge">{availableCount}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('assigned')}
+              className={`tab-button ${activeTab === 'assigned' ? 'active' : ''}`}
+            >
+              <span className="tab-icon">✅</span>
+              My Assigned Tasks
+              <span className="tab-badge">{assignedCount}</span>
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="filters-section">
+            <div className="search-box">
+              <Search size={18} />
+              <input
+                type="text"
+                placeholder="Search name/phone/email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
+
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
+              <option value="all">All Types</option>
+              <option value="Medical">Medical</option>
+              <option value="Food">Food & Supplies</option>
+              <option value="Shelter">Shelter</option>
+              <option value="Water">Water</option>
+              <option value="Rescue">Rescue & Evacuation</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="filter-select">
+              <option value="all">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="InProgress">In Progress</option>
+              <option value="Fulfilled">Fulfilled</option>
+            </select>
+
+            <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="filter-select">
+              <option value="all">All Priorities</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          {/* Error */}
           {error && (
-            <div className="error-alert">
+            <div className="error-banner">
               <AlertCircle size={18} />
               <span>{error}</span>
             </div>
           )}
 
+          {/* Loading */}
           {loading ? (
-            <div className="loading-state">
-              <div className="spinner"></div>
-              <p>Loading help requests...</p>
+            <div className="loading-container">
+              <div className="spinner-new"></div>
+              <p>Loading requests...</p>
             </div>
           ) : (
             <>
-              {/* Stats Bar */}
-              <div className="stats-bar">
-                <div className="stat-card">
-                  <span className="stat-icon">📋</span>
-                  <div>
-                    <p className="stat-label">Available</p>
-                    <p className="stat-value">{requests.length}</p>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-icon">✅</span>
-                  <div>
-                    <p className="stat-label">Assigned</p>
-                    <p className="stat-value">{assignedRequests.length}</p>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-icon">🚨</span>
-                  <div>
-                    <p className="stat-label">Critical</p>
-                    <p className="stat-value">
-                      {requests.filter(r => mapPriority(r.priority) === 'Critical').length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div className="tabs-container">
-                <button
-                  onClick={() => setActiveTab('available')}
-                  className={`tab-btn ${activeTab === 'available' ? 'active' : ''}`}
-                >
-                  <span className="tab-icon">📋</span>
-                  Available Requests
-                  <span className="tab-count">{requests.length}</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('assigned')}
-                  className={`tab-btn ${activeTab === 'assigned' ? 'active' : ''}`}
-                >
-                  <span className="tab-icon">✅</span>
-                  My Tasks
-                  <span className="tab-count">{assignedRequests.length}</span>
-                </button>
-              </div>
-
-              {/* Filter */}
-              <div className="filter-container">
-                <Filter size={18} />
-                <select 
-                  value={filterPriority}
-                  onChange={(e) => setFilterPriority(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="all">All Priorities</option>
-                  <option value="Critical">🔴 Critical</option>
-                  <option value="High">🟠 High</option>
-                  <option value="Medium">🟡 Medium</option>
-                  <option value="Low">🔵 Low</option>
-                </select>
-              </div>
-
-              {/* Requests Grid */}
-              {activeTab === 'available' && (
-                filteredAvailable.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">🌊</div>
-                    <p className="empty-title">No Available Requests</p>
-                    <p className="empty-subtitle">Check back later for new help requests in your area</p>
-                  </div>
-                ) : (
-                  <div className="requests-grid">
-                    {filteredAvailable.map((req) => {
-                      const id = req.id ?? req.Id;
-                      const desc = req.requestDescription ?? req.RequestDescription;
-                      const type = req.requestType ?? req.RequestType;
-                      const status = req.status ?? req.Status;
-                      const priority = req.priority !== undefined ? mapPriority(req.priority) : 'Medium';
-                      const dueDate = req.dueDate ? new Date(req.dueDate) : null;
-                      const timeRemaining = dueDate ? getTimeRemaining(dueDate) : 'No deadline';
-
-                      return (
-                        <div key={id} className="request-card available">
-                          <div className="card-header">
-                            <div className="type-badge">
-                              <span>{getRequestTypeIcon(type)}</span>
-                              <span>{type}</span>
-                            </div>
-                            <div className="priority-badge" style={{ backgroundColor: getPriorityColor(priority) }}>
-                              {priority}
-                            </div>
+              {/* Table */}
+              <div className="table-container-new">
+                <table className="requests-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>TYPE</th>
+                      <th>LOCATION</th>
+                      <th>PRIORITY</th>
+                      <th>DUE DATE</th>
+                      <th>REPORTED BY</th>
+                      <th>STATUS</th>
+                      <th>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRequests.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" className="empty-row">
+                          <div className="empty-state-table">
+                            <span className="empty-icon">📭</span>
+                            <p>No requests found</p>
                           </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRequests.map((req) => {
+                        const id = req.id ?? req.Id;
+                        const type = req.requestType ?? req.RequestType;
+                        const priority = mapPriority(req.priority);
+                        const status = req.status ?? req.Status;
+                        const lat = req.latitude ?? req.Latitude;
+                        const lng = req.longitude ?? req.Longitude;
+                        const reportedBy = req.requestorName ?? req.RequestorName ?? 'Anonymous';
+                        const dueDate = req.dueDate ?? req.DueDate;
 
-                          <h3 className="card-title">{desc || 'Help Request'}</h3>
-
-                          <div className="card-details">
-                            <div className="detail-row">
-                              <MapPin size={16} className="detail-icon" />
-                              <span>📍 Location details available</span>
-                            </div>
-
-                            {dueDate && (
-                              <div className={`detail-row ${timeRemaining === 'Overdue' ? 'overdue' : ''}`}>
-                                <Clock size={16} className="detail-icon" />
-                                <span>
-                                  {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                  {' '}
-                                  <strong>({timeRemaining})</strong>
-                                </span>
+                        return (
+                          <tr key={id}>
+                            <td className="td-id">{id}</td>
+                            <td>
+                              <div className="type-cell">
+                                <span className="type-icon">{getTypeIcon(type)}</span>
+                                <span>{type}</span>
                               </div>
-                            )}
-
-                            <div className="detail-row">
-                              <AlertCircle size={16} className="detail-icon" />
-                              <span>Request #{id}</span>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => handleDelete(id)}
-                            disabled={actionId === id}
-                            className="delete-btn"
-                          >
-                            {actionId === id ? '⏳ Removing...' : '❌ Delete'}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
-              )}
-
-              {activeTab === 'assigned' && (
-                filteredAssigned.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">✋</div>
-                    <p className="empty-title">No Assigned Tasks</p>
-                    <p className="empty-subtitle">You haven't been assigned any requests yet. Check available requests!</p>
-                  </div>
-                ) : (
-                  <div className="requests-grid">
-                    {filteredAssigned.map((req) => {
-                      const id = req.id ?? req.Id;
-                      const desc = req.requestDescription ?? req.RequestDescription;
-                      const type = req.requestType ?? req.RequestType;
-                      const priority = req.priority !== undefined ? mapPriority(req.priority) : 'Medium';
-                      const dueDate = req.dueDate ? new Date(req.dueDate) : null;
-                      const timeRemaining = dueDate ? getTimeRemaining(dueDate) : 'No deadline';
-
-                      return (
-                        <div key={id} className="request-card assigned">
-                          <div className="card-header">
-                            <div className="type-badge">
-                              <span>{getRequestTypeIcon(type)}</span>
-                              <span>{type}</span>
-                            </div>
-                            <div className="status-badge">
-                              <CheckCircle size={16} />
-                              Assigned
-                            </div>
-                          </div>
-
-                          <h3 className="card-title">{desc || 'Help Request'}</h3>
-
-                          <div className="card-details">
-                            <div className="detail-row">
-                              <MapPin size={16} className="detail-icon" />
-                              <span>📍 Location details available</span>
-                            </div>
-
-                            {dueDate && (
-                              <div className={`detail-row ${timeRemaining === 'Overdue' ? 'overdue' : ''}`}>
-                                <Clock size={16} className="detail-icon" />
-                                <span>
-                                  {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                  {' '}
-                                  <strong>({timeRemaining})</strong>
-                                </span>
+                            </td>
+                            <td>
+                              <div className="location-cell">
+                                <MapPin size={14} />
+                                <span>{lat?.toFixed(4)}, {lng?.toFixed(4)}</span>
                               </div>
-                            )}
-
-                            <div className="detail-row priority">
-                              <AlertCircle size={16} className="detail-icon" style={{ color: getPriorityColor(priority) }} />
-                              <span style={{ color: getPriorityColor(priority), fontWeight: '600' }}>
-                                {priority} Priority
+                            </td>
+                            <td>
+                              <span 
+                                className="priority-badge-new" 
+                                style={{ backgroundColor: getPriorityColor(priority) }}
+                              >
+                                {priority}
                               </span>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => handleDelete(id)}
-                            disabled={actionId === id}
-                            className="delete-btn"
-                          >
-                            {actionId === id ? '⏳ Removing...' : '❌ Delete'}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
-              )}
+                            </td>
+                            <td>
+                              <div className="date-cell">
+                                {dueDate ? formatDate(dueDate) : '-'}
+                              </div>
+                            </td>
+                            <td>{reportedBy}</td>
+                            <td>
+                              <span className={`status-badge-new status-${status.toLowerCase()}`}>
+                                {status}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="actions-cell">
+                                {activeTab === 'available' ? (
+                                  <button
+                                    onClick={() => handleSelfAssign(id)}
+                                    disabled={assigningId === id}
+                                    className="assign-btn-new"
+                                    title="Assign to me"
+                                  >
+                                    {assigningId === id ? '⏳' : '✋ Assign'}
+                                  </button>
+                                ) : (
+                                  <span className="assigned-badge">
+                                    <CheckCircle size={14} />
+                                    Assigned
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </div>
