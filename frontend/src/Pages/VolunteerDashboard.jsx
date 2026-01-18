@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { deleteHelpRequest, fetchPendingRequests } from '../services/userApi';
+import { MapPin, Clock, AlertCircle, CheckCircle, Heart, LogOut, Filter } from 'lucide-react';
+import '../styles/VolunteerDashboard.css';
 
 const VolunteerDashboard = () => {
   const navigate = useNavigate();
@@ -9,7 +11,8 @@ const VolunteerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionId, setActionId] = useState(null);
-  const [activeTab, setActiveTab] = useState('available'); // 'available' or 'assigned'
+  const [activeTab, setActiveTab] = useState('available');
+  const [filterPriority, setFilterPriority] = useState('all');
 
   const token = useMemo(() => localStorage.getItem('floodaid_user_token'), []);
   const user = useMemo(() => {
@@ -79,6 +82,7 @@ const VolunteerDashboard = () => {
     try {
       await deleteHelpRequest(id, token);
       setRequests((prev) => prev.filter((r) => (r.id ?? r.Id) !== id));
+      setAssignedRequests((prev) => prev.filter((r) => (r.id ?? r.Id) !== id));
     } catch (err) {
       setError(err.message || 'Failed to delete request');
     } finally {
@@ -106,18 +110,54 @@ const VolunteerDashboard = () => {
     return `${mins}m`;
   };
 
+  const getRequestTypeIcon = (type) => {
+    const typeMap = {
+      'Medical': '🏥',
+      'Food': '🍲',
+      'Shelter': '🏠',
+      'Water': '💧',
+      'Other': '❓'
+    };
+    return typeMap[type] || '❓';
+  };
+
+  const getPriorityColor = (priority) => {
+    switch(priority) {
+      case 'Critical': return '#ef4444';
+      case 'High': return '#f97316';
+      case 'Medium': return '#eab308';
+      default: return '#3b82f6';
+    }
+  };
+
+  const filterRequests = (reqs) => {
+    if (filterPriority === 'all') return reqs;
+    return reqs.filter(r => {
+      const priority = r.priority !== undefined ? mapPriority(r.priority) : 'Medium';
+      return priority === filterPriority;
+    });
+  };
+
   if (!token || !user) {
     return null;
   }
 
+  const filteredAvailable = filterRequests(requests);
+  const filteredAssigned = filterRequests(assignedRequests);
+
   return (
-    <div className="min-h-screen bg-slate-900 text-white px-4 py-10">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <p className="text-sm text-slate-400">Signed in as</p>
-            <h1 className="text-2xl font-semibold">{user.name || user.Name}</h1>
-            <p className="text-slate-300 text-sm">{user.email || user.Email}</p>
+    <div className="volunteer-dashboard">
+      {/* Header */}
+      <header className="dashboard-header">
+        <div className="header-content">
+          <div className="user-info">
+            <div className="user-avatar">
+              <Heart size={24} style={{ color: '#ef4444' }} />
+            </div>
+            <div>
+              <h1 className="user-name">{user.name || user.Name}</h1>
+              <p className="user-email">{user.email || user.Email}</p>
+            </div>
           </div>
           <button
             onClick={() => {
@@ -125,147 +165,239 @@ const VolunteerDashboard = () => {
               localStorage.removeItem('floodaid_user');
               navigate('/volunteer/login');
             }}
-            className="px-4 py-2 rounded-lg border border-slate-700 text-sm hover:border-red-400 hover:text-red-200 transition"
+            className="logout-btn"
+            title="Logout"
           >
-            Log out
+            <LogOut size={18} />
+            Logout
           </button>
         </div>
+      </header>
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/40 text-red-200 px-4 py-3 text-sm">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="text-center text-slate-300">Loading requests...</div>
-        ) : (
-          <>
-            {/* Tab Buttons */}
-            <div className="flex gap-4 mb-6 border-b border-slate-700">
-              <button
-                onClick={() => setActiveTab('available')}
-                className={`px-4 py-3 font-medium text-sm border-b-2 transition ${
-                  activeTab === 'available'
-                    ? 'border-blue-500 text-blue-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Available Requests ({requests.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('assigned')}
-                className={`px-4 py-3 font-medium text-sm border-b-2 transition ${
-                  activeTab === 'assigned'
-                    ? 'border-blue-500 text-blue-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Assigned to Me ({assignedRequests.length})
-              </button>
+      <main className="dashboard-main">
+        <div className="dashboard-container">
+          {/* Error Message */}
+          {error && (
+            <div className="error-alert">
+              <AlertCircle size={18} />
+              <span>{error}</span>
             </div>
+          )}
 
-            {/* Available Requests Tab */}
-            {activeTab === 'available' && (
-              requests.length === 0 ? (
-                <div className="text-center text-slate-400 border border-slate-800 rounded-xl p-8 bg-slate-800/40">
-                  No unassigned requests in your area.
+          {loading ? (
+            <div className="loading-state">
+              <div className="spinner"></div>
+              <p>Loading help requests...</p>
+            </div>
+          ) : (
+            <>
+              {/* Stats Bar */}
+              <div className="stats-bar">
+                <div className="stat-card">
+                  <span className="stat-icon">📋</span>
+                  <div>
+                    <p className="stat-label">Available</p>
+                    <p className="stat-value">{requests.length}</p>
+                  </div>
                 </div>
-              ) : (
-                <div className="grid gap-4">
-                  {requests.map((req) => {
-                    const id = req.id ?? req.Id;
-                    const desc = req.requestDescription ?? req.RequestDescription;
-                    const type = req.requestType ?? req.RequestType;
-                    const status = req.status ?? req.Status;
-                    const province = req.provinceId ?? req.ProvinceId;
-                    const city = req.cityId ?? req.CityId;
-                    const priority = req.priority !== undefined ? mapPriority(req.priority) : 'Medium';
-                    const dueDate = req.dueDate ? new Date(req.dueDate) : null;
+                <div className="stat-card">
+                  <span className="stat-icon">✅</span>
+                  <div>
+                    <p className="stat-label">Assigned</p>
+                    <p className="stat-value">{assignedRequests.length}</p>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon">🚨</span>
+                  <div>
+                    <p className="stat-label">Critical</p>
+                    <p className="stat-value">
+                      {requests.filter(r => mapPriority(r.priority) === 'Critical').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-                    return (
-                      <div key={id} className="rounded-xl border border-slate-800 bg-slate-800/60 p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-sm text-slate-400">Request #{id}</p>
-                            <h2 className="text-lg font-semibold mt-1">{desc || 'No description provided'}</h2>
-                            <div className="text-sm text-slate-400 mt-2 space-y-1">
-                              <p>Type: <span className="text-emerald-200">{type}</span></p>
-                              <p>Status: <span className="text-emerald-200">{status}</span></p>
-                              <p>Priority: <span className={priority === 'Critical' ? 'text-red-200' : priority === 'High' ? 'text-orange-200' : 'text-blue-200'}>{priority}</span></p>
-                              {dueDate && <p>Due: <span className={getTimeRemaining(dueDate) === 'Overdue' ? 'text-red-200' : 'text-emerald-200'}>{dueDate.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} ({getTimeRemaining(dueDate)})</span></p>}
-                              <p>ProvinceId: {province ?? 'N/A'} | CityId: {city ?? 'N/A'}</p>
+              {/* Tabs */}
+              <div className="tabs-container">
+                <button
+                  onClick={() => setActiveTab('available')}
+                  className={`tab-btn ${activeTab === 'available' ? 'active' : ''}`}
+                >
+                  <span className="tab-icon">📋</span>
+                  Available Requests
+                  <span className="tab-count">{requests.length}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('assigned')}
+                  className={`tab-btn ${activeTab === 'assigned' ? 'active' : ''}`}
+                >
+                  <span className="tab-icon">✅</span>
+                  My Tasks
+                  <span className="tab-count">{assignedRequests.length}</span>
+                </button>
+              </div>
+
+              {/* Filter */}
+              <div className="filter-container">
+                <Filter size={18} />
+                <select 
+                  value={filterPriority}
+                  onChange={(e) => setFilterPriority(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="Critical">🔴 Critical</option>
+                  <option value="High">🟠 High</option>
+                  <option value="Medium">🟡 Medium</option>
+                  <option value="Low">🔵 Low</option>
+                </select>
+              </div>
+
+              {/* Requests Grid */}
+              {activeTab === 'available' && (
+                filteredAvailable.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">🌊</div>
+                    <p className="empty-title">No Available Requests</p>
+                    <p className="empty-subtitle">Check back later for new help requests in your area</p>
+                  </div>
+                ) : (
+                  <div className="requests-grid">
+                    {filteredAvailable.map((req) => {
+                      const id = req.id ?? req.Id;
+                      const desc = req.requestDescription ?? req.RequestDescription;
+                      const type = req.requestType ?? req.RequestType;
+                      const status = req.status ?? req.Status;
+                      const priority = req.priority !== undefined ? mapPriority(req.priority) : 'Medium';
+                      const dueDate = req.dueDate ? new Date(req.dueDate) : null;
+                      const timeRemaining = dueDate ? getTimeRemaining(dueDate) : 'No deadline';
+
+                      return (
+                        <div key={id} className="request-card available">
+                          <div className="card-header">
+                            <div className="type-badge">
+                              <span>{getRequestTypeIcon(type)}</span>
+                              <span>{type}</span>
+                            </div>
+                            <div className="priority-badge" style={{ backgroundColor: getPriorityColor(priority) }}>
+                              {priority}
                             </div>
                           </div>
+
+                          <h3 className="card-title">{desc || 'Help Request'}</h3>
+
+                          <div className="card-details">
+                            <div className="detail-row">
+                              <MapPin size={16} className="detail-icon" />
+                              <span>📍 Location details available</span>
+                            </div>
+
+                            {dueDate && (
+                              <div className={`detail-row ${timeRemaining === 'Overdue' ? 'overdue' : ''}`}>
+                                <Clock size={16} className="detail-icon" />
+                                <span>
+                                  {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  {' '}
+                                  <strong>({timeRemaining})</strong>
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="detail-row">
+                              <AlertCircle size={16} className="detail-icon" />
+                              <span>Request #{id}</span>
+                            </div>
+                          </div>
+
                           <button
                             onClick={() => handleDelete(id)}
                             disabled={actionId === id}
-                            className="px-3 py-2 text-sm rounded-lg bg-red-500/90 hover:bg-red-400 text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="delete-btn"
                           >
-                            {actionId === id ? 'Deleting...' : 'Delete'}
+                            {actionId === id ? '⏳ Removing...' : '❌ Delete'}
                           </button>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )
-            )}
+                      );
+                    })}
+                  </div>
+                )
+              )}
 
-            {/* Assigned Requests Tab */}
-            {activeTab === 'assigned' && (
-              assignedRequests.length === 0 ? (
-                <div className="text-center text-slate-400 border border-slate-800 rounded-xl p-8 bg-slate-800/40">
-                  You have no assigned requests.
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {assignedRequests.map((req) => {
-                    const id = req.id ?? req.Id;
-                    const desc = req.requestDescription ?? req.RequestDescription;
-                    const type = req.requestType ?? req.RequestType;
-                    const assignStatus = req.assignmentStatus ?? 'Assigned';
-                    const province = req.provinceId ?? req.ProvinceId;
-                    const city = req.cityId ?? req.CityId;
-                    const priority = req.priority !== undefined ? mapPriority(req.priority) : 'Medium';
-                    const dueDate = req.dueDate ? new Date(req.dueDate) : null;
+              {activeTab === 'assigned' && (
+                filteredAssigned.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">✋</div>
+                    <p className="empty-title">No Assigned Tasks</p>
+                    <p className="empty-subtitle">You haven't been assigned any requests yet. Check available requests!</p>
+                  </div>
+                ) : (
+                  <div className="requests-grid">
+                    {filteredAssigned.map((req) => {
+                      const id = req.id ?? req.Id;
+                      const desc = req.requestDescription ?? req.RequestDescription;
+                      const type = req.requestType ?? req.RequestType;
+                      const priority = req.priority !== undefined ? mapPriority(req.priority) : 'Medium';
+                      const dueDate = req.dueDate ? new Date(req.dueDate) : null;
+                      const timeRemaining = dueDate ? getTimeRemaining(dueDate) : 'No deadline';
 
-                    return (
-                      <div key={id} className="rounded-xl border border-slate-800 bg-slate-800/60 p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-sm text-slate-400">Request #{id}</p>
-                            <h2 className="text-lg font-semibold mt-1">{desc || 'No description provided'}</h2>
-                            <div className="text-sm text-slate-400 mt-2 space-y-1">
-                              <p>Type: <span className="text-emerald-200">{type}</span></p>
-                              <p>Assignment Status: <span className="text-yellow-200">{assignStatus}</span></p>
-                              <p>Priority: <span className={priority === 'Critical' ? 'text-red-200' : priority === 'High' ? 'text-orange-200' : 'text-blue-200'}>{priority}</span></p>
-                              {dueDate && <p>Due: <span className={getTimeRemaining(dueDate) === 'Overdue' ? 'text-red-200' : 'text-emerald-200'}>{dueDate.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} ({getTimeRemaining(dueDate)})</span></p>}
-                              <p>ProvinceId: {province ?? 'N/A'} | CityId: {city ?? 'N/A'}</p>
+                      return (
+                        <div key={id} className="request-card assigned">
+                          <div className="card-header">
+                            <div className="type-badge">
+                              <span>{getRequestTypeIcon(type)}</span>
+                              <span>{type}</span>
+                            </div>
+                            <div className="status-badge">
+                              <CheckCircle size={16} />
+                              Assigned
                             </div>
                           </div>
-                          <div className="text-right">
-                            <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-200 mb-3">
-                              Assigned
-                            </span>
-                            <button
-                              onClick={() => handleDelete(id)}
-                              disabled={actionId === id}
-                              className="px-3 py-2 text-sm rounded-lg bg-red-500/90 hover:bg-red-400 text-white transition disabled:opacity-60 disabled:cursor-not-allowed block w-full"
-                            >
-                              {actionId === id ? 'Deleting...' : 'Delete'}
-                            </button>
+
+                          <h3 className="card-title">{desc || 'Help Request'}</h3>
+
+                          <div className="card-details">
+                            <div className="detail-row">
+                              <MapPin size={16} className="detail-icon" />
+                              <span>📍 Location details available</span>
+                            </div>
+
+                            {dueDate && (
+                              <div className={`detail-row ${timeRemaining === 'Overdue' ? 'overdue' : ''}`}>
+                                <Clock size={16} className="detail-icon" />
+                                <span>
+                                  {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  {' '}
+                                  <strong>({timeRemaining})</strong>
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="detail-row priority">
+                              <AlertCircle size={16} className="detail-icon" style={{ color: getPriorityColor(priority) }} />
+                              <span style={{ color: getPriorityColor(priority), fontWeight: '600' }}>
+                                {priority} Priority
+                              </span>
+                            </div>
                           </div>
+
+                          <button
+                            onClick={() => handleDelete(id)}
+                            disabled={actionId === id}
+                            className="delete-btn"
+                          >
+                            {actionId === id ? '⏳ Removing...' : '❌ Delete'}
+                          </button>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )
-            )}
-          </>
-        )}
-      </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+            </>
+          )}
+        </div>
+      </main>
     </div>
   );
 };
