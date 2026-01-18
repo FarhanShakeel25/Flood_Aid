@@ -104,23 +104,50 @@ const VolunteerDashboard = () => {
 
     setAssigningId(requestId);
     try {
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+      if (!user.id && !user.Id) {
+        throw new Error('User ID not found. Please log in again.');
+      }
+
+      const volunteerId = user.id || user.Id;
+      const payload = { volunteerId };
+      
+      console.log('Self-assigning with:', {
+        requestId,
+        volunteerId,
+        API_BASE,
+        hasToken: !!token
+      });
+
       const response = await fetch(`${API_BASE}/api/helpRequest/${requestId}/assign`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ volunteerId: user.id || user.Id })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to assign request');
+        let errorMessage = 'Failed to assign request';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = `Server error (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
 
+      const result = await response.json();
+      console.log('Assignment successful:', result);
       await loadRequests();
       setActiveTab('assigned');
+      alert('Request assigned to you successfully!');
     } catch (err) {
+      console.error('Assignment error:', err);
       alert(`Error: ${err.message}`);
     } finally {
       setAssigningId(null);

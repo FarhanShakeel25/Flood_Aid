@@ -161,6 +161,7 @@ const AdminRequests = () => {
             setLoadingVolunteers(true);
             const params = new URLSearchParams();
             params.append('pageSize', 100); // get first 100 volunteers
+            params.append('role', 0); // Filter for Volunteer role (0 = Volunteer)
 
             const token = localStorage.getItem('floodaid_token');
             const response = await fetch(`${API_BASE}/api/users?${params.toString()}`, {
@@ -170,13 +171,16 @@ const AdminRequests = () => {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch volunteers');
+                console.error('Fetch volunteers response status:', response.status);
+                throw new Error(`Failed to fetch volunteers: ${response.status}`);
             }
 
             const result = await response.json();
+            console.log('Fetched volunteers:', result);
             setVolunteers(result.data || []);
         } catch (err) {
             console.error('Error fetching volunteers:', err);
+            alert(`Error loading volunteers: ${err.message}`);
         } finally {
             setLoadingVolunteers(false);
         }
