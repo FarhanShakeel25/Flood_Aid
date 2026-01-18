@@ -42,7 +42,14 @@ const VolunteerDashboard = () => {
     setError('');
     try {
       const data = await fetchPendingRequests();
+      console.log('All pending requests from API:', data.length);
       const scoped = scopeToVolunteer(data, user);
+      console.log('After city scoping:', scoped.length, 'City ID:', user.cityId || user.CityId);
+      console.log('Requests breakdown:', {
+        total: data.length,
+        inUserCity: scoped.length,
+        unassigned: scoped.filter(r => !r.assignedToVolunteerId || r.assignmentStatus === 'Unassigned').length
+      });
       setRequests(scoped);
     } catch (err) {
       setError(err.message || 'Failed to load requests');
@@ -54,10 +61,16 @@ const VolunteerDashboard = () => {
   const scopeToVolunteer = (items, volunteer) => {
     if (!Array.isArray(items) || !volunteer) return [];
     const cityId = volunteer.cityId ?? volunteer.CityId;
-    return items.filter((item) => {
+    const filtered = items.filter((item) => {
       const requestCityId = item.cityId ?? item.CityId;
-      return cityId && requestCityId === cityId;
+      const match = cityId && requestCityId === cityId;
+      if (!match && requestCityId) {
+        console.log('Request filtered out - city mismatch:', { requestCityId, userCityId: cityId });
+      }
+      return match;
     });
+    console.log('Scoped to user city:', { totalRequests: items.length, filteredByCity: filtered.length, userCityId: cityId });
+    return filtered;
   };
 
   const applyFilters = () => {
