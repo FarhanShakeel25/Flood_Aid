@@ -42,7 +42,14 @@ const VolunteerDashboard = () => {
     setError('');
     try {
       const data = await fetchPendingRequests();
+      console.log('All pending requests from API:', data.length);
       const scoped = scopeToVolunteer(data, user);
+      console.log('After city scoping:', scoped.length, 'City ID:', user.cityId || user.CityId);
+      console.log('Requests breakdown:', {
+        total: data.length,
+        inUserCity: scoped.length,
+        unassigned: scoped.filter(r => !r.assignedToVolunteerId || r.assignmentStatus === 'Unassigned').length
+      });
       setRequests(scoped);
     } catch (err) {
       setError(err.message || 'Failed to load requests');
@@ -54,10 +61,16 @@ const VolunteerDashboard = () => {
   const scopeToVolunteer = (items, volunteer) => {
     if (!Array.isArray(items) || !volunteer) return [];
     const cityId = volunteer.cityId ?? volunteer.CityId;
-    return items.filter((item) => {
+    const filtered = items.filter((item) => {
       const requestCityId = item.cityId ?? item.CityId;
-      return cityId && requestCityId === cityId;
+      const match = cityId && requestCityId === cityId;
+      if (!match && requestCityId) {
+        console.log('Request filtered out - city mismatch:', { requestCityId, userCityId: cityId });
+      }
+      return match;
     });
+    console.log('Scoped to user city:', { totalRequests: items.length, filteredByCity: filtered.length, userCityId: cityId });
+    return filtered;
   };
 
   const applyFilters = () => {
@@ -104,23 +117,50 @@ const VolunteerDashboard = () => {
 
     setAssigningId(requestId);
     try {
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+      if (!user.id && !user.Id) {
+        throw new Error('User ID not found. Please log in again.');
+      }
+
+      const volunteerId = user.id || user.Id;
+      const payload = { volunteerId };
+      
+      console.log('Self-assigning with:', {
+        requestId,
+        volunteerId,
+        API_BASE,
+        hasToken: !!token
+      });
+
       const response = await fetch(`${API_BASE}/api/helpRequest/${requestId}/assign`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ volunteerId: user.id || user.Id })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to assign request');
+        let errorMessage = 'Failed to assign request';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = `Server error (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
 
+      const result = await response.json();
+      console.log('Assignment successful:', result);
       await loadRequests();
       setActiveTab('assigned');
+      alert('Request assigned to you successfully!');
     } catch (err) {
+      console.error('Assignment error:', err);
       alert(`Error: ${err.message}`);
     } finally {
       setAssigningId(null);
