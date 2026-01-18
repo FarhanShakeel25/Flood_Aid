@@ -506,7 +506,7 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Get pending requests (for volunteers)
+        /// Get pending requests (for volunteers) - Returns Pending and InProgress requests
         /// </summary>
         [HttpGet("status/pending")]
         [Microsoft.AspNetCore.Authorization.AllowAnonymous]
@@ -514,9 +514,11 @@ namespace FloodAid.Api.Controllers
         {
             try
             {
+                // Return requests that are Pending or InProgress (volunteers can see all available work)
                 var requests = await _context.HelpRequests
-                    .Where(r => r.Status == RequestStatus.Pending)
-                    .OrderByDescending(r => r.CreatedAt)
+                    .Where(r => r.Status == RequestStatus.Pending || r.Status == RequestStatus.InProgress)
+                    .OrderByDescending(r => r.Priority)
+                    .ThenByDescending(r => r.CreatedAt)
                     .ToListAsync();
 
                 return Ok(requests);
@@ -674,12 +676,22 @@ namespace FloodAid.Api.Controllers
         {
             try
             {
-                var adminEmail = User.FindFirst(ClaimTypes.Email)?.Value;
-                var adminRole = User.FindFirst(ClaimTypes.Role)?.Value;
-
-                if (adminRole != "SuperAdmin" && adminRole != "ProvinceAdmin")
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                int? currentUserId = null;
+                if (int.TryParse(userIdClaim, out var parsedId))
                 {
-                    return Forbid("Only admins can assign help requests");
+                    currentUserId = parsedId;
+                }
+
+                // Allow volunteers to self-assign, but only admins can assign to others
+                bool isSelfAssignment = userRole == "Volunteer" && currentUserId.HasValue && currentUserId.Value == dto.VolunteerId;
+                bool isAdmin = userRole == "SuperAdmin" || userRole == "ProvinceAdmin";
+
+                if (!isSelfAssignment && !isAdmin)
+                {
+                    return Forbid("Volunteers can only assign requests to themselves. Only admins can assign to others.");
                 }
 
                 var request = await _context.HelpRequests
@@ -700,7 +712,8 @@ namespace FloodAid.Api.Controllers
                 }
 
                 // ProvinceAdmin can only assign volunteers from their province
-                if (adminRole == "ProvinceAdmin")
+                // Volunteers can self-assign if request is in their city
+                if (userRole == "ProvinceAdmin")
                 {
                     var adminProvinceId = User.FindFirst("ProvinceId") != null 
                         ? int.Parse(User.FindFirst("ProvinceId").Value)
@@ -718,6 +731,14 @@ namespace FloodAid.Api.Controllers
                         return BadRequest(new { message = "Volunteer is not in your province" });
                     }
                 }
+                else if (userRole == "Volunteer" && isSelfAssignment)
+                {
+                    // Verify volunteer is assigning request from their own city
+                    if (request.CityId != volunteer.CityId)
+                    {
+                        return BadRequest(new { message = "You can only assign requests from your city" });
+                    }
+                }
 
                 // Perform assignment
                 request.AssignedToVolunteerId = dto.VolunteerId;
@@ -727,7 +748,7 @@ namespace FloodAid.Api.Controllers
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Help request {RequestId} assigned to volunteer {VolunteerId} by {Email}", id, dto.VolunteerId, adminEmail);
+                _logger.LogInformation("✅ Help request {RequestId} assigned to volunteer {VolunteerId} by {Email} (Role: {Role})", id, dto.VolunteerId, userEmail, userRole);
 
                 return Ok(new { message = "Help request assigned successfully", assignmentStatus = "Assigned" });
             }
