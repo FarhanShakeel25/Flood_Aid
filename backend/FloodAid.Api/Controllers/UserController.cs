@@ -4,11 +4,13 @@ using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 
 namespace FloodAid.Api.Controllers
 {
     [ApiController]
     [Route("api/users")]
+    [EnableCors("AllowAll")]
     [Authorize]
     public class UserController : ControllerBase
     {

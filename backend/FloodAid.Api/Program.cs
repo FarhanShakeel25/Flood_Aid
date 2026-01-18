@@ -21,23 +21,11 @@ namespace FloodAid.Api
             // Add CORS policy before builder.Build()
             builder.Services.AddCors(options =>
             {
+                // Permissive CORS for development - allows all origins
                 options.AddPolicy("AllowAll", x =>
                     x.AllowAnyOrigin()
                      .AllowAnyHeader()
-                     .AllowAnyMethod()
-                     .WithExposedHeaders("Content-Type", "Authorization"));
-                
-                // Also add specific Vercel domain to be safe
-                options.AddPolicy("AllowVercel", x =>
-                    x.WithOrigins(
-                        "https://flood-aid-94zg.vercel.app",
-                        "https://flood-aid.vercel.app",
-                        "http://localhost:5173",
-                        "http://localhost:3000"
-                    )
-                    .AllowAnyHeader()
-                    .AllowAnyMethod()
-                    .WithExposedHeaders("Content-Type", "Authorization"));
+                     .AllowAnyMethod());
             });
 
             // Configure JWT Authentication as per SRS Section 3.3.2
@@ -111,7 +99,7 @@ namespace FloodAid.Api
 
             var app = builder.Build();
 
-            // Apply CORS after builder.Build(), before endpoints
+            // Apply CORS middleware BEFORE authentication and authorization
             app.UseCors("AllowAll");
 
             // Configure the HTTP request pipeline.
