@@ -21,6 +21,7 @@ namespace FloodAid.Api
             // Add CORS policy before builder.Build()
             builder.Services.AddCors(options =>
             {
+                // Permissive CORS for development - allows all origins
                 options.AddPolicy("AllowAll", x =>
                     x.AllowAnyOrigin()
                      .AllowAnyHeader()
@@ -98,7 +99,7 @@ namespace FloodAid.Api
 
             var app = builder.Build();
 
-            // Apply CORS after builder.Build(), before endpoints
+            // Apply CORS middleware BEFORE authentication and authorization
             app.UseCors("AllowAll");
 
             // Configure the HTTP request pipeline.

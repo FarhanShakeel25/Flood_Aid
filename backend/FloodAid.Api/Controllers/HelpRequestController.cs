@@ -4,6 +4,7 @@ using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using FloodAid.Api.Enums;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -11,6 +12,7 @@ namespace FloodAid.Api.Controllers
 {
     [ApiController]
     [Route("api/helpRequest")]
+    [EnableCors("AllowAll")]
     public class HelpRequestController : ControllerBase
     {
         private readonly FloodAidContext _context;

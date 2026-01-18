@@ -160,10 +160,12 @@ const AdminRequests = () => {
         try {
             setLoadingVolunteers(true);
             const params = new URLSearchParams();
-            params.append('pageSize', 100); // get first 100 volunteers
-            params.append('role', 0); // Filter for Volunteer role (0 = Volunteer)
+            params.append('pageSize', 100);
+            params.append('role', 0); // 0 = Volunteer role
 
             const token = localStorage.getItem('floodaid_token');
+            console.log('Fetching volunteers with params:', params.toString());
+            
             const response = await fetch(`${API_BASE}/api/users?${params.toString()}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -171,12 +173,20 @@ const AdminRequests = () => {
             });
 
             if (!response.ok) {
-                console.error('Fetch volunteers response status:', response.status);
+                const errorText = await response.text();
+                console.error('Fetch volunteers error response:', response.status, errorText);
                 throw new Error(`Failed to fetch volunteers: ${response.status}`);
             }
 
             const result = await response.json();
-            console.log('Fetched volunteers:', result);
+            console.log('Fetched volunteers - Full response:', result);
+            console.log('Volunteers data array:', result.data);
+            console.log('Number of volunteers:', result.data?.length || 0);
+            
+            if (!result.data || result.data.length === 0) {
+                console.warn('No volunteers found with role=0');
+            }
+            
             setVolunteers(result.data || []);
         } catch (err) {
             console.error('Error fetching volunteers:', err);
@@ -648,11 +658,15 @@ const AdminRequests = () => {
                                     }}
                                 >
                                     <option value="">-- Select a volunteer --</option>
-                                    {volunteers.filter(v => v.role === 'Volunteer').map(v => (
-                                        <option key={v.id} value={v.id}>
-                                            {v.name} ({v.email})
-                                        </option>
-                                    ))}
+                                    {volunteers.length === 0 ? (
+                                        <option disabled>No volunteers found</option>
+                                    ) : (
+                                        volunteers.map(v => (
+                                            <option key={v.id} value={v.id}>
+                                                {v.name} ({v.email})
+                                            </option>
+                                        ))
+                                    )}
                                 </select>
                             )}
                         </div>

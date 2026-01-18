@@ -4,11 +4,13 @@ using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 
 namespace FloodAid.Api.Controllers
 {
     [ApiController]
     [Route("api/users")]
+    [EnableCors("AllowAll")]
     [Authorize]
     public class UserController : ControllerBase
     {
@@ -121,6 +123,7 @@ namespace FloodAid.Api.Controllers
 
                 if (role.HasValue)
                 {
+                    _logger.LogInformation($"Filtering by role: {role.Value}");
                     query = query.Where(u => u.Role == role.Value);
                 }
 
@@ -135,6 +138,8 @@ namespace FloodAid.Api.Controllers
                 }
 
                 var totalCount = await query.CountAsync();
+
+                _logger.LogInformation($"GetAllUsers - Total matching: {totalCount}, Filters: role={role}, status={status}, admin={adminEmail}");
 
                 var users = await query
                     .OrderByDescending(u => u.CreatedAt)
