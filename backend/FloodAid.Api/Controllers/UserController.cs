@@ -121,6 +121,7 @@ namespace FloodAid.Api.Controllers
 
                 if (role.HasValue)
                 {
+                    _logger.LogInformation($"Filtering by role: {role.Value}");
                     query = query.Where(u => u.Role == role.Value);
                 }
 
@@ -135,6 +136,8 @@ namespace FloodAid.Api.Controllers
                 }
 
                 var totalCount = await query.CountAsync();
+
+                _logger.LogInformation($"GetAllUsers - Total matching: {totalCount}, Filters: role={role}, status={status}, admin={adminEmail}");
 
                 var users = await query
                     .OrderByDescending(u => u.CreatedAt)
