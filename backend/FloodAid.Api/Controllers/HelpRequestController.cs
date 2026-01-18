@@ -670,7 +670,9 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Assign a help request to a volunteer (SuperAdmin/ProvinceAdmin only)
+        /// Assign a help request to a volunteer
+        /// Admins can assign within their province; volunteers can self-assign within their city.
+        /// Also sets request status to InProgress on assignment.
         /// </summary>
         [HttpPost("{id}/assign")]
         [Authorize]
@@ -696,38 +698,36 @@ namespace FloodAid.Api.Controllers
                     return Forbid("Volunteers can only assign requests to themselves. Only admins can assign to others.");
                 }
 
-                var request = await _context.HelpRequests
-                    .FirstOrDefaultAsync(r => r.Id == id);
-
+                var request = await _context.HelpRequests.FirstOrDefaultAsync(r => r.Id == id);
                 if (request == null)
                 {
                     return NotFound(new { message = "Help request not found" });
                 }
 
                 // Verify volunteer exists
-                var volunteer = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Id == dto.VolunteerId);
-
+                var volunteer = await _context.Users.FirstOrDefaultAsync(u => u.Id == dto.VolunteerId);
                 if (volunteer == null)
                 {
                     return BadRequest(new { message = "Volunteer not found" });
                 }
 
-                // ProvinceAdmin can only assign volunteers from their province
-                // Volunteers can self-assign if request is in their city
+                // ProvinceAdmin scoping: only within their province
                 if (userRole == "ProvinceAdmin")
                 {
-                    var adminProvinceId = User.FindFirst("ProvinceId") != null 
-                        ? int.Parse(User.FindFirst("ProvinceId").Value)
-                        : 0;
+                    var provinceClaim = User.FindFirst("provinceId")?.Value; // claim name uses lower-case
+                    var adminProvinceId = !string.IsNullOrEmpty(provinceClaim) ? int.Parse(provinceClaim) : 0;
 
-                    // Verify request is in admin's province
+                    if (adminProvinceId == 0)
+                    {
+                        _logger.LogWarning("ProvinceAdmin {Email} has no provinceId claim", userEmail);
+                        return Forbid("Province scope missing in token");
+                    }
+
+                    // Verify request & volunteer are in admin's province
                     if (request.ProvinceId != adminProvinceId)
                     {
                         return Forbid("ProvinceAdmins can only assign requests in their province");
                     }
-
-                    // Verify volunteer is in admin's province
                     if (volunteer.ProvinceId != adminProvinceId)
                     {
                         return BadRequest(new { message = "Volunteer is not in your province" });
@@ -742,9 +742,10 @@ namespace FloodAid.Api.Controllers
                     }
                 }
 
-                // Perform assignment
+                // Perform assignment and set request status to InProgress
                 request.AssignedToVolunteerId = dto.VolunteerId;
                 request.AssignmentStatus = AssignmentStatus.Assigned;
+                request.Status = RequestStatus.InProgress;
                 request.AssignedAt = DateTime.UtcNow;
                 request.UpdatedAt = DateTime.UtcNow;
 
@@ -762,7 +763,9 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Unassign a help request from volunteer (SuperAdmin/ProvinceAdmin only, or self-unassign by volunteer)
+        /// Unassign a help request from volunteer (Admins within scope or self-unassign by assigned volunteer)
+        /// If unassigned and not fulfilled/cancelled, revert status to Pending.
+        /// Supports optional proof/evidence via reason/evidenceUrl in DTO.
         /// </summary>
         [HttpPost("{id}/unassign")]
         [Authorize]
@@ -774,41 +777,58 @@ namespace FloodAid.Api.Controllers
                 var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
                 var userId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id_parse) ? id_parse : 0;
 
-                var request = await _context.HelpRequests
-                    .FirstOrDefaultAsync(r => r.Id == id);
-
+                var request = await _context.HelpRequests.FirstOrDefaultAsync(r => r.Id == id);
                 if (request == null)
                 {
                     return NotFound(new { message = "Help request not found" });
                 }
 
-                // Only admins can force unassign, or the assigned volunteer can unassign themselves
-                if (userRole != "SuperAdmin" && userRole != "ProvinceAdmin" && request.AssignedToVolunteerId != userId)
+                var isAdmin = userRole == "SuperAdmin" || userRole == "ProvinceAdmin";
+                var isAssignedVolunteer = request.AssignedToVolunteerId == userId;
+                if (!isAdmin && !isAssignedVolunteer)
                 {
                     return Forbid("You cannot unassign this request");
                 }
 
-                // ProvinceAdmin can only unassign their province's requests
+                // ProvinceAdmin scoping: only within their province
                 if (userRole == "ProvinceAdmin")
                 {
-                    var adminProvinceId = User.FindFirst("ProvinceId") != null 
-                        ? int.Parse(User.FindFirst("ProvinceId").Value)
-                        : 0;
-
-                    if (request.ProvinceId != adminProvinceId)
+                    var provinceClaim = User.FindFirst("provinceId")?.Value;
+                    var adminProvinceId = !string.IsNullOrEmpty(provinceClaim) ? int.Parse(provinceClaim) : 0;
+                    if (adminProvinceId == 0 || request.ProvinceId != adminProvinceId)
                     {
                         return Forbid("ProvinceAdmins can only unassign requests in their province");
                     }
                 }
 
+                // Record audit for unassignment/withdraw
+                var audit = new UnassignmentAudit
+                {
+                    HelpRequestId = id,
+                    ActorUserId = isAssignedVolunteer ? userId : null,
+                    ActorRole = userRole ?? string.Empty,
+                    ActorEmail = userEmail ?? string.Empty,
+                    Reason = dto.Reason,
+                    EvidenceUrl = dto.EvidenceUrl,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.UnassignmentAudits.Add(audit);
+
+                // Perform unassignment
                 request.AssignedToVolunteerId = null;
                 request.AssignmentStatus = AssignmentStatus.Unassigned;
                 request.AssignedAt = null;
-                request.UpdatedAt = DateTime.UtcNow;
 
+                // If not fulfilled or cancelled, revert to Pending
+                if (request.Status == RequestStatus.InProgress || request.Status == RequestStatus.Pending)
+                {
+                    request.Status = RequestStatus.Pending;
+                }
+
+                request.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Help request {RequestId} unassigned by {Email} (Reason: {Reason})", id, userEmail, dto.Reason ?? "None");
+                _logger.LogInformation("✅ Help request {RequestId} unassigned by {Email} (Reason: {Reason}, Evidence: {Evidence})", id, userEmail, dto.Reason ?? "None", dto.EvidenceUrl ?? "None");
 
                 return Ok(new { message = "Help request unassigned successfully" });
             }
@@ -882,6 +902,7 @@ namespace FloodAid.Api.Controllers
     public class UnassignHelpRequestDto
     {
         public string? Reason { get; set; }
+        public string? EvidenceUrl { get; set; }
     }
 
     /// <summary>

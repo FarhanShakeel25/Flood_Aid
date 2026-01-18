@@ -19,6 +19,11 @@ const VolunteerDashboard = () => {
   const [filterPriority, setFilterPriority] = useState('all');
   const [activeTab, setActiveTab] = useState('available');
   const [assigningId, setAssigningId] = useState(null);
+  const [withdrawingId, setWithdrawingId] = useState(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawRequestId, setWithdrawRequestId] = useState(null);
+  const [withdrawReason, setWithdrawReason] = useState('');
+  const [withdrawEvidenceUrl, setWithdrawEvidenceUrl] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
 
@@ -164,6 +169,65 @@ const VolunteerDashboard = () => {
       alert(`Error: ${err.message}`);
     } finally {
       setAssigningId(null);
+    }
+  };
+
+  const handleOpenWithdraw = (requestId) => {
+    setWithdrawRequestId(requestId);
+    setWithdrawReason('');
+    setWithdrawEvidenceUrl('');
+    setShowWithdrawModal(true);
+  };
+
+  const handleCloseWithdraw = () => {
+    setShowWithdrawModal(false);
+    setWithdrawRequestId(null);
+    setWithdrawReason('');
+    setWithdrawEvidenceUrl('');
+  };
+
+  const handleWithdraw = async () => {
+    if (!withdrawRequestId) return;
+    if (!window.confirm('Confirm: withdraw from this assignment?')) return;
+
+    setWithdrawingId(withdrawRequestId);
+    try {
+      if (!token) throw new Error('No authentication token found.');
+
+      const payload = {
+        reason: withdrawReason || undefined,
+        evidenceUrl: withdrawEvidenceUrl || undefined,
+      };
+
+      const response = await fetch(`${API_BASE}/api/helpRequest/${withdrawRequestId}/unassign`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to withdraw';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {}
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log('Withdraw successful:', result);
+      await loadRequests();
+      setActiveTab('available');
+      alert('You have withdrawn from this request.');
+    } catch (err) {
+      console.error('Withdraw error:', err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setWithdrawingId(null);
+      handleCloseWithdraw();
     }
   };
 
@@ -439,10 +503,21 @@ const VolunteerDashboard = () => {
                                     {assigningId === id ? '⏳' : '✋ Assign'}
                                   </button>
                                 ) : (
-                                  <span className="assigned-badge">
-                                    <CheckCircle size={14} />
-                                    Assigned
-                                  </span>
+                                  <>
+                                    <span className="assigned-badge">
+                                      <CheckCircle size={14} />
+                                      Assigned
+                                    </span>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleOpenWithdraw(id); }}
+                                      disabled={withdrawingId === id}
+                                      className="unassign-btn-new"
+                                      title="Withdraw with proof"
+                                      style={{ marginLeft: 8 }}
+                                    >
+                                      {withdrawingId === id ? '⏳' : '🚪 Withdraw'}
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </td>
@@ -465,6 +540,38 @@ const VolunteerDashboard = () => {
           onClose={handleCloseModal}
           onStatusUpdate={(status) => handleStatusUpdate(selectedRequest.id, status)}
         />
+      )}
+
+      {showWithdrawModal && (
+        <div className="modal-backdrop" onClick={handleCloseWithdraw}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginBottom: 12 }}>Withdraw From Assignment</h3>
+            <div className="modal-field">
+              <label>Reason (required)</label>
+              <textarea
+                value={withdrawReason}
+                onChange={(e) => setWithdrawReason(e.target.value)}
+                placeholder="Describe why you need to withdraw"
+                rows={3}
+              />
+            </div>
+            <div className="modal-field">
+              <label>Evidence URL (optional)</label>
+              <input
+                type="url"
+                value={withdrawEvidenceUrl}
+                onChange={(e) => setWithdrawEvidenceUrl(e.target.value)}
+                placeholder="Link to supporting evidence (image/doc)"
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="secondary-btn" onClick={handleCloseWithdraw}>Cancel</button>
+              <button className="primary-btn" onClick={handleWithdraw} disabled={!withdrawReason.trim()}>
+                {withdrawingId === withdrawRequestId ? '⏳' : 'Confirm Withdraw'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
