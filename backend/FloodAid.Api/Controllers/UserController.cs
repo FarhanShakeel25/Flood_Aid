@@ -293,10 +293,20 @@ namespace FloodAid.Api.Controllers
                     }
                 }
 
+                // Remove any pending invitations for this user's email
+                var pendingInvitations = await _context.Invitations
+                    .Where(i => i.Email == user.Email && i.Status == InvitationStatus.Pending)
+                    .ToListAsync();
+                
+                if (pendingInvitations.Any())
+                {
+                    _context.Invitations.RemoveRange(pendingInvitations);
+                }
+
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("User {Id} deleted", id);
+                _logger.LogInformation("User {Id} deleted along with {InvitationCount} pending invitations", id, pendingInvitations.Count);
 
                 return Ok(new { message = "User deleted successfully" });
             }
