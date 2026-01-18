@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchPendingRequests } from '../services/userApi';
 import { Search, Filter, Eye, MapPin, Calendar, AlertCircle, User as UserIcon, CheckCircle, XCircle, LogOut } from 'lucide-react';
+import RequestDetailModal from './Admin/RequestDetailModal';
 import '../styles/VolunteerDashboard.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://flood-aid.onrender.com';
@@ -18,6 +19,8 @@ const VolunteerDashboard = () => {
   const [filterPriority, setFilterPriority] = useState('all');
   const [activeTab, setActiveTab] = useState('available');
   const [assigningId, setAssigningId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const token = localStorage.getItem('floodaid_user_token');
   const user = JSON.parse(localStorage.getItem('floodaid_user') || '{}');
@@ -159,6 +162,45 @@ const VolunteerDashboard = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const createFullRequest = (req) => ({
+    id: req.id ?? req.Id,
+    type: req.requestType ?? req.RequestType,
+    location: `${req.latitude ?? req.Latitude}, ${req.longitude ?? req.Longitude}`,
+    priority: mapPriority(req.priority),
+    priorityInt: req.priority ?? 1,
+    status: req.status ?? req.Status,
+    reportedBy: req.requestorName ?? req.RequestorName ?? 'Anonymous',
+    phone: req.requestorPhoneNumber ?? req.RequestorPhoneNumber,
+    email: req.requestorEmail ?? req.RequestorEmail,
+    description: req.requestDescription ?? req.RequestDescription,
+    dueDate: req.dueDate ?? req.DueDate,
+    createdAt: req.createdAt ?? req.CreatedAt,
+    updatedAt: req.updatedAt ?? req.UpdatedAt,
+    latitude: req.latitude ?? req.Latitude,
+    longitude: req.longitude ?? req.Longitude,
+    requestorName: req.requestorName ?? req.RequestorName,
+    requestorPhoneNumber: req.requestorPhoneNumber ?? req.RequestorPhoneNumber,
+    requestorEmail: req.requestorEmail ?? req.RequestorEmail,
+    requestDescription: req.requestDescription ?? req.RequestDescription,
+    requestType: req.requestType ?? req.RequestType
+  });
+
+  const handleOpenModal = (req) => {
+    const fullRequest = createFullRequest(req);
+    setSelectedRequest(fullRequest);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedRequest(null);
+  };
+
+  const handleStatusUpdate = async (requestId, newStatus) => {
+    // Volunteers typically won't update status, but keeping this for consistency
+    alert('Status updates are managed by admins');
   };
 
   const availableCount = requests.filter(r => !r.assignedToVolunteerId || r.assignmentStatus === 'Unassigned').length;
@@ -308,7 +350,11 @@ const VolunteerDashboard = () => {
                         const dueDate = req.dueDate ?? req.DueDate;
 
                         return (
-                          <tr key={id}>
+                          <tr 
+                            key={id} 
+                            onClick={() => handleOpenModal(req)}
+                            style={{ cursor: 'pointer' }}
+                          >
                             <td className="td-id">{id}</td>
                             <td>
                               <div className="type-cell">
@@ -371,6 +417,15 @@ const VolunteerDashboard = () => {
           )}
         </div>
       </main>
+
+      {/* Request Detail Modal */}
+      {showModal && selectedRequest && (
+        <RequestDetailModal
+          request={selectedRequest}
+          onClose={handleCloseModal}
+          onStatusUpdate={(status) => handleStatusUpdate(selectedRequest.id, status)}
+        />
+      )}
     </div>
   );
 };
