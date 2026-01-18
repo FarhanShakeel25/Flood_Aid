@@ -24,7 +24,20 @@ namespace FloodAid.Api
                 options.AddPolicy("AllowAll", x =>
                     x.AllowAnyOrigin()
                      .AllowAnyHeader()
-                     .AllowAnyMethod());
+                     .AllowAnyMethod()
+                     .WithExposedHeaders("Content-Type", "Authorization"));
+                
+                // Also add specific Vercel domain to be safe
+                options.AddPolicy("AllowVercel", x =>
+                    x.WithOrigins(
+                        "https://flood-aid-94zg.vercel.app",
+                        "https://flood-aid.vercel.app",
+                        "http://localhost:5173",
+                        "http://localhost:3000"
+                    )
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .WithExposedHeaders("Content-Type", "Authorization"));
             });
 
             // Configure JWT Authentication as per SRS Section 3.3.2
