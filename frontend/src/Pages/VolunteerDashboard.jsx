@@ -28,7 +28,7 @@ const VolunteerDashboard = () => {
       return;
     }
     loadRequests();
-  }, [token, user, navigate]);
+  }, []);
 
   useEffect(() => {
     applyFilters();

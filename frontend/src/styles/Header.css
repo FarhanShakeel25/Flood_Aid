@@ -34,7 +34,7 @@ body {
   left: 0;
   width: 100%;
   height: var(--header-height);
-  z-index: 1000;
+  z-index: 9999;
   
   /* FLUID MOTION & BLUR SETTINGS */
   background-color: var(--header-bg-initial);
