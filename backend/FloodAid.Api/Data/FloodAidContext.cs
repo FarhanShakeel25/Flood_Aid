@@ -16,6 +16,7 @@ namespace FloodAid.Api.Data
         public DbSet<Province> Provinces { get; set; } = null!;
         public DbSet<City> Cities { get; set; } = null!;
         public DbSet<Invitation> Invitations { get; set; } = null!;
+        public DbSet<UnassignmentAudit> UnassignmentAudits { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -110,6 +111,22 @@ namespace FloodAid.Api.Data
                 .WithMany()
                 .HasForeignKey(h => h.CityId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure UnassignmentAudit
+            modelBuilder.Entity<UnassignmentAudit>()
+                .HasKey(a => a.Id);
+
+            modelBuilder.Entity<UnassignmentAudit>()
+                .HasOne(a => a.HelpRequest)
+                .WithMany()
+                .HasForeignKey(a => a.HelpRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UnassignmentAudit>()
+                .HasOne(a => a.ActorUser)
+                .WithMany()
+                .HasForeignKey(a => a.ActorUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

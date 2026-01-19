@@ -58,23 +58,30 @@ namespace FloodAid.Api.Controllers
                     }
                 }
 
-                // Only ProvinceAdmin can invite Volunteer (not SuperAdmin directly inviting Volunteers)
+                // SuperAdmin or ProvinceAdmin can invite Volunteer
                 if (dto.Role == UserRole.Volunteer)
                 {
-                    if (admin.Role != "ProvinceAdmin")
-                        return Forbid(); // Only ProvinceAdmin can invite Volunteers
-                    
                     if (!dto.CityId.HasValue)
                     {
                         return BadRequest(new { message = "CityId is required for Volunteer invitations" });
                     }
                     
-                    // Ensure city is within ProvinceAdmin's province
-                    var city = await _context.Cities.FindAsync(dto.CityId);
-                    if (city == null || city.ProvinceId != admin.ProvinceId)
+                    // ProvinceAdmin: city must be within their province
+                    // SuperAdmin: can invite volunteers from any city
+                    if (admin.Role == "ProvinceAdmin")
                     {
-                        return BadRequest(new { message = "City must be within your province" });
+                        var city = await _context.Cities.FindAsync(dto.CityId);
+                        if (city == null || city.ProvinceId != admin.ProvinceId)
+                        {
+                            return BadRequest(new { message = "City must be within your province" });
+                        }
                     }
+                }
+                else if (dto.Role == UserRole.ProvinceAdmin)
+                {
+                    // ProvinceAdmin cannot invite ProvinceAdmin - only SuperAdmin can
+                    if (admin.Role == "ProvinceAdmin")
+                        return Forbid(); // ProvinceAdmin cannot create ProvinceAdmin invitations
                 }
 
                 // Check for existing invitation
@@ -263,6 +270,7 @@ namespace FloodAid.Api.Controllers
             // Determine if this is an admin invitation or volunteer invitation
             var invitationRole = (UserRole)invitation.Role;
             var isAdmin = invitationRole == UserRole.ProvinceAdmin;
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, workFactor: 11);
 
             if (isAdmin)
             {
@@ -272,9 +280,6 @@ namespace FloodAid.Api.Controllers
                 {
                     return Conflict(new { message = "Admin with this email already exists" });
                 }
-
-                // Hash the password
-                var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, workFactor: 11);
 
                 var admin = new AdminUser
                 {
@@ -320,6 +325,7 @@ namespace FloodAid.Api.Controllers
                     ProvinceId = invitation.ProvinceId,
                     CityId = invitation.CityId,
                     Status = 1, // 1 = Approved (auto-approved via invitation)
+                    PasswordHash = passwordHash,
                     CreatedAt = DateTime.UtcNow
                 };
 

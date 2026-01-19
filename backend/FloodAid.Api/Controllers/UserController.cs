@@ -4,11 +4,13 @@ using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 
 namespace FloodAid.Api.Controllers
 {
     [ApiController]
     [Route("api/users")]
+    [EnableCors("AllowAll")]
     [Authorize]
     public class UserController : ControllerBase
     {
@@ -121,6 +123,7 @@ namespace FloodAid.Api.Controllers
 
                 if (role.HasValue)
                 {
+                    _logger.LogInformation($"Filtering by role: {role.Value}");
                     query = query.Where(u => u.Role == role.Value);
                 }
 
@@ -135,6 +138,8 @@ namespace FloodAid.Api.Controllers
                 }
 
                 var totalCount = await query.CountAsync();
+
+                _logger.LogInformation($"GetAllUsers - Total matching: {totalCount}, Filters: role={role}, status={status}, admin={adminEmail}");
 
                 var users = await query
                     .OrderByDescending(u => u.CreatedAt)
@@ -293,10 +298,20 @@ namespace FloodAid.Api.Controllers
                     }
                 }
 
+                // Remove any pending invitations for this user's email
+                var pendingInvitations = await _context.Invitations
+                    .Where(i => i.Email == user.Email && i.Status == InvitationStatus.Pending)
+                    .ToListAsync();
+                
+                if (pendingInvitations.Any())
+                {
+                    _context.Invitations.RemoveRange(pendingInvitations);
+                }
+
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("User {Id} deleted", id);
+                _logger.LogInformation("User {Id} deleted along with {InvitationCount} pending invitations", id, pendingInvitations.Count);
 
                 return Ok(new { message = "User deleted successfully" });
             }

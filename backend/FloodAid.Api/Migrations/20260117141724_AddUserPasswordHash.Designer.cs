@@ -3,6 +3,7 @@ using System;
 using FloodAid.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FloodAid.Api.Migrations
 {
     [DbContext(typeof(FloodAidContext))]
-    partial class FloodAidContextModelSnapshot : ModelSnapshot
+    [Migration("20260117141724_AddUserPasswordHash")]
+    partial class AddUserPasswordHash
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -157,22 +160,10 @@ namespace FloodAid.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("AssignedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("AssignedToVolunteerId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("AssignmentStatus")
-                        .HasColumnType("integer");
-
                     b.Property<int?>("CityId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DueDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<double>("Latitude")
@@ -180,9 +171,6 @@ namespace FloodAid.Api.Migrations
 
                     b.Property<double>("Longitude")
                         .HasColumnType("double precision");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("integer");
 
                     b.Property<int?>("ProvinceId")
                         .HasColumnType("integer");
@@ -210,8 +198,6 @@ namespace FloodAid.Api.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AssignedToVolunteerId");
 
                     b.HasIndex("CityId");
 
@@ -301,46 +287,6 @@ namespace FloodAid.Api.Migrations
                     b.ToTable("Provinces");
                 });
 
-            modelBuilder.Entity("FloodAid.Api.Models.UnassignmentAudit", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ActorEmail")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ActorRole")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int?>("ActorUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EvidenceUrl")
-                        .HasColumnType("text");
-
-                    b.Property<int>("HelpRequestId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Reason")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActorUserId");
-
-                    b.HasIndex("HelpRequestId");
-
-                    b.ToTable("UnassignmentAudits");
-                });
-
             modelBuilder.Entity("FloodAid.Api.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -423,10 +369,6 @@ namespace FloodAid.Api.Migrations
 
             modelBuilder.Entity("FloodAid.Api.Models.HelpRequest", b =>
                 {
-                    b.HasOne("FloodAid.Api.Models.User", "AssignedToVolunteer")
-                        .WithMany()
-                        .HasForeignKey("AssignedToVolunteerId");
-
                     b.HasOne("FloodAid.Api.Models.City", "City")
                         .WithMany()
                         .HasForeignKey("CityId")
@@ -436,8 +378,6 @@ namespace FloodAid.Api.Migrations
                         .WithMany()
                         .HasForeignKey("ProvinceId")
                         .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("AssignedToVolunteer");
 
                     b.Navigation("City");
 
@@ -459,24 +399,6 @@ namespace FloodAid.Api.Migrations
                     b.Navigation("City");
 
                     b.Navigation("Province");
-                });
-
-            modelBuilder.Entity("FloodAid.Api.Models.UnassignmentAudit", b =>
-                {
-                    b.HasOne("FloodAid.Api.Models.User", "ActorUser")
-                        .WithMany()
-                        .HasForeignKey("ActorUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("FloodAid.Api.Models.HelpRequest", "HelpRequest")
-                        .WithMany()
-                        .HasForeignKey("HelpRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ActorUser");
-
-                    b.Navigation("HelpRequest");
                 });
 
             modelBuilder.Entity("FloodAid.Api.Models.User", b =>

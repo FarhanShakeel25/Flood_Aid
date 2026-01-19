@@ -4,6 +4,7 @@ using FloodAid.Api.Data;
 using FloodAid.Api.Models;
 using FloodAid.Api.Enums;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -11,6 +12,7 @@ namespace FloodAid.Api.Controllers
 {
     [ApiController]
     [Route("api/helpRequest")]
+    [EnableCors("AllowAll")]
     public class HelpRequestController : ControllerBase
     {
         private readonly FloodAidContext _context;
@@ -52,9 +54,15 @@ namespace FloodAid.Api.Controllers
                 }
 
                 int? provinceId = dto.ProvinceId;
-                if (!provinceId.HasValue)
+                int? cityId = dto.CityId;
+                
+                if (!provinceId.HasValue || !cityId.HasValue)
                 {
-                    provinceId = await ResolveProvinceIdAsync(dto.Latitude, dto.Longitude);
+                    var geoResult = await ResolveProvinceAndCityAsync(dto.Latitude, dto.Longitude);
+                    if (!provinceId.HasValue)
+                        provinceId = geoResult.ProvinceId;
+                    if (!cityId.HasValue)
+                        cityId = geoResult.CityId;
                 }
 
                 var helpRequest = new HelpRequest
@@ -68,6 +76,11 @@ namespace FloodAid.Api.Controllers
                     Latitude = dto.Latitude,
                     Longitude = dto.Longitude,
                     ProvinceId = provinceId,
+                    CityId = cityId,
+                    Priority = dto.Priority.HasValue && Enum.IsDefined(typeof(Priority), dto.Priority.Value) 
+                        ? (Priority)dto.Priority.Value 
+                        : Priority.Medium,
+                    DueDate = CalculateDueDate((Priority)(dto.Priority ?? (int)Priority.Medium)),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -83,6 +96,99 @@ namespace FloodAid.Api.Controllers
             {
                 _logger.LogError(ex, "❌ Error creating help request");
                 return StatusCode(500, new { message = "Error creating help request", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Resolve both province and city from latitude/longitude via Nominatim reverse geocoding.
+        /// Returns both ProvinceId and CityId for proper volunteer scoping.
+        /// </summary>
+        private async Task<(int? ProvinceId, int? CityId)> ResolveProvinceAndCityAsync(double latitude, double longitude)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "FloodAid/1.0 (support@floodaid.local)");
+
+                var url = $"https://nominatim.openstreetmap.org/reverse?format=json&lat={latitude}&lon={longitude}&zoom=10&addressdetails=1";
+                var response = await client.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Reverse geocode failed with status {Status}", response.StatusCode);
+                    return (null, null);
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                if (!doc.RootElement.TryGetProperty("address", out var address))
+                {
+                    return (null, null);
+                }
+
+                // Extract state/province
+                string? state = null;
+                if (address.TryGetProperty("state", out var stateProp))
+                {
+                    state = stateProp.GetString();
+                }
+                else if (address.TryGetProperty("region", out var regionProp))
+                {
+                    state = regionProp.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(state))
+                {
+                    return (null, null);
+                }
+
+                // Normalize province name
+                state = state.Trim();
+                var normalized = state.ToLowerInvariant();
+                string canonical = normalized switch
+                {
+                    var s when s.Contains("punjab") => "Punjab",
+                    var s when s.Contains("sindh") => "Sindh",
+                    var s when s.Contains("khyber") || s.Contains("kpk") || s.Contains("pakhtunkhwa") => "Khyber Pakhtunkhwa",
+                    var s when s.Contains("baloch") => "Balochistan",
+                    var s when s.Contains("gilgit") => "Gilgit-Baltistan",
+                    var s when s.Contains("kashmir") || s.Contains("azad") => "Azad Kashmir",
+                    var s when s.Contains("islamabad") => "Islamabad Capital Territory",
+                    _ => state
+                };
+
+                var province = await _context.Provinces.FirstOrDefaultAsync(p => p.Name.ToLower() == canonical.ToLower());
+                int? provinceId = province?.Id;
+
+                // Extract city/town
+                string? city = null;
+                if (address.TryGetProperty("city", out var cityProp))
+                {
+                    city = cityProp.GetString();
+                }
+                else if (address.TryGetProperty("town", out var townProp))
+                {
+                    city = townProp.GetString();
+                }
+                else if (address.TryGetProperty("village", out var villageProp))
+                {
+                    city = villageProp.GetString();
+                }
+
+                int? cityId = null;
+                if (!string.IsNullOrWhiteSpace(city) && provinceId.HasValue)
+                {
+                    var cityRecord = await _context.Cities
+                        .FirstOrDefaultAsync(c => c.ProvinceId == provinceId && c.Name.ToLower() == city.ToLower());
+                    cityId = cityRecord?.Id;
+                }
+
+                _logger.LogInformation($"Geocoded lat {latitude}, lon {longitude} => Province: {canonical} ({provinceId}), City: {city} ({cityId})");
+                return (provinceId, cityId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Reverse geocode failed for lat {Lat}, lon {Lon}", latitude, longitude);
+                return (null, null);
             }
         }
 
@@ -149,6 +255,26 @@ namespace FloodAid.Api.Controllers
                 _logger.LogWarning(ex, "Reverse geocode failed for lat {Lat}, lon {Lon}", latitude, longitude);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Calculate due date based on priority level
+        /// Critical: 1 hour
+        /// High: 4 hours
+        /// Medium: 24 hours (1 day)
+        /// Low: 7 days
+        /// </summary>
+        private DateTime CalculateDueDate(Priority priority)
+        {
+            var now = DateTime.UtcNow;
+            return priority switch
+            {
+                Priority.Critical => now.AddHours(1),
+                Priority.High => now.AddHours(4),
+                Priority.Medium => now.AddHours(24),
+                Priority.Low => now.AddDays(7),
+                _ => now.AddHours(24) // Default to Medium (24 hours)
+            };
         }
 
         /// <summary>
@@ -382,7 +508,7 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Get pending requests (for volunteers)
+        /// Get pending requests (for volunteers) - Returns Pending and InProgress requests
         /// </summary>
         [HttpGet("status/pending")]
         [Microsoft.AspNetCore.Authorization.AllowAnonymous]
@@ -390,9 +516,11 @@ namespace FloodAid.Api.Controllers
         {
             try
             {
+                // Return requests that are Pending or InProgress (volunteers can see all available work)
                 var requests = await _context.HelpRequests
-                    .Where(r => r.Status == RequestStatus.Pending)
-                    .OrderByDescending(r => r.CreatedAt)
+                    .Where(r => r.Status == RequestStatus.Pending || r.Status == RequestStatus.InProgress)
+                    .OrderByDescending(r => r.Priority)
+                    .ThenByDescending(r => r.CreatedAt)
                     .ToListAsync();
 
                 return Ok(requests);
@@ -453,10 +581,10 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
-        /// Delete a help request (Admin only)
+        /// Delete a help request (SuperAdmin any, ProvinceAdmin scoped to province, Volunteer scoped to city)
         /// </summary>
         [HttpDelete("{id}")]
-        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+        [Authorize]
         public async Task<ActionResult> DeleteHelpRequest(int id)
         {
             try
@@ -468,19 +596,321 @@ namespace FloodAid.Api.Controllers
                     return NotFound(new { message = "Help request not found" });
                 }
 
+                var requesterEmail = User.FindFirstValue(ClaimTypes.Email);
+
+                // Try admin identity first (SuperAdmin or ProvinceAdmin)
+                AdminUser? admin = null;
+                if (!string.IsNullOrWhiteSpace(requesterEmail))
+                {
+                    admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == requesterEmail);
+                }
+
+                if (admin != null)
+                {
+                    if (admin.Role == "ProvinceAdmin" && request.ProvinceId != admin.ProvinceId)
+                    {
+                        _logger.LogWarning("ProvinceAdmin {Email} attempted to delete request {RequestId} outside their province", requesterEmail, id);
+                        return Forbid();
+                    }
+                }
+                else
+                {
+                    // Fallback to volunteer scope (city-scoped user)
+                    User? volunteer = null;
+                    if (!string.IsNullOrWhiteSpace(requesterEmail))
+                    {
+                        volunteer = await _context.Users.FirstOrDefaultAsync(u => u.Email == requesterEmail);
+                    }
+
+                    var volunteerRole = (UserRole?)volunteer?.Role;
+                    var isVolunteer = volunteerRole == UserRole.Volunteer || volunteerRole == UserRole.Both;
+
+                    if (!isVolunteer)
+                    {
+                        _logger.LogWarning("Unauthorized delete attempt for request {RequestId} by {Email}", id, requesterEmail ?? "unknown");
+                        return Forbid();
+                    }
+
+                    // City-scoped validation for volunteers
+                    if (request.CityId.HasValue)
+                    {
+                        if (volunteer?.CityId != request.CityId)
+                        {
+                            _logger.LogWarning("Volunteer {Email} attempted to delete request {RequestId} outside their city", requesterEmail, id);
+                            return Forbid();
+                        }
+                    }
+                    else if (request.ProvinceId.HasValue)
+                    {
+                        if (volunteer?.ProvinceId != request.ProvinceId)
+                        {
+                            _logger.LogWarning("Volunteer {Email} attempted to delete request {RequestId} outside their province", requesterEmail, id);
+                            return Forbid();
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Volunteer {Email} attempted to delete request {RequestId} with no scope information", requesterEmail, id);
+                        return Forbid();
+                    }
+                }
+
                 _context.HelpRequests.Remove(request);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Help request {id} deleted");
+                _logger.LogInformation("✅ Help request {RequestId} deleted by {Email}", id, requesterEmail ?? "unknown");
 
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Error deleting request {id}: {ex.Message}");
+                _logger.LogError("❌ Error deleting request {RequestId}: {Error}", id, ex.Message);
                 return StatusCode(500, new { message = "Error deleting help request", error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Assign a help request to a volunteer
+        /// Admins can assign within their province; volunteers can self-assign within their city.
+        /// Also sets request status to InProgress on assignment.
+        /// </summary>
+        [HttpPost("{id}/assign")]
+        [Authorize]
+        public async Task<ActionResult> AssignHelpRequest(int id, [FromBody] AssignHelpRequestDto dto)
+        {
+            try
+            {
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                int? currentUserId = null;
+                if (int.TryParse(userIdClaim, out var parsedId))
+                {
+                    currentUserId = parsedId;
+                }
+
+                // Allow volunteers to self-assign, but only admins can assign to others
+                bool isSelfAssignment = userRole == "Volunteer" && currentUserId.HasValue && currentUserId.Value == dto.VolunteerId;
+                bool isAdmin = userRole == "SuperAdmin" || userRole == "ProvinceAdmin";
+
+                if (!isSelfAssignment && !isAdmin)
+                {
+                    return Forbid("Volunteers can only assign requests to themselves. Only admins can assign to others.");
+                }
+
+                var request = await _context.HelpRequests.FirstOrDefaultAsync(r => r.Id == id);
+                if (request == null)
+                {
+                    return NotFound(new { message = "Help request not found" });
+                }
+
+                // Verify volunteer exists
+                var volunteer = await _context.Users.FirstOrDefaultAsync(u => u.Id == dto.VolunteerId);
+                if (volunteer == null)
+                {
+                    return BadRequest(new { message = "Volunteer not found" });
+                }
+
+                // ProvinceAdmin scoping: only within their province
+                if (userRole == "ProvinceAdmin")
+                {
+                    var provinceClaim = User.FindFirst("provinceId")?.Value; // claim name uses lower-case
+                    var adminProvinceId = !string.IsNullOrEmpty(provinceClaim) ? int.Parse(provinceClaim) : 0;
+
+                    if (adminProvinceId == 0)
+                    {
+                        _logger.LogWarning("ProvinceAdmin {Email} has no provinceId claim", userEmail);
+                        return Forbid("Province scope missing in token");
+                    }
+
+                    // Verify request & volunteer are in admin's province
+                    if (request.ProvinceId != adminProvinceId)
+                    {
+                        return Forbid("ProvinceAdmins can only assign requests in their province");
+                    }
+                    if (volunteer.ProvinceId != adminProvinceId)
+                    {
+                        return BadRequest(new { message = "Volunteer is not in your province" });
+                    }
+                }
+                else if (userRole == "Volunteer" && isSelfAssignment)
+                {
+                    // Verify volunteer is assigning request from their own city
+                    if (request.CityId != volunteer.CityId)
+                    {
+                        return BadRequest(new { message = "You can only assign requests from your city" });
+                    }
+                }
+
+                // Perform assignment and set request status to InProgress
+                request.AssignedToVolunteerId = dto.VolunteerId;
+                request.AssignmentStatus = AssignmentStatus.Assigned;
+                request.Status = RequestStatus.InProgress;
+                request.AssignedAt = DateTime.UtcNow;
+                request.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("✅ Help request {RequestId} assigned to volunteer {VolunteerId} by {Email} (Role: {Role})", id, dto.VolunteerId, userEmail, userRole);
+
+                return Ok(new { message = "Help request assigned successfully", assignmentStatus = "Assigned" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("❌ Error assigning request {RequestId}: {Error}", id, ex.Message);
+                return StatusCode(500, new { message = "Error assigning help request", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Unassign a help request from volunteer (Admins within scope or self-unassign by assigned volunteer)
+        /// If unassigned and not fulfilled/cancelled, revert status to Pending.
+        /// Supports optional proof/evidence via reason/evidenceUrl in DTO.
+        /// </summary>
+        [HttpPost("{id}/unassign")]
+        [Authorize]
+        public async Task<ActionResult> UnassignHelpRequest(int id, [FromBody] UnassignHelpRequestDto dto)
+        {
+            try
+            {
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                var userId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id_parse) ? id_parse : 0;
+
+                var request = await _context.HelpRequests.FirstOrDefaultAsync(r => r.Id == id);
+                if (request == null)
+                {
+                    return NotFound(new { message = "Help request not found" });
+                }
+
+                var isAdmin = userRole == "SuperAdmin" || userRole == "ProvinceAdmin";
+                var isAssignedVolunteer = request.AssignedToVolunteerId == userId;
+                if (!isAdmin && !isAssignedVolunteer)
+                {
+                    return Forbid("You cannot unassign this request");
+                }
+
+                // ProvinceAdmin scoping: only within their province
+                if (userRole == "ProvinceAdmin")
+                {
+                    var provinceClaim = User.FindFirst("provinceId")?.Value;
+                    var adminProvinceId = !string.IsNullOrEmpty(provinceClaim) ? int.Parse(provinceClaim) : 0;
+                    if (adminProvinceId == 0 || request.ProvinceId != adminProvinceId)
+                    {
+                        return Forbid("ProvinceAdmins can only unassign requests in their province");
+                    }
+                }
+
+                // Record audit for unassignment/withdraw
+                var audit = new UnassignmentAudit
+                {
+                    HelpRequestId = id,
+                    ActorUserId = isAssignedVolunteer ? userId : null,
+                    ActorRole = userRole ?? string.Empty,
+                    ActorEmail = userEmail ?? string.Empty,
+                    Reason = dto.Reason,
+                    EvidenceUrl = dto.EvidenceUrl,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.UnassignmentAudits.Add(audit);
+
+                // Perform unassignment
+                request.AssignedToVolunteerId = null;
+                request.AssignmentStatus = AssignmentStatus.Unassigned;
+                request.AssignedAt = null;
+
+                // If not fulfilled or cancelled, revert to Pending
+                if (request.Status == RequestStatus.InProgress || request.Status == RequestStatus.Pending)
+                {
+                    request.Status = RequestStatus.Pending;
+                }
+
+                request.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("✅ Help request {RequestId} unassigned by {Email} (Reason: {Reason}, Evidence: {Evidence})", id, userEmail, dto.Reason ?? "None", dto.EvidenceUrl ?? "None");
+
+                return Ok(new { message = "Help request unassigned successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("❌ Error unassigning request {RequestId}: {Error}", id, ex.Message);
+                return StatusCode(500, new { message = "Error unassigning help request", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Update assignment status (InProgress, Completed, Cancelled by assigned volunteer)
+        /// </summary>
+        [HttpPut("{id}/assignment-status")]
+        [Authorize]
+        public async Task<ActionResult> UpdateAssignmentStatus(int id, [FromBody] UpdateAssignmentStatusDto dto)
+        {
+            try
+            {
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+                var userId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id_parse) ? id_parse : 0;
+
+                var request = await _context.HelpRequests
+                    .FirstOrDefaultAsync(r => r.Id == id);
+
+                if (request == null)
+                {
+                    return NotFound(new { message = "Help request not found" });
+                }
+
+                // Only assigned volunteer can update status
+                if (request.AssignedToVolunteerId != userId)
+                {
+                    return Forbid("Only the assigned volunteer can update status");
+                }
+
+                // Validate status transition
+                if (!Enum.IsDefined(typeof(AssignmentStatus), dto.Status))
+                {
+                    return BadRequest(new { message = "Invalid assignment status" });
+                }
+
+                request.AssignmentStatus = (AssignmentStatus)dto.Status;
+                request.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("✅ Help request {RequestId} status updated to {Status} by volunteer {Email}", id, request.AssignmentStatus, userEmail);
+
+                return Ok(new { message = "Assignment status updated successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("❌ Error updating assignment status {RequestId}: {Error}", id, ex.Message);
+                return StatusCode(500, new { message = "Error updating assignment status", error = ex.Message });
+            }
+        }
+    }
+
+    /// <summary>
+    /// DTO for assigning a help request
+    /// </summary>
+    public class AssignHelpRequestDto
+    {
+        public required int VolunteerId { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for unassigning a help request
+    /// </summary>
+    public class UnassignHelpRequestDto
+    {
+        public string? Reason { get; set; }
+        public string? EvidenceUrl { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for updating assignment status
+    /// </summary>
+    public class UpdateAssignmentStatusDto
+    {
+        public int Status { get; set; } // AssignmentStatus enum value
     }
 
     /// <summary>
@@ -496,6 +926,8 @@ namespace FloodAid.Api.Controllers
         public required double Latitude { get; set; }
         public required double Longitude { get; set; }
         public int? ProvinceId { get; set; } // optional client-provided province
+        public int? CityId { get; set; } // optional client-provided city
+        public int? Priority { get; set; } // 0=Low, 1=Medium (default), 2=High, 3=Critical
     }
 
     /// <summary>

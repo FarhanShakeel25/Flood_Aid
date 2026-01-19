@@ -19,6 +19,11 @@ namespace FloodAid.Api.Models
         public string PhoneNumber { get; set; }
 
         /// <summary>
+        /// BCrypt password hash for volunteer login (nullable for legacy records)
+        /// </summary>
+        public string? PasswordHash { get; set; }
+
+        /// <summary>
         /// Role: 0=Volunteer, 1=Donor, 2=Both, 3=ProvinceAdmin, 4=SuperAdmin
         /// </summary>
         [Required]

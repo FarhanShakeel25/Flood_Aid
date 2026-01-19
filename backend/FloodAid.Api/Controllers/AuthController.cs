@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
@@ -198,6 +199,84 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
+        /// Volunteer/Donor login using email/password
+        /// </summary>
+        [HttpPost("user-login")]
+        [AllowAnonymous]
+        public async Task<ActionResult<UserLoginResponse>> UserLogin([FromBody] UserLoginRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+                {
+                    return Unauthorized(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Invalid credentials"
+                    });
+                }
+
+                var normalizedEmail = request.Email.Trim().ToLower();
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
+
+                if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+                {
+                    return Unauthorized(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Invalid credentials"
+                    });
+                }
+
+                if (user.Status != 1)
+                {
+                    return Unauthorized(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Account is not approved yet"
+                    });
+                }
+
+                var isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+                if (!isPasswordValid)
+                {
+                    return Unauthorized(new UserLoginResponse
+                    {
+                        Success = false,
+                        Message = "Invalid credentials"
+                    });
+                }
+
+                var token = GenerateUserJwtToken(user);
+
+                return Ok(new UserLoginResponse
+                {
+                    Success = true,
+                    Token = token,
+                    User = new UserLoginUserDto
+                    {
+                        Id = user.Id,
+                        Name = user.Name,
+                        Email = user.Email,
+                        Role = user.Role,
+                        Status = user.Status,
+                        ProvinceId = user.ProvinceId,
+                        CityId = user.CityId
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during user login");
+                return StatusCode(500, new UserLoginResponse
+                {
+                    Success = false,
+                    Message = "An error occurred during login"
+                });
+            }
+        }
+
+        /// <summary>
         /// Utility: Generate 6-digit OTP
         /// </summary>
         private string GenerateOTP()
@@ -205,6 +284,62 @@ namespace FloodAid.Api.Controllers
             var random = new Random();
             return random.Next(100000, 999999).ToString();
         }
+
+        /// <summary>
+        /// Generate JWT token for volunteer/donor accounts
+        /// </summary>
+        private string GenerateUserJwtToken(User user)
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"];
+            var issuer = jwtSettings["Issuer"];
+            var audience = jwtSettings["Audience"];
+            var expiryMinutes = int.Parse(jwtSettings["ExpiryMinutes"] ?? "1440");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var roleName = MapUserRole(user.Role);
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, roleName),
+                new Claim("userRole", user.Role.ToString()),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
+            };
+
+            if (user.ProvinceId.HasValue)
+            {
+                claims.Add(new Claim("provinceId", user.ProvinceId.Value.ToString()));
+            }
+
+            if (user.CityId.HasValue)
+            {
+                claims.Add(new Claim("cityId", user.CityId.Value.ToString()));
+            }
+
+            var token = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private static string MapUserRole(int role) => role switch
+        {
+            0 => "Volunteer",
+            1 => "Donor",
+            2 => "Both",
+            3 => "ProvinceAdmin",
+            4 => "SuperAdmin",
+            _ => "User"
+        };
 
         /// <summary>
         /// Utility: Generate JWT token as per SRS requirements with role and scope claims
@@ -345,5 +480,30 @@ namespace FloodAid.Api.Controllers
                 // Don't throw - log only, as email failure shouldn't block login flow
             }
         }
+    }
+
+    public class UserLoginRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    public class UserLoginResponse
+    {
+        public bool Success { get; set; }
+        public string? Token { get; set; }
+        public string? Message { get; set; }
+        public UserLoginUserDto? User { get; set; }
+    }
+
+    public class UserLoginUserDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public int Role { get; set; }
+        public int Status { get; set; }
+        public int? ProvinceId { get; set; }
+        public int? CityId { get; set; }
     }
 }

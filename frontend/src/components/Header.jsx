@@ -162,6 +162,20 @@ export function Header() {
             >
               Dashboard
             </a>
+            <Link 
+              to="/volunteer/login" 
+              className="nav-link"
+              onClick={handleLinkClick}
+            >
+              Volunteer Login
+            </Link>
+            <Link 
+              to="/admin/login" 
+              className="nav-link"
+              onClick={handleLinkClick}
+            >
+              Admin
+            </Link>
             
             {/* Action Buttons */}
             <div className="nav-actions">
@@ -224,6 +238,20 @@ export function Header() {
           >
             Dashboard
           </a>
+          <Link 
+            to="/volunteer/login" 
+            className="mobile-link"
+            onClick={handleLinkClick}
+          >
+            Volunteer Login
+          </Link>
+          <Link 
+            to="/admin/login" 
+            className="mobile-link"
+            onClick={handleLinkClick}
+          >
+            Admin Login
+          </Link>
           
           <div className="mobile-actions">
             <button className="btn-donate full-width" onClick={handleDonateClick}>
