@@ -127,6 +127,9 @@ body {
   justify-content: flex-end;
   flex: 1;
   gap: 32px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
 }
 
 .nav-link {
@@ -137,6 +140,8 @@ body {
   text-decoration: none;
   padding: 8px 4px;
   transition: color var(--transition-speed);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-link:hover {
@@ -174,6 +179,8 @@ body {
   align-items: center;
   gap: 16px;
   margin-left: 20px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-donate {

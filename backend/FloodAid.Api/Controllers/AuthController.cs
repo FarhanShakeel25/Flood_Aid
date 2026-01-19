@@ -329,7 +329,11 @@ namespace FloodAid.Api.Controllers
                 signingCredentials: credentials
             );
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+            
+            _logger.LogInformation($"JWT Token generated for user {user.Email} (ID: {user.Id}, Role: {roleName}). Token expires in {expiryMinutes} minutes.");
+            
+            return tokenString;
         }
 
         private static string MapUserRole(int role) => role switch

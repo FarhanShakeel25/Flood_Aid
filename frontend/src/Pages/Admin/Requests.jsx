@@ -211,7 +211,8 @@ const AdminRequests = () => {
         setShowAssignModal(true);
         
         // Find the request to get its cityId for filtering volunteers
-        const request = (currentFilter === 'all' ? allRequests : filteredRequests).find(r => r.id === requestId);
+        // Uses requests (which contains all fetched requests with pagination)
+        const request = requests.find(r => r.id === requestId);
         const requestCityId = request?.cityId;
         
         console.log('Assignment clicked for request:', requestId, 'with cityId:', requestCityId);

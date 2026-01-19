@@ -132,11 +132,17 @@ const VolunteerDashboard = () => {
       const volunteerId = user.id || user.Id;
       const payload = { volunteerId };
       
+      // Debug: Log token details (first 20 chars + ... + last 20 chars for security)
+      const tokenPreview = token.length > 40 ? `${token.substring(0, 20)}...${token.substring(token.length - 20)}` : token;
       console.log('Self-assigning with:', {
         requestId,
         volunteerId,
+        tokenLength: token.length,
+        tokenPreview,
         API_BASE,
-        hasToken: !!token
+        hasToken: !!token,
+        userEmail: user.email || 'N/A',
+        userRole: user.role || 'N/A'
       });
 
       const response = await fetch(`${API_BASE}/api/helpRequest/${requestId}/assign`, {
@@ -150,12 +156,21 @@ const VolunteerDashboard = () => {
 
       if (!response.ok) {
         let errorMessage = 'Failed to assign request';
+        let errorData = null;
         try {
-          const errorData = await response.json();
+          errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
         } catch (e) {
-          errorMessage = `Server error (${response.status})`;
+          errorMessage = `Server error (${response.status}): ${response.statusText}`;
         }
+        
+        console.error('Assignment failed with response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        
         throw new Error(errorMessage);
       }
 

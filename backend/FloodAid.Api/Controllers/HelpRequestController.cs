@@ -689,6 +689,8 @@ namespace FloodAid.Api.Controllers
                     currentUserId = parsedId;
                 }
 
+                _logger.LogInformation($"AssignHelpRequest called - Email: {userEmail}, Role: {userRole}, UserId: {currentUserId}, TargetVolunteerId: {dto.VolunteerId}, RequestId: {id}");
+
                 // Allow volunteers to self-assign, but only admins can assign to others
                 bool isSelfAssignment = userRole == "Volunteer" && currentUserId.HasValue && currentUserId.Value == dto.VolunteerId;
                 bool isAdmin = userRole == "SuperAdmin" || userRole == "ProvinceAdmin";
