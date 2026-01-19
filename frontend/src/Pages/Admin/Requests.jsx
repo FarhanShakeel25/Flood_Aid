@@ -86,6 +86,7 @@ const AdminRequests = () => {
                     latitude: req.latitude,
                     longitude: req.longitude,
                     provinceId: req.provinceId,
+                    cityId: req.cityId,
                 }));
 
                 setRequests(mappedRequests);
@@ -158,12 +159,18 @@ const AdminRequests = () => {
         return `${mins}m`;
     };
 
-    const fetchVolunteers = async () => {
+    const fetchVolunteers = async (cityId = null) => {
         try {
             setLoadingVolunteers(true);
             const params = new URLSearchParams();
             params.append('pageSize', 100);
             params.append('role', 0); // 0 = Volunteer role
+            
+            // Filter by city if provided (for request-specific assignment)
+            if (cityId) {
+                params.append('cityId', cityId);
+                console.log('Filtering volunteers by cityId:', cityId);
+            }
 
             const token = localStorage.getItem('floodaid_token');
             console.log('Fetching volunteers with params:', params.toString());
@@ -186,7 +193,7 @@ const AdminRequests = () => {
             console.log('Number of volunteers:', result.data?.length || 0);
             
             if (!result.data || result.data.length === 0) {
-                console.warn('No volunteers found with role=0');
+                console.warn('No volunteers found with role=0' + (cityId ? ` and cityId=${cityId}` : ''));
             }
             
             setVolunteers(result.data || []);
@@ -202,9 +209,15 @@ const AdminRequests = () => {
         e.stopPropagation();
         setAssigningRequestId(requestId);
         setShowAssignModal(true);
-        if (volunteers.length === 0) {
-            fetchVolunteers();
-        }
+        
+        // Find the request to get its cityId for filtering volunteers
+        const request = (currentFilter === 'all' ? allRequests : filteredRequests).find(r => r.id === requestId);
+        const requestCityId = request?.cityId;
+        
+        console.log('Assignment clicked for request:', requestId, 'with cityId:', requestCityId);
+        
+        // Always fetch volunteers filtered by the request's city
+        fetchVolunteers(requestCityId);
     };
 
     const handleConfirmAssignment = async () => {

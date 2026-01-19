@@ -95,6 +95,7 @@ namespace FloodAid.Api.Controllers
         public async Task<ActionResult<object>> GetAllUsers(
             [FromQuery] int? status = null,
             [FromQuery] int? role = null,
+            [FromQuery] int? cityId = null,
             [FromQuery] string? searchTerm = null,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
@@ -127,6 +128,12 @@ namespace FloodAid.Api.Controllers
                     query = query.Where(u => u.Role == role.Value);
                 }
 
+                if (cityId.HasValue)
+                {
+                    _logger.LogInformation($"Filtering by cityId: {cityId.Value}");
+                    query = query.Where(u => u.CityId == cityId.Value);
+                }
+
                 if (!string.IsNullOrWhiteSpace(searchTerm))
                 {
                     var term = searchTerm.Trim().ToLower();
@@ -139,7 +146,7 @@ namespace FloodAid.Api.Controllers
 
                 var totalCount = await query.CountAsync();
 
-                _logger.LogInformation($"GetAllUsers - Total matching: {totalCount}, Filters: role={role}, status={status}, admin={adminEmail}");
+                _logger.LogInformation($"GetAllUsers - Total matching: {totalCount}, Filters: role={role}, status={status}, cityId={cityId}, admin={adminEmail}");
 
                 var users = await query
                     .OrderByDescending(u => u.CreatedAt)
