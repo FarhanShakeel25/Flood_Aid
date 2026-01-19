@@ -223,14 +223,15 @@ const AdminRequests = () => {
             );
 
             if (!response.ok) {
-                throw new Error('Failed to assign request');
+                const errorText = await response.text();
+                throw new Error(errorText || 'Failed to assign request');
             }
 
             // Update the request in the UI
             setRequests(prevRequests =>
                 prevRequests.map(r =>
                     r.id === assigningRequestId
-                        ? { ...r, assignedTo: selectedVolunteer.name, assignmentStatus: 'Assigned' }
+                        ? { ...r, assignedTo: selectedVolunteer.name, assignmentStatus: 'Assigned', status: 'InProgress' }
                         : r
                 )
             );
@@ -241,6 +242,39 @@ const AdminRequests = () => {
             alert('Request assigned successfully!');
         } catch (err) {
             alert(`Error assigning request: ${err.message}`);
+        }
+    };
+
+    const handleUnassignClick = async (requestId, e) => {
+        e.stopPropagation();
+        if (!window.confirm('Are you sure you want to unassign this request?')) return;
+
+        try {
+            const token = localStorage.getItem('floodaid_token');
+            const response = await fetch(`${API_BASE}/api/helpRequest/${requestId}/unassign`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason: 'Unassigned by admin' })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Failed to unassign request');
+            }
+
+            setRequests(prevRequests =>
+                prevRequests.map(r =>
+                    r.id === requestId
+                        ? { ...r, assignmentStatus: 'Unassigned', status: 'Pending' }
+                        : r
+                )
+            );
+            alert('Request unassigned successfully!');
+        } catch (err) {
+            alert(`Error unassigning request: ${err.message}`);
         }
     };
 
@@ -487,9 +521,27 @@ const AdminRequests = () => {
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                             {r.assignedTo ? (
-                                                <span style={{ fontSize: '0.875rem', color: '#0f172a', fontWeight: 500 }}>
-                                                    {r.assignedTo}
-                                                </span>
+                                                <>
+                                                    <span style={{ fontSize: '0.875rem', color: '#0f172a', fontWeight: 500 }}>
+                                                        {r.assignedTo}
+                                                    </span>
+                                                    <button
+                                                        onClick={(e) => handleUnassignClick(r.id, e)}
+                                                        title="Unassign"
+                                                        style={{
+                                                            padding: '0.4rem 0.6rem',
+                                                            background: '#ef4444',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </>
                                             ) : (
                                                 <button
                                                     onClick={(e) => handleAssignClick(r.id, e)}

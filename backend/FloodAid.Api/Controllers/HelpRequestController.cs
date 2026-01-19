@@ -711,7 +711,7 @@ namespace FloodAid.Api.Controllers
                     return BadRequest(new { message = "Volunteer not found" });
                 }
 
-                // ProvinceAdmin scoping: only within their province
+                // ProvinceAdmin scoping: only within their province and city
                 if (userRole == "ProvinceAdmin")
                 {
                     var provinceClaim = User.FindFirst("provinceId")?.Value; // claim name uses lower-case
@@ -723,14 +723,22 @@ namespace FloodAid.Api.Controllers
                         return Forbid("Province scope missing in token");
                     }
 
-                    // Verify request & volunteer are in admin's province
+                    // Verify request is in admin's province
                     if (request.ProvinceId != adminProvinceId)
                     {
                         return Forbid("ProvinceAdmins can only assign requests in their province");
                     }
+                    
+                    // Verify volunteer is in admin's province
                     if (volunteer.ProvinceId != adminProvinceId)
                     {
                         return BadRequest(new { message = "Volunteer is not in your province" });
+                    }
+                    
+                    // Verify volunteer is in the SAME city as the request (critical fix)
+                    if (request.CityId.HasValue && volunteer.CityId != request.CityId)
+                    {
+                        return BadRequest(new { message = "Volunteer must be from the same city as the request" });
                     }
                 }
                 else if (userRole == "Volunteer" && isSelfAssignment)
