@@ -49,7 +49,8 @@ function AppContent() {
         <Route path="/" element={<Home />} />
         <Route path="/home" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/donate" element={<Donations />} />
+        <Route path="/donations" element={<Donations />} />
+        <Route path="/donate" element={<Navigate to="/donations" replace />} />
         <Route path="/help-request" element={<HelpRequestPage />} />
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/cancel" element={<CancelPage />} />
