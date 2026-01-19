@@ -74,6 +74,8 @@ const AdminRequests = () => {
                     priority: req.priority !== undefined ? mapPriority(req.priority) : determinePriority(req.requestType),
                     priorityInt: req.priority ?? 1,
                     status: req.status,
+                    assignmentStatus: req.assignmentStatus,
+                    assignedToVolunteerId: req.assignedToVolunteerId,
                     reportedBy: req.requestorName || 'Anonymous',
                     phone: req.requestorPhoneNumber,
                     email: req.requestorEmail,
@@ -231,7 +233,7 @@ const AdminRequests = () => {
             setRequests(prevRequests =>
                 prevRequests.map(r =>
                     r.id === assigningRequestId
-                        ? { ...r, assignedTo: selectedVolunteer.name, assignmentStatus: 'Assigned', status: 'InProgress' }
+                        ? { ...r, assignedTo: selectedVolunteer.name, assignmentStatus: 'Assigned', assignedToVolunteerId: selectedVolunteer.id, status: 'InProgress' }
                         : r
                 )
             );
@@ -268,7 +270,7 @@ const AdminRequests = () => {
             setRequests(prevRequests =>
                 prevRequests.map(r =>
                     r.id === requestId
-                        ? { ...r, assignmentStatus: 'Unassigned', status: 'Pending' }
+                        ? { ...r, assignmentStatus: 'Unassigned', assignedToVolunteerId: null, status: 'Pending', assignedTo: null }
                         : r
                 )
             );
@@ -520,7 +522,7 @@ const AdminRequests = () => {
                                     <td>{r.reportedBy}</td>
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            {r.assignedTo ? (
+                                            {r.assignedToVolunteerId && r.assignmentStatus !== 'Unassigned' ? (
                                                 <>
                                                     <span style={{ fontSize: '0.875rem', color: '#0f172a', fontWeight: 500 }}>
                                                         {r.assignedTo}

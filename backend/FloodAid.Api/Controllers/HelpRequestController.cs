@@ -749,6 +749,14 @@ namespace FloodAid.Api.Controllers
                         return BadRequest(new { message = "You can only assign requests from your city" });
                     }
                 }
+                else if (userRole == "SuperAdmin")
+                {
+                    // SuperAdmin must assign volunteers from the SAME city as request
+                    if (request.CityId.HasValue && volunteer.CityId != request.CityId)
+                    {
+                        return BadRequest(new { message = "Volunteer must be from the same city as the request" });
+                    }
+                }
 
                 // Perform assignment and set request status to InProgress
                 request.AssignedToVolunteerId = dto.VolunteerId;
