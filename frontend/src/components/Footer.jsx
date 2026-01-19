@@ -1,6 +1,6 @@
 import React from "react";
 import "../styles/Footer.css";
-import logo from '../assets/Logo.png'
+import logo from "../assets/Logo.png";
 
 export function Footer() {
   return (
@@ -37,12 +37,12 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="#donate" className="footer-link">
+                <a href="/donations" className="footer-link">
                   Donate
                 </a>
               </li>
               <li>
-                <a href="#contact" className="footer-link">
+                <a href="/contact" className="footer-link">
                   Contact
                 </a>
               </li>

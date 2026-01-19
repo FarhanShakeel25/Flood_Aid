@@ -67,7 +67,7 @@ const Experience = ({ onComplete }) => {
                     <h2>Flood Experience</h2>
                 </div>
                 <button className="flood-exp-skip-button" onClick={handleStartExit}>
-                    Skip Video
+                    Skip
                 </button>
                 <div className="flood-exp-alarm-glow"></div>
             </div>

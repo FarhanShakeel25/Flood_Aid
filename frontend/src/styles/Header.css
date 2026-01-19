@@ -55,12 +55,17 @@ body {
   height: 100%;
 }
 
+/* --- Base Header Layout --- */
+
 .header-main {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   height: 100%;
+  gap: 60px; /* Creates space between logo and nav */
 }
+
+/* Adjust logo area to not take unnecessary space */
+
 
 /* --- Scroll States --- */
 
@@ -86,6 +91,7 @@ body {
   text-decoration: none;
   z-index: 1002;
   transition: transform 0.2s ease;
+  margin-right: auto; /* Pushes logo to far left */
 }
 
 .logo-area:hover {
@@ -241,6 +247,7 @@ body {
   cursor: pointer;
   z-index: 1002;
   padding: 0;
+  margin-left: 16px; /* ← ADD THIS LINE */
 }
 
 .menu-btn .bar {
