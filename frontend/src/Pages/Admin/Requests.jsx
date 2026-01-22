@@ -228,25 +228,35 @@ const AdminRequests = () => {
         // For ProvinceAdmin: Automatically load their province's cities and initialize selection
         if (admin?.role === 'ProvinceAdmin' && admin?.provinceId) {
             console.log('ProvinceAdmin detected, loading province/cities for province:', admin.provinceId);
-            setSelectedProvinceId(admin.provinceId);
-            // Fetch provinces to show locked dropdown value (API returns only their province)
-            fetchProvinces();
             
-            // Fetch cities for the admin's province, then handle city/volunteer selection
-            const loadCitiesAndVolunteers = async () => {
+            // Fetch provinces FIRST, then set selected after data loads
+            const loadDataForProvinceAdmin = async () => {
                 try {
                     const token = localStorage.getItem('floodaid_token');
-                    const response = await fetch(`${API_BASE}/api/provinces/${admin.provinceId}/cities`, {
+                    
+                    // Fetch provinces for ProvinceAdmin
+                    const provincesResponse = await fetch(`${API_BASE}/api/provinces`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    if (response.ok) {
-                        const citiesData = await response.json();
+                    if (provincesResponse.ok) {
+                        const provincesData = await provincesResponse.json();
+                        setProvinces(provincesData || []);
+                    }
+                    
+                    // Fetch cities for the admin's province
+                    const citiesResponse = await fetch(`${API_BASE}/api/provinces/${admin.provinceId}/cities`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (citiesResponse.ok) {
+                        const citiesData = await citiesResponse.json();
                         setCities(citiesData || []);
+                        
+                        // NOW set the selected values after data is loaded
+                        setSelectedProvinceId(admin.provinceId);
                         
                         // Determine which city to select
                         let cityToSelect = requestCityId;
                         if (!cityToSelect && citiesData && citiesData.length > 0) {
-                            // If no request city, use first city
                             cityToSelect = citiesData[0].id;
                         }
                         
@@ -256,10 +266,11 @@ const AdminRequests = () => {
                         }
                     }
                 } catch (err) {
-                    console.error('Error loading cities for ProvinceAdmin:', err);
+                    console.error('Error loading data for ProvinceAdmin:', err);
                 }
             };
-            loadCitiesAndVolunteers();
+            
+            loadDataForProvinceAdmin();
         } else if (admin?.role === 'SuperAdmin') {
             // For SuperAdmin: Load all provinces and pre-select request's province if available
             console.log('SuperAdmin detected, loading all provinces');
