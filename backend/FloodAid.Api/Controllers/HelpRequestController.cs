@@ -168,6 +168,33 @@ namespace FloodAid.Api.Controllers
 
                 if (string.IsNullOrWhiteSpace(state))
                 {
+                    // Fallback: infer province from nearest city (using city coordinates) when OSM omits province
+                    var citiesWithCoords = await _context.Cities
+                        .Include(c => c.Province)
+                        .Where(c => c.Latitude.HasValue && c.Longitude.HasValue)
+                        .ToListAsync();
+
+                    var nearestCity = citiesWithCoords
+                        .Select(c => new
+                        {
+                            City = c,
+                            Distance = CalculateDistance(latitude, longitude, c.Latitude!.Value, c.Longitude!.Value)
+                        })
+                        .OrderBy(x => x.Distance)
+                        .FirstOrDefault();
+
+                    if (nearestCity != null && nearestCity.Distance <= 150)
+                    {
+                        var inferredProvince = nearestCity.City.Province;
+                        _logger.LogWarning(
+                            "Province missing from OSM address; inferred from nearest city '{City}' at {Distance:F1}km -> province '{Province}'",
+                            nearestCity.City.Name,
+                            nearestCity.Distance,
+                            inferredProvince.Name
+                        );
+                        return (inferredProvince.Id, nearestCity.City.Id);
+                    }
+
                     _logger.LogWarning("Reverse geocode missing province. Address payload: {Address}", address.ToString());
                     return (null, null);
                 }
@@ -267,6 +294,41 @@ namespace FloodAid.Api.Controllers
                                 province?.Name
                             );
                         }
+                    }
+                }
+
+                // If OSM did not return a city name, try nearest city within the inferred province (50km)
+                if (!cityId.HasValue && provinceId.HasValue && string.IsNullOrWhiteSpace(city))
+                {
+                    var provinceCities = await _context.Cities
+                        .Where(c => c.ProvinceId == provinceId.Value && c.Latitude.HasValue && c.Longitude.HasValue)
+                        .ToListAsync();
+
+                    var nearestCity = provinceCities
+                        .Select(c => new
+                        {
+                            City = c,
+                            Distance = CalculateDistance(latitude, longitude, c.Latitude!.Value, c.Longitude!.Value)
+                        })
+                        .OrderBy(x => x.Distance)
+                        .FirstOrDefault();
+
+                    if (nearestCity != null && nearestCity.Distance <= 50)
+                    {
+                        cityId = nearestCity.City.Id;
+                        _logger.LogInformation(
+                            "City inferred (OSM city missing): nearest '{NearestCity}' at {Distance:F1}km (Id={CityId})",
+                            nearestCity.City.Name,
+                            nearestCity.Distance,
+                            nearestCity.City.Id
+                        );
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "OSM city missing and no city within 50km in provinceId={ProvinceId}. Proceeding with province-only.",
+                            provinceId
+                        );
                     }
                 }
 
