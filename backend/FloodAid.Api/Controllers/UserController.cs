@@ -106,13 +106,20 @@ namespace FloodAid.Api.Controllers
 
                 // Apply role-based scoping for admin users
                 var adminEmail = User.FindFirstValue(ClaimTypes.Email);
+                int? adminProvinceId = null;
+                string? adminRole = null;
                 if (!string.IsNullOrEmpty(adminEmail))
                 {
                     var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
-                    if (admin != null && admin.Role == "ProvinceAdmin")
+                    if (admin != null)
                     {
-                        // ProvinceAdmin can only see users in their province
-                        query = query.Where(u => u.ProvinceId == admin.ProvinceId);
+                        adminRole = admin.Role;
+                        adminProvinceId = admin.ProvinceId;
+                        if (admin.Role == "ProvinceAdmin")
+                        {
+                            // ProvinceAdmin can only see users in their province
+                            query = query.Where(u => u.ProvinceId == admin.ProvinceId);
+                        }
                     }
                     // SuperAdmin sees all (no filter)
                 }
@@ -132,6 +139,27 @@ namespace FloodAid.Api.Controllers
                 {
                     _logger.LogInformation($"Filtering by cityId: {cityId.Value}");
                     query = query.Where(u => u.CityId == cityId.Value);
+                }
+                else
+                {
+                    // Defensive fallback: no city filter provided
+                    if (string.Equals(adminRole, "ProvinceAdmin", StringComparison.OrdinalIgnoreCase) && adminProvinceId.HasValue)
+                    {
+                        _logger.LogWarning(
+                            "GET /api/users fallback: cityId missing, filtering by ProvinceId only (admin={Email}, provinceId={ProvinceId})",
+                            adminEmail,
+                            adminProvinceId
+                        );
+                        query = query.Where(u => u.ProvinceId == adminProvinceId.Value);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "GET /api/users fallback: cityId missing and no province scope available (admin={Email}, role={Role}). Returning volunteers without city filter.",
+                            adminEmail,
+                            adminRole
+                        );
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(searchTerm))
