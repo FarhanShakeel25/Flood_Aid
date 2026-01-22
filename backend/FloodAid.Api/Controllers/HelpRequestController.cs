@@ -167,7 +167,8 @@ namespace FloodAid.Api.Controllers
                 var province = await _context.Provinces.FirstOrDefaultAsync(p => p.Name.ToLower() == canonical.ToLower());
                 int? provinceId = province?.Id;
 
-                // Extract city/town
+                // Extract city/town/village/district
+                // OSM may return any of these depending on the location
                 string? city = null;
                 if (address.TryGetProperty("city", out var cityProp))
                 {
@@ -180,6 +181,11 @@ namespace FloodAid.Api.Controllers
                 else if (address.TryGetProperty("village", out var villageProp))
                 {
                     city = villageProp.GetString();
+                }
+                else if (address.TryGetProperty("district", out var districtProp))
+                {
+                    // OSM sometimes returns district (e.g., "ضلع لاہور" for Lahore)
+                    city = districtProp.GetString();
                 }
 
                 int? cityId = null;
@@ -200,9 +206,27 @@ namespace FloodAid.Api.Controllers
                         candidateCities = await _context.Cities.ToListAsync();
                     }
 
-                    // Match in memory using normalization
+                    // Match in memory using normalization - First try exact match
                     var cityRecord = candidateCities
                         .FirstOrDefault(c => NormalizeCityName(c.Name) == normalizedGeoCity);
+
+                    // If no exact match, try partial/fuzzy matching
+                    // This handles cases where OSM returns slightly different city names
+                    if (cityRecord == null && normalizedGeoCity.Length > 3)
+                    {
+                        cityRecord = candidateCities
+                            .FirstOrDefault(c =>
+                            {
+                                var normalized = NormalizeCityName(c.Name);
+                                // Check if normalized DB city starts with normalized geo city (or vice versa)
+                                // This handles "lahore city" -> "lahore" matching
+                                return normalized.StartsWith(normalizedGeoCity) || 
+                                       normalizedGeoCity.StartsWith(normalized) ||
+                                       // Also check for substring match (min 60% of shorter string)
+                                       (normalized.Contains(normalizedGeoCity) && normalizedGeoCity.Length >= 4) ||
+                                       (normalizedGeoCity.Contains(normalized) && normalized.Length >= 4);
+                            });
+                    }
 
                     if (cityRecord != null)
                     {
@@ -318,15 +342,108 @@ namespace FloodAid.Api.Controllers
 
         /// <summary>
         /// Normalize city names to improve matching against seeded data.
-        /// Trims, lowercases, replaces non-breaking spaces, and strips common suffixes.
+        /// Handles English names, Urdu district names, and common suffixes.
+        /// Trims, lowercases, replaces non-breaking spaces, strips Urdu prefix "ضلع" and English suffixes.
+        /// Also converts Urdu city names to English equivalents for all major cities.
         /// </summary>
         private static string NormalizeCityName(string name)
         {
             var n = (name ?? string.Empty).Trim();
-            n = n.Replace('\u00A0', ' ').Trim();
+            n = n.Replace('\u00A0', ' ').Trim(); // Replace non-breaking spaces
+            
+            // Translate Urdu city names to English for all major Pakistani cities
+            // This handles OSM responses that return Urdu names
+            var urduToEnglish = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                // Punjab major cities
+                { "لاہور", "Lahore" },
+                { "ضلع لاہور", "Lahore" },
+                { "گوجرانوالہ", "Gujranwala" },
+                { "ضلع گوجرانوالہ", "Gujranwala" },
+                { "فیصل آباد", "Faisalabad" },
+                { "ضلع فیصل آباد", "Faisalabad" },
+                { "ملتان", "Multan" },
+                { "ضلع ملتان", "Multan" },
+                { "راولپنڈی", "Rawalpindi" },
+                { "ضلع راولپنڈی", "Rawalpindi" },
+                { "جھنگ", "Jhang" },
+                { "ضلع جھنگ", "Jhang" },
+                { "سیالکوٹ", "Sialkot" },
+                { "ضلع سیالکوٹ", "Sialkot" },
+                { "شیخوپورہ", "Sheikhupura" },
+                { "ضلع شیخوپورہ", "Sheikhupura" },
+                { "سرگودھا", "Sargodha" },
+                { "ضلع سرگودھا", "Sargodha" },
+                { "اسلام آباد", "Islamabad" },
+                { "ضلع اسلام آباد", "Islamabad" },
+                
+                // Sindh major cities
+                { "کراچی", "Karachi" },
+                { "ضلع کراچی", "Karachi" },
+                { "ہائیڈرآباد", "Hyderabad" },
+                { "ضلع ہائیڈرآباد", "Hyderabad" },
+                { "سکھر", "Sukkur" },
+                { "ضلع سکھر", "Sukkur" },
+                { "لاڑکانہ", "Larkana" },
+                { "ضلع لاڑکانہ", "Larkana" },
+                { "ڈادو", "Dadu" },
+                { "ضلع ڈادو", "Dadu" },
+                { "خیرپور", "Khairpur" },
+                { "ضلع خیرپور", "Khairpur" },
+                
+                // KPK major cities
+                { "پیشاور", "Peshawar" },
+                { "ضلع پیشاور", "Peshawar" },
+                { "کوہاٹ", "Kohat" },
+                { "ضلع کوہاٹ", "Kohat" },
+                { "سوات", "Swat" },
+                { "ضلع سوات", "Swat" },
+                { "مردان", "Mardan" },
+                { "ضلع مردان", "Mardan" },
+                { "ابو تحریم", "Abb Thal" },
+                { "چترال", "Chitral" },
+                { "ضلع چترال", "Chitral" },
+                { "ہنزہ", "Hunza" },
+                { "ضلع ہنزہ", "Hunza" },
+                { "ڈیرہ اسماعیل خان", "Dera Ismail Khan" },
+                { "ضلع ڈیرہ اسماعیل خان", "Dera Ismail Khan" },
+                
+                // Balochistan major cities
+                { "کوئٹہ", "Quetta" },
+                { "ضلع کوئٹہ", "Quetta" },
+                { "ضابطہ", "Zhob" },
+                { "ضلع ضابطہ", "Zhob" },
+                { "گوادر", "Gwadar" },
+                { "ضلع گوادر", "Gwadar" },
+                
+                // Kashmir
+                { "مظفر آباد", "Muzaffarabad" },
+                { "ضلع مظفر آباد", "Muzaffarabad" },
+                { "مری", "Murree" },
+                { "ضلع مری", "Murree" },
+                
+                // Gilgit-Baltistan
+                { "گلگت", "Gilgit" },
+                { "ضلع گلگت", "Gilgit" },
+                { "سکردو", "Skardu" },
+                { "ضلع سکردو", "Skardu" },
+            };
+
+            if (urduToEnglish.TryGetValue(n, out var englishName))
+            {
+                n = englishName;
+            }
+            
+            // Strip Urdu district prefix "ضلع " if not already converted
+            if (n.StartsWith("ضلع "))
+            {
+                n = n.Substring(4).Trim();
+            }
+            
             var lower = n.ToLowerInvariant();
 
-            string[] suffixes = new[] { " tehsil", " district", " division" };
+            // Strip English suffixes
+            string[] suffixes = new[] { " tehsil", " district", " division", " city" };
             foreach (var suffix in suffixes)
             {
                 if (lower.EndsWith(suffix))
