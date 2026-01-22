@@ -65,6 +65,17 @@ namespace FloodAid.Api.Controllers
                         cityId = geoResult.CityId;
                 }
 
+                // Enforce invariant: CityId must be resolved; fail fast if not
+                if (!cityId.HasValue)
+                {
+                    _logger.LogWarning(
+                        "Unable to resolve city from coordinates lat={Lat}, lon={Lon}. Rejecting request creation.",
+                        dto.Latitude,
+                        dto.Longitude
+                    );
+                    return BadRequest(new { message = "Unable to resolve city from coordinates" });
+                }
+
                 var helpRequest = new HelpRequest
                 {
                     RequestorName = dto.RequestorName ?? "Anonymous",
@@ -177,9 +188,25 @@ namespace FloodAid.Api.Controllers
                 int? cityId = null;
                 if (!string.IsNullOrWhiteSpace(city) && provinceId.HasValue)
                 {
-                    var cityRecord = await _context.Cities
-                        .FirstOrDefaultAsync(c => c.ProvinceId == provinceId && c.Name.ToLower() == city.ToLower());
-                    cityId = cityRecord?.Id;
+                    // Normalize geocoded city and match against normalized City.Name within province
+                    var normalizedGeoCity = NormalizeCityName(city);
+                    var provinceCities = await _context.Cities
+                        .Where(c => c.ProvinceId == provinceId.Value)
+                        .ToListAsync();
+
+                    var matchedCity = provinceCities
+                        .FirstOrDefault(c => NormalizeCityName(c.Name)
+                            .Equals(normalizedGeoCity, StringComparison.OrdinalIgnoreCase));
+
+                    cityId = matchedCity?.Id;
+
+                    _logger.LogInformation(
+                        "City resolution: geocoded='{GeoCity}' normalized='{NormGeoCity}' matched='{MatchedCity}' (Id={MatchedCityId})",
+                        city,
+                        normalizedGeoCity,
+                        matchedCity?.Name,
+                        matchedCity?.Id
+                    );
                 }
 
                 _logger.LogInformation($"Geocoded lat {latitude}, lon {longitude} => Province: {canonical} ({provinceId}), City: {city} ({cityId})");
@@ -190,6 +217,30 @@ namespace FloodAid.Api.Controllers
                 _logger.LogWarning(ex, "Reverse geocode failed for lat {Lat}, lon {Lon}", latitude, longitude);
                 return (null, null);
             }
+        }
+
+        /// <summary>
+        /// Normalize city names: trim, lowercase, and remove common suffixes
+        /// like 'Tehsil', 'District', 'Division'.
+        /// </summary>
+        private static string NormalizeCityName(string name)
+        {
+            var n = (name ?? string.Empty).Trim();
+            // Replace non-breaking space with regular space
+            n = n.Replace('\u00A0', ' ').Trim();
+            var lower = n.ToLowerInvariant();
+
+            string[] suffixes = new[] { " tehsil", " district", " division" };
+            foreach (var s in suffixes)
+            {
+                if (lower.EndsWith(s))
+                {
+                    lower = lower.Substring(0, lower.Length - s.Length).TrimEnd();
+                    break;
+                }
+            }
+
+            return lower;
         }
 
         /// <summary>
