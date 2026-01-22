@@ -394,9 +394,10 @@ namespace FloodAid.Api.Controllers
                     var provinceScope = scopedProvinceId.Value;
                     query = query.Where(h =>
                         h.ProvinceId == provinceScope ||
-                        (h.CityId.HasValue && _context.Cities.Any(c => c.Id == h.CityId && c.ProvinceId == provinceScope))
+                        (h.CityId.HasValue && _context.Cities.Any(c => c.Id == h.CityId && c.ProvinceId == provinceScope)) ||
+                        (!h.ProvinceId.HasValue && !h.CityId.HasValue)
                     );
-                    _logger.LogInformation("Applied province filter: ProvinceId={ProvinceId} (city fallback included)", provinceScope);
+                    _logger.LogInformation("Applied province filter: ProvinceId={ProvinceId} (city fallback + null-scope included)", provinceScope);
                 }
 
                 if (requestType.HasValue)
@@ -606,9 +607,10 @@ namespace FloodAid.Api.Controllers
                         var provinceScope = admin.ProvinceId;
                         query = query.Where(h =>
                             h.ProvinceId == provinceScope ||
-                            (h.CityId.HasValue && _context.Cities.Any(c => c.Id == h.CityId && c.ProvinceId == provinceScope))
+                            (h.CityId.HasValue && _context.Cities.Any(c => c.Id == h.CityId && c.ProvinceId == provinceScope)) ||
+                            (!h.ProvinceId.HasValue && !h.CityId.HasValue)
                         );
-                        _logger.LogInformation("Stats scoped to ProvinceId={ProvinceId} for {Email} (city fallback included)", provinceScope, adminEmail);
+                        _logger.LogInformation("Stats scoped to ProvinceId={ProvinceId} for {Email} (city fallback + null-scope included)", provinceScope, adminEmail);
                     }
                 }
 
