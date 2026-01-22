@@ -217,15 +217,15 @@ const AdminRequests = () => {
         e.stopPropagation();
         setAssigningRequestId(requestId);
         setShowAssignModal(true);
-        
+
         // Find the request to get its details
         const request = requests.find(r => r.id === requestId);
         const requestCityId = request?.cityId;
         const requestProvinceId = request?.provinceId;
-        
+
         console.log('Assignment clicked for request:', requestId, 'provinceId:', requestProvinceId, 'cityId:', requestCityId);
-        
-        // For ProvinceAdmin: Use the exact same serial logic as SuperAdmin, but lock province to admin's provinceId
+
+        // For ProvinceAdmin: Use serial logic, but trigger volunteer fetch via useEffect
         if (admin?.role === 'ProvinceAdmin' && admin?.provinceId) {
             (async () => {
                 console.log('ProvinceAdmin detected, loading province/cities for province:', admin.provinceId);
@@ -262,7 +262,7 @@ const AdminRequests = () => {
                         }
                         if (cityToSelect) {
                             setSelectedCityId(cityToSelect);
-                            await fetchVolunteers(cityToSelect);
+                            // fetchVolunteers will be triggered by useEffect
                         }
                     }
                 } catch (err) {
@@ -272,6 +272,13 @@ const AdminRequests = () => {
                 }
             })();
         } else if (admin?.role === 'SuperAdmin') {
+                // ProvinceAdmin: fetch volunteers when selectedCityId changes
+                useEffect(() => {
+                    if (admin?.role === 'ProvinceAdmin' && selectedCityId) {
+                        fetchVolunteers(selectedCityId);
+                    }
+                    // eslint-disable-next-line react-hooks/exhaustive-deps
+                }, [selectedCityId, admin?.role]);
             // For SuperAdmin: Load all provinces and pre-select request's province if available
             console.log('SuperAdmin detected, loading all provinces');
             fetchProvinces();
