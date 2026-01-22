@@ -225,35 +225,36 @@ const AdminRequests = () => {
         
         console.log('Assignment clicked for request:', requestId, 'provinceId:', requestProvinceId, 'cityId:', requestCityId);
         
-        // For ProvinceAdmin: Use same sequential logic as SuperAdmin, but lock province to admin's provinceId
+        // For ProvinceAdmin: Use the exact same serial logic as SuperAdmin, but lock province to admin's provinceId
         if (admin?.role === 'ProvinceAdmin' && admin?.provinceId) {
-            console.log('ProvinceAdmin detected, loading province/cities for province:', admin.provinceId);
-            const provinceId = admin.provinceId;
-            setSelectedProvinceId(provinceId);
-            setLoadingProvinces(true);
-            setLoadingCities(true);
-            const token = localStorage.getItem('floodaid_token');
-            // Fetch all provinces (for dropdown, but selection is locked)
-            fetch(`${API_BASE}/api/provinces`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-                .then(async (response) => {
-                    if (response.ok) {
-                        setProvinces(await response.json() || []);
+            (async () => {
+                console.log('ProvinceAdmin detected, loading province/cities for province:', admin.provinceId);
+                const provinceId = admin.provinceId;
+                setSelectedProvinceId(provinceId);
+                setLoadingProvinces(true);
+                setLoadingCities(true);
+                const token = localStorage.getItem('floodaid_token');
+                try {
+                    // Fetch all provinces (for dropdown, but selection is locked)
+                    const provincesResponse = await fetch(`${API_BASE}/api/provinces`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (provincesResponse.ok) {
+                        setProvinces(await provincesResponse.json() || []);
                     }
-                })
-                .catch((err) => {
+                } catch (err) {
                     console.error('Error fetching provinces:', err);
-                })
-                .finally(() => setLoadingProvinces(false));
+                } finally {
+                    setLoadingProvinces(false);
+                }
 
-            // Fetch cities for the admin's province, then select city and fetch volunteers
-            fetch(`${API_BASE}/api/provinces/${provinceId}/cities`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-                .then(async (response) => {
-                    if (response.ok) {
-                        const citiesData = await response.json() || [];
+                try {
+                    // Fetch cities for the admin's province
+                    const citiesResponse = await fetch(`${API_BASE}/api/provinces/${provinceId}/cities`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (citiesResponse.ok) {
+                        const citiesData = await citiesResponse.json() || [];
                         setCities(citiesData);
                         let cityToSelect = requestCityId;
                         if (!cityToSelect && citiesData.length > 0) {
@@ -261,14 +262,15 @@ const AdminRequests = () => {
                         }
                         if (cityToSelect) {
                             setSelectedCityId(cityToSelect);
-                            fetchVolunteers(cityToSelect);
+                            await fetchVolunteers(cityToSelect);
                         }
                     }
-                })
-                .catch((err) => {
+                } catch (err) {
                     console.error('Error fetching cities:', err);
-                })
-                .finally(() => setLoadingCities(false));
+                } finally {
+                    setLoadingCities(false);
+                }
+            })();
         } else if (admin?.role === 'SuperAdmin') {
             // For SuperAdmin: Load all provinces and pre-select request's province if available
             console.log('SuperAdmin detected, loading all provinces');
