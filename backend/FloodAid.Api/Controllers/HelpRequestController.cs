@@ -147,7 +147,7 @@ namespace FloodAid.Api.Controllers
                     return (null, null);
                 }
 
-                // Extract state/province
+                // Extract state/province with multiple fallbacks because OSM varies keys
                 string? state = null;
                 if (address.TryGetProperty("state", out var stateProp))
                 {
@@ -157,9 +157,18 @@ namespace FloodAid.Api.Controllers
                 {
                     state = regionProp.GetString();
                 }
+                else if (address.TryGetProperty("state_district", out var stateDistrictProp))
+                {
+                    state = stateDistrictProp.GetString();
+                }
+                else if (address.TryGetProperty("county", out var countyProp))
+                {
+                    state = countyProp.GetString();
+                }
 
                 if (string.IsNullOrWhiteSpace(state))
                 {
+                    _logger.LogWarning("Reverse geocode missing province. Address payload: {Address}", address.ToString());
                     return (null, null);
                 }
 
