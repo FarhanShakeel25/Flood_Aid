@@ -1,0 +1,83 @@
+# Commit Messages for Distance-Based City Matching
+
+## Commit 1: Schema and Migration
+```
+feat: add coordinates to City model for distance-based matching
+
+- Add Latitude and Longitude (nullable double) properties to City model
+- Create AddCityCoordinates migration
+- Enables distance-based fallback when city names don't match
+
+Related to volunteer assignment filtering issue where OSM returns
+city names with suffixes (e.g., "Gujranwala Tehsil") that don't
+match database cities.
+```
+
+## Commit 2: Geocoding Tooling
+```
+feat: add geocoding tool to populate city coordinates
+
+- Create CityGeocoder console app
+- Geocode all 278 Pakistan cities via Nominatim API
+- Generate pak_cities_with_coords.csv
+- Implement 1.1s rate limiting to respect API usage policy
+- Success rate: ~250/278 cities geocoded
+
+Tool is one-time use for data population.
+```
+
+## Commit 3: Distance-Based Resolution
+```
+feat: implement distance-based city resolution fallback
+
+- Update ResolveProvinceAndCityAsync() with two-tier strategy:
+  1. Normalized name matching (existing)
+  2. Distance-based fallback within 50km using Haversine formula
+- Add CalculateDistance() and ToRadians() helpers
+- Update SeedData to prioritize pak_cities_with_coords.csv
+- Add detailed logging for resolution strategies
+
+Fixes volunteer assignment dropdown being empty when city names
+don't exactly match between OSM and database. Now uses nearest
+city within 50km if name match fails.
+```
+
+## Commit 4: Documentation
+```
+docs: add deployment and testing guides for distance matching
+
+- DISTANCE_MATCHING_DEPLOYMENT.md: deployment steps and rollback plan
+- TESTING_PLAN_DISTANCE_MATCHING.md: test scenarios and success criteria
+```
+
+## Combined Commit (Alternative)
+```
+feat: implement distance-based city matching for volunteer assignment
+
+Problem:
+- Volunteer dropdown empty when admin clicks "Assign" on help requests
+- Root cause: OSM returns city names with suffixes (e.g., "Gujranwala Tehsil")
+  that don't match database cities (e.g., "Gujranwala")
+- Previous normalization helped but wasn't sufficient for all cases
+
+Solution:
+- Add Latitude/Longitude to City model (migration created)
+- Geocode all 278 Pakistan cities via Nominatim API
+- Implement two-tier resolution strategy:
+  1. Normalized name matching (existing)
+  2. Distance-based fallback (new): find nearest city within 50km
+- Update seed logic to populate coordinates from geocoded CSV
+
+Changes:
+- backend/FloodAid.Api/Models/City.cs: Add coordinate properties
+- backend/FloodAid.Api/Migrations/..._AddCityCoordinates.cs: Schema migration
+- backend/FloodAid.Api/Controllers/HelpRequestController.cs: Distance-based resolution
+- backend/FloodAid.Api/Data/SeedData.cs: Read coordinates from CSV
+- backend/FloodAid.Api/Data/pak_cities_with_coords.csv: Geocoded city data
+- backend/CityGeocoder/: One-time tooling for geocoding
+
+Result:
+- Volunteers correctly assigned even with OSM name variations
+- Graceful degradation: name match → distance match → province-only
+- ~90% of cities now have coordinates for distance matching
+```

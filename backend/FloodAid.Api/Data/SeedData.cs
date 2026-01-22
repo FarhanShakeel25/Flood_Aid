@@ -44,10 +44,27 @@ namespace FloodAid.Api.Data
                 return;
             }
 
-            var csvPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "pak_cities.csv");
-            if (!File.Exists(csvPath))
+            // Try to use coordinated CSV first, fall back to basic CSV
+            var coordCsvPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "pak_cities_with_coords.csv");
+            var basicCsvPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "pak_cities.csv");
+            
+            string csvPath;
+            bool hasCoordinates = false;
+            
+            if (File.Exists(coordCsvPath))
             {
-                logger.LogWarning("pak_cities.csv not found at {Path}, skipping province/city seed", csvPath);
+                csvPath = coordCsvPath;
+                hasCoordinates = true;
+                logger.LogInformation("Using coordinated city data from {Path}", coordCsvPath);
+            }
+            else if (File.Exists(basicCsvPath))
+            {
+                csvPath = basicCsvPath;
+                logger.LogWarning("pak_cities_with_coords.csv not found, using basic CSV without coordinates");
+            }
+            else
+            {
+                logger.LogWarning("No city CSV file found, skipping province/city seed");
                 return;
             }
 
@@ -62,6 +79,18 @@ namespace FloodAid.Api.Data
 
                 var cityName = parts[0].Trim();
                 var provinceName = parts[1].Trim();
+                
+                double? latitude = null;
+                double? longitude = null;
+                
+                // Parse coordinates if available
+                if (hasCoordinates && parts.Length >= 4)
+                {
+                    if (double.TryParse(parts[2].Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var lat))
+                        latitude = lat;
+                    if (double.TryParse(parts[3].Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var lon))
+                        longitude = lon;
+                }
 
                 // Get or create province
                 if (!provinceDict.TryGetValue(provinceName, out var province))
@@ -71,13 +100,23 @@ namespace FloodAid.Api.Data
                     context.Provinces.Add(province);
                 }
 
-                // Add city
-                province.Cities.Add(new City { Name = cityName, Province = province });
+                // Add city with coordinates
+                province.Cities.Add(new City 
+                { 
+                    Name = cityName, 
+                    Province = province,
+                    Latitude = latitude,
+                    Longitude = longitude
+                });
             }
 
             await context.SaveChangesAsync();
-            logger.LogInformation("Seeded {ProvinceCount} provinces and {CityCount} cities",
-                provinceDict.Count, provinceDict.Sum(p => p.Value.Cities.Count));
+            
+            var totalCities = provinceDict.Sum(p => p.Value.Cities.Count);
+            var citiesWithCoords = provinceDict.Sum(p => p.Value.Cities.Count(c => c.Latitude.HasValue && c.Longitude.HasValue));
+            
+            logger.LogInformation("Seeded {ProvinceCount} provinces and {CityCount} cities ({CoordsCount} with coordinates)",
+                provinceDict.Count, totalCities, citiesWithCoords);
         }
 
         /// <summary>

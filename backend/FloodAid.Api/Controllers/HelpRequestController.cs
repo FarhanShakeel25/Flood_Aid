@@ -199,7 +199,7 @@ namespace FloodAid.Api.Controllers
                 int? cityId = null;
                 if (!string.IsNullOrWhiteSpace(city) && provinceId.HasValue)
                 {
-                    // Normalize geocoded city and match against normalized City.Name within province
+                    // Strategy 1: Try normalized name matching first
                     var normalizedGeoCity = NormalizeCityName(city);
                     var provinceCities = await _context.Cities
                         .Where(c => c.ProvinceId == provinceId.Value)
@@ -209,15 +209,56 @@ namespace FloodAid.Api.Controllers
                         .FirstOrDefault(c => NormalizeCityName(c.Name)
                             .Equals(normalizedGeoCity, StringComparison.OrdinalIgnoreCase));
 
-                    cityId = matchedCity?.Id;
+                    if (matchedCity != null)
+                    {
+                        cityId = matchedCity.Id;
+                        _logger.LogInformation(
+                            "City resolved by name match: geocoded='{GeoCity}' → '{MatchedCity}' (Id={CityId})",
+                            city, matchedCity.Name, matchedCity.Id
+                        );
+                    }
+                    else
+                    {
+                        // Strategy 2: Find nearest city with coordinates within 50km
+                        var citiesWithCoords = provinceCities
+                            .Where(c => c.Latitude.HasValue && c.Longitude.HasValue)
+                            .ToList();
 
-                    _logger.LogInformation(
-                        "City resolution: geocoded='{GeoCity}' normalized='{NormGeoCity}' matched='{MatchedCity}' (Id={MatchedCityId})",
-                        city,
-                        normalizedGeoCity,
-                        matchedCity?.Name,
-                        matchedCity?.Id
-                    );
+                        if (citiesWithCoords.Any())
+                        {
+                            var nearestCity = citiesWithCoords
+                                .Select(c => new
+                                {
+                                    City = c,
+                                    Distance = CalculateDistance(latitude, longitude, c.Latitude!.Value, c.Longitude!.Value)
+                                })
+                                .OrderBy(x => x.Distance)
+                                .FirstOrDefault();
+
+                            if (nearestCity != null && nearestCity.Distance <= 50)
+                            {
+                                cityId = nearestCity.City.Id;
+                                _logger.LogInformation(
+                                    "City resolved by distance: geocoded='{GeoCity}' → nearest '{NearestCity}' at {Distance:F1}km (Id={CityId})",
+                                    city, nearestCity.City.Name, nearestCity.Distance, nearestCity.City.Id
+                                );
+                            }
+                            else
+                            {
+                                _logger.LogWarning(
+                                    "No city found within 50km. Nearest was '{NearestCity}' at {Distance:F1}km. Proceeding with province-only.",
+                                    nearestCity?.City.Name, nearestCity?.Distance
+                                );
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "No cities in province {Province} have coordinates for distance matching. Proceeding with province-only.",
+                                province?.Name
+                            );
+                        }
+                    }
                 }
 
                 _logger.LogInformation($"Geocoded lat {latitude}, lon {longitude} => Province: {canonical} ({provinceId}), City: {city} ({cityId})");
