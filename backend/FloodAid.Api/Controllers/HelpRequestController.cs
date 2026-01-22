@@ -125,7 +125,7 @@ namespace FloodAid.Api.Controllers
                     return (null, null);
                 }
 
-                // Extract state/province
+                // Extract state/province (OSM varies keys)
                 string? state = null;
                 if (address.TryGetProperty("state", out var stateProp))
                 {
@@ -134,6 +134,14 @@ namespace FloodAid.Api.Controllers
                 else if (address.TryGetProperty("region", out var regionProp))
                 {
                     state = regionProp.GetString();
+                }
+                else if (address.TryGetProperty("state_district", out var stateDistrictProp))
+                {
+                    state = stateDistrictProp.GetString();
+                }
+                else if (address.TryGetProperty("county", out var countyProp))
+                {
+                    state = countyProp.GetString();
                 }
 
                 if (string.IsNullOrWhiteSpace(state))
@@ -175,11 +183,28 @@ namespace FloodAid.Api.Controllers
                 }
 
                 int? cityId = null;
-                if (!string.IsNullOrWhiteSpace(city) && provinceId.HasValue)
+                if (!string.IsNullOrWhiteSpace(city))
                 {
-                    var cityRecord = await _context.Cities
-                        .FirstOrDefaultAsync(c => c.ProvinceId == provinceId && c.Name.ToLower() == city.ToLower());
-                    cityId = cityRecord?.Id;
+                    var normalizedGeoCity = NormalizeCityName(city);
+                    IQueryable<City> cityQuery = _context.Cities;
+
+                    if (provinceId.HasValue)
+                    {
+                        cityQuery = cityQuery.Where(c => c.ProvinceId == provinceId.Value);
+                    }
+
+                    var cityRecord = await cityQuery.FirstOrDefaultAsync(c => NormalizeCityName(c.Name) == normalizedGeoCity);
+
+                    if (cityRecord != null)
+                    {
+                        cityId = cityRecord.Id;
+
+                        // If province was missing but city matched, backfill province from city
+                        if (!provinceId.HasValue)
+                        {
+                            provinceId = cityRecord.ProvinceId;
+                        }
+                    }
                 }
 
                 _logger.LogInformation($"Geocoded lat {latitude}, lon {longitude} => Province: {canonical} ({provinceId}), City: {city} ({cityId})");
@@ -278,6 +303,29 @@ namespace FloodAid.Api.Controllers
         }
 
         /// <summary>
+        /// Normalize city names to improve matching against seeded data.
+        /// Trims, lowercases, replaces non-breaking spaces, and strips common suffixes.
+        /// </summary>
+        private static string NormalizeCityName(string name)
+        {
+            var n = (name ?? string.Empty).Trim();
+            n = n.Replace('\u00A0', ' ').Trim();
+            var lower = n.ToLowerInvariant();
+
+            string[] suffixes = new[] { " tehsil", " district", " division" };
+            foreach (var suffix in suffixes)
+            {
+                if (lower.EndsWith(suffix))
+                {
+                    lower = lower.Substring(0, lower.Length - suffix.Length).TrimEnd();
+                    break;
+                }
+            }
+
+            return lower;
+        }
+
+        /// <summary>
         /// Get all help requests (Admin Module) with pagination & filters
         /// Scope: SuperAdmin sees all, ProvinceAdmin sees their province only, Volunteer sees their city only
         /// </summary>
@@ -343,8 +391,12 @@ namespace FloodAid.Api.Controllers
                 // Apply province scope filter
                 if (scopedProvinceId.HasValue)
                 {
-                    query = query.Where(h => h.ProvinceId == scopedProvinceId.Value);
-                    _logger.LogInformation("Applied province filter: ProvinceId={ProvinceId}", scopedProvinceId.Value);
+                    var provinceScope = scopedProvinceId.Value;
+                    query = query.Where(h =>
+                        h.ProvinceId == provinceScope ||
+                        (h.CityId.HasValue && _context.Cities.Any(c => c.Id == h.CityId && c.ProvinceId == provinceScope))
+                    );
+                    _logger.LogInformation("Applied province filter: ProvinceId={ProvinceId} (city fallback included)", provinceScope);
                 }
 
                 if (requestType.HasValue)
@@ -551,8 +603,12 @@ namespace FloodAid.Api.Controllers
                     var admin = await _context.Admins.FirstOrDefaultAsync(a => a.Email == adminEmail);
                     if (admin != null && admin.Role == "ProvinceAdmin")
                     {
-                        query = query.Where(h => h.ProvinceId == admin.ProvinceId);
-                        _logger.LogInformation("Stats scoped to ProvinceId={ProvinceId} for {Email}", admin.ProvinceId, adminEmail);
+                        var provinceScope = admin.ProvinceId;
+                        query = query.Where(h =>
+                            h.ProvinceId == provinceScope ||
+                            (h.CityId.HasValue && _context.Cities.Any(c => c.Id == h.CityId && c.ProvinceId == provinceScope))
+                        );
+                        _logger.LogInformation("Stats scoped to ProvinceId={ProvinceId} for {Email} (city fallback included)", provinceScope, adminEmail);
                     }
                 }
 
