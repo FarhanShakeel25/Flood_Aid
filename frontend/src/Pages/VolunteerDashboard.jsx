@@ -66,22 +66,21 @@ const VolunteerDashboard = () => {
   const scopeToVolunteer = (items, volunteer) => {
     if (!Array.isArray(items) || !volunteer) return [];
     const cityId = volunteer.cityId ?? volunteer.CityId;
-    const provinceId = volunteer.provinceId ?? volunteer.ProvinceId;
+    
+    if (!cityId) {
+      console.warn('Volunteer has no cityId, cannot scope requests');
+      return [];
+    }
+
     const filtered = items.filter((item) => {
       const requestCityId = item.cityId ?? item.CityId;
-      const requestProvinceId = item.provinceId ?? item.ProvinceId;
-
-      const cityMatch = cityId && requestCityId && requestCityId === cityId;
-      const provinceMatch = !requestCityId && provinceId && requestProvinceId && requestProvinceId === provinceId;
-      const unknownScope = !requestCityId && !requestProvinceId; // include if request has no scope data
-
-      const match = cityMatch || provinceMatch || unknownScope;
-      if (!match && (requestCityId || requestProvinceId)) {
-        console.log('Request filtered out - scope mismatch:', { requestCityId, requestProvinceId, userCityId: cityId, userProvinceId: provinceId });
+      const match = requestCityId && requestCityId === cityId;
+      if (!match && requestCityId) {
+        console.log('Request filtered out - city mismatch:', { requestCityId, userCityId: cityId });
       }
       return match;
     });
-    console.log('Scoped to volunteer:', { totalRequests: items.length, filtered: filtered.length, userCityId: cityId, userProvinceId: provinceId });
+    console.log('Scoped to user city:', { totalRequests: items.length, filteredByCity: filtered.length, userCityId: cityId });
     return filtered;
   };
 
