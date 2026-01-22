@@ -211,18 +211,12 @@ const AdminRequests = () => {
         const request = requests.find(r => r.id === requestId);
         const requestCityId = request?.cityId;
 
-        // Defensive: If cityId is missing, do not open assign modal
-        if (!requestCityId) {
-            console.warn('City could not be resolved for this request. Assignment disabled.', { requestId, request });
-            alert('City could not be resolved for this request');
-            return;
-        }
-
         setAssigningRequestId(requestId);
         setShowAssignModal(true);
 
         console.log('Assignment clicked for request:', requestId, 'with cityId:', requestCityId);
-        // Fetch volunteers filtered by the request's city
+        
+        // Fetch volunteers filtered by city (or province-wide if no city)
         fetchVolunteers(requestCityId);
     };
 
@@ -564,31 +558,22 @@ const AdminRequests = () => {
                                                     </button>
                                                 </>
                                             ) : (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                                    <button
-                                                        onClick={(e) => handleAssignClick(r.id, e)}
-                                                        disabled={!r.cityId}
-                                                        title={!r.cityId ? 'City could not be resolved for this request' : 'Assign'}
-                                                        style={{
-                                                            padding: '0.4rem 0.8rem',
-                                                            background: r.cityId ? '#4f46e5' : '#cbd5e1',
-                                                            color: r.cityId ? 'white' : '#475569',
-                                                            border: 'none',
-                                                            borderRadius: '6px',
-                                                            fontSize: '0.85rem',
-                                                            fontWeight: 600,
-                                                            cursor: r.cityId ? 'pointer' : 'not-allowed'
-                                                        }}
-                                                    >
-                                                        <User size={14} style={{ display: 'inline', marginRight: '0.3rem' }} />
-                                                        Assign
-                                                    </button>
-                                                    {!r.cityId && (
-                                                        <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>
-                                                            City could not be resolved for this request
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                <button
+                                                    onClick={(e) => handleAssignClick(r.id, e)}
+                                                    style={{
+                                                        padding: '0.4rem 0.8rem',
+                                                        background: '#4f46e5',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        fontSize: '0.85rem',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <User size={14} style={{ display: 'inline', marginRight: '0.3rem' }} />
+                                                    Assign
+                                                </button>
                                             )}
                                         </div>
                                     </td>

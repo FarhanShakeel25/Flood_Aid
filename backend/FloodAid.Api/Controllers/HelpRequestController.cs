@@ -65,15 +65,26 @@ namespace FloodAid.Api.Controllers
                         cityId = geoResult.CityId;
                 }
 
-                // Enforce invariant: CityId must be resolved; fail fast if not
-                if (!cityId.HasValue)
+                // Enforce province requirement (critical for scoping)
+                if (!provinceId.HasValue)
                 {
                     _logger.LogWarning(
-                        "Unable to resolve city from coordinates lat={Lat}, lon={Lon}. Rejecting request creation.",
+                        "Unable to resolve province from coordinates lat={Lat}, lon={Lon}. Rejecting request creation.",
                         dto.Latitude,
                         dto.Longitude
                     );
-                    return BadRequest(new { message = "Unable to resolve city from coordinates" });
+                    return BadRequest(new { message = "Unable to resolve province from coordinates" });
+                }
+
+                // City is optional but log a warning if missing
+                if (!cityId.HasValue)
+                {
+                    _logger.LogWarning(
+                        "City could not be resolved for coordinates lat={Lat}, lon={Lon}, but province {ProvinceId} was resolved. Request will be created with province-level scoping only.",
+                        dto.Latitude,
+                        dto.Longitude,
+                        provinceId
+                    );
                 }
 
                 var helpRequest = new HelpRequest
@@ -242,6 +253,26 @@ namespace FloodAid.Api.Controllers
 
             return lower;
         }
+
+        /// <summary>
+        /// Calculate distance between two points using Haversine formula.
+        /// Returns distance in kilometers.
+        /// </summary>
+        private static double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double R = 6371; // Earth's radius in kilometers
+            var dLat = ToRadians(lat2 - lat1);
+            var dLon = ToRadians(lon2 - lon1);
+            
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return R * c;
+        }
+
+        private static double ToRadians(double degrees) => degrees * Math.PI / 180;
 
         /// <summary>
         /// Resolve province id from latitude/longitude via Nominatim reverse geocoding.
