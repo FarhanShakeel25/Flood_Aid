@@ -229,48 +229,49 @@ const AdminRequests = () => {
         if (admin?.role === 'ProvinceAdmin' && admin?.provinceId) {
             console.log('ProvinceAdmin detected, loading province/cities for province:', admin.provinceId);
             
-            // Fetch provinces FIRST, then set selected after data loads
-            const loadDataForProvinceAdmin = async () => {
+            // Set province immediately so dropdown shows selection while data loads
+            setSelectedProvinceId(admin.provinceId);
+            
+            // Fetch and set provinces list
+            const loadProvinces = async () => {
                 try {
                     const token = localStorage.getItem('floodaid_token');
-                    
-                    // Fetch provinces for ProvinceAdmin
-                    const provincesResponse = await fetch(`${API_BASE}/api/provinces`, {
+                    const response = await fetch(`${API_BASE}/api/provinces`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    if (provincesResponse.ok) {
-                        const provincesData = await provincesResponse.json();
-                        setProvinces(provincesData || []);
+                    if (response.ok) {
+                        setProvinces((await response.json()) || []);
                     }
-                    
-                    // Fetch cities for the admin's province
-                    const citiesResponse = await fetch(`${API_BASE}/api/provinces/${admin.provinceId}/cities`, {
+                } catch (err) {
+                    console.error('Error fetching provinces:', err);
+                }
+            };
+
+            // Fetch cities for the admin's province and preselect
+            const loadCitiesAndVolunteers = async () => {
+                try {
+                    const token = localStorage.getItem('floodaid_token');
+                    const response = await fetch(`${API_BASE}/api/provinces/${admin.provinceId}/cities`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    if (citiesResponse.ok) {
-                        const citiesData = await citiesResponse.json();
-                        setCities(citiesData || []);
-                        
-                        // NOW set the selected values after data is loaded
-                        setSelectedProvinceId(admin.provinceId);
-                        
-                        // Determine which city to select
-                        let cityToSelect = requestCityId;
-                        if (!cityToSelect && citiesData && citiesData.length > 0) {
-                            cityToSelect = citiesData[0].id;
-                        }
-                        
+                    if (response.ok) {
+                        const citiesData = (await response.json()) || [];
+                        setCities(citiesData);
+
+                        const cityToSelect = requestCityId || (citiesData.length > 0 ? citiesData[0].id : null);
                         if (cityToSelect) {
                             setSelectedCityId(cityToSelect);
                             fetchVolunteers(cityToSelect);
+                            console.log('ProvinceAdmin: selected city', cityToSelect);
                         }
                     }
                 } catch (err) {
-                    console.error('Error loading data for ProvinceAdmin:', err);
+                    console.error('Error loading cities:', err);
                 }
             };
-            
-            loadDataForProvinceAdmin();
+
+            loadProvinces();
+            loadCitiesAndVolunteers();
         } else if (admin?.role === 'SuperAdmin') {
             // For SuperAdmin: Load all provinces and pre-select request's province if available
             console.log('SuperAdmin detected, loading all provinces');
