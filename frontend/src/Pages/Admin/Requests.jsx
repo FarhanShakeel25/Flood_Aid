@@ -227,11 +227,13 @@ const AdminRequests = () => {
         
         // For ProvinceAdmin: Automatically load their province's cities and initialize selection
         if (admin?.role === 'ProvinceAdmin' && admin?.provinceId) {
-            console.log('ProvinceAdmin detected, loading cities for province:', admin.provinceId);
+            console.log('ProvinceAdmin detected, loading province/cities for province:', admin.provinceId);
             setSelectedProvinceId(admin.provinceId);
+            // Fetch provinces to show locked dropdown value (API returns only their province)
+            fetchProvinces();
             fetchCitiesForProvince(admin.provinceId);
             
-            // If request has a city in this province, pre-select it
+            // If request has a city in this province, pre-select it and load volunteers
             if (requestCityId) {
                 setSelectedCityId(requestCityId);
                 fetchVolunteers(requestCityId);
@@ -824,11 +826,11 @@ const AdminRequests = () => {
                             </button>
                         </div>
 
-                        {/* Province Selector - Only for SuperAdmin */}
-                        {admin?.role === 'SuperAdmin' && (
+                        {/* Province Selector - Locked for both SuperAdmin and ProvinceAdmin (auto-selected) */}
+                        {(admin?.role === 'SuperAdmin' || admin?.role === 'ProvinceAdmin') && (
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.75rem' }}>
-                                    Select Province
+                                    Province (auto-selected)
                                 </label>
                                 {loadingProvinces ? (
                                     <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>
@@ -838,12 +840,15 @@ const AdminRequests = () => {
                                     <select
                                         value={selectedProvinceId || ''}
                                         onChange={handleProvinceChange}
+                                        disabled
                                         style={{
                                             width: '100%',
                                             padding: '0.75rem',
                                             border: '1px solid #e2e8f0',
                                             borderRadius: '8px',
-                                            fontSize: '1rem'
+                                            fontSize: '1rem',
+                                            backgroundColor: '#f1f5f9',
+                                            cursor: 'not-allowed'
                                         }}
                                     >
                                         <option value="">-- Select a province --</option>
@@ -857,11 +862,11 @@ const AdminRequests = () => {
                             </div>
                         )}
 
-                        {/* City Selector - Show if ProvinceAdmin or SuperAdmin with province selected */}
+                        {/* City Selector - Locked for both roles (auto-selected) */}
                         {(admin?.role === 'ProvinceAdmin' || (admin?.role === 'SuperAdmin' && selectedProvinceId)) && (
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.75rem' }}>
-                                    Select City
+                                    City (auto-selected)
                                 </label>
                                 {loadingCities ? (
                                     <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>
@@ -875,15 +880,15 @@ const AdminRequests = () => {
                                     <select
                                         value={selectedCityId || ''}
                                         onChange={handleCityChange}
-                                        disabled={admin?.role === 'SuperAdmin' && !selectedProvinceId}
+                                        disabled
                                         style={{
                                             width: '100%',
                                             padding: '0.75rem',
                                             border: '1px solid #e2e8f0',
                                             borderRadius: '8px',
                                             fontSize: '1rem',
-                                            backgroundColor: (admin?.role === 'SuperAdmin' && !selectedProvinceId) ? '#f1f5f9' : 'white',
-                                            cursor: (admin?.role === 'SuperAdmin' && !selectedProvinceId) ? 'not-allowed' : 'pointer'
+                                            backgroundColor: '#f1f5f9',
+                                            cursor: 'not-allowed'
                                         }}
                                     >
                                         <option value="">-- Select a city --</option>
