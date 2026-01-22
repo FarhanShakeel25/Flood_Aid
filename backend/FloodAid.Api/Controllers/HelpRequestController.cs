@@ -167,7 +167,8 @@ namespace FloodAid.Api.Controllers
                 var province = await _context.Provinces.FirstOrDefaultAsync(p => p.Name.ToLower() == canonical.ToLower());
                 int? provinceId = province?.Id;
 
-                // Extract city/town
+                // Extract city/town/village/district
+                // OSM may return any of these depending on the location
                 string? city = null;
                 if (address.TryGetProperty("city", out var cityProp))
                 {
@@ -180,6 +181,11 @@ namespace FloodAid.Api.Controllers
                 else if (address.TryGetProperty("village", out var villageProp))
                 {
                     city = villageProp.GetString();
+                }
+                else if (address.TryGetProperty("district", out var districtProp))
+                {
+                    // OSM sometimes returns district (e.g., "ضلع لاہور" for Lahore)
+                    city = districtProp.GetString();
                 }
 
                 int? cityId = null;
@@ -318,14 +324,55 @@ namespace FloodAid.Api.Controllers
 
         /// <summary>
         /// Normalize city names to improve matching against seeded data.
-        /// Trims, lowercases, replaces non-breaking spaces, and strips common suffixes.
+        /// Handles English names, Urdu district names, and common suffixes.
+        /// Trims, lowercases, replaces non-breaking spaces, strips Urdu prefix "ضلع" and English suffixes.
+        /// Also converts Urdu city names to English equivalents.
         /// </summary>
         private static string NormalizeCityName(string name)
         {
             var n = (name ?? string.Empty).Trim();
-            n = n.Replace('\u00A0', ' ').Trim();
+            n = n.Replace('\u00A0', ' ').Trim(); // Replace non-breaking spaces
+            
+            // Translate Urdu city names to English (common districts in Pakistan)
+            // This handles OSM responses that return Urdu names like "لاہور"
+            var urduToEnglish = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "لاہور", "Lahore" },
+                { "ضلع لاہور", "Lahore" },
+                { "گوجرانوالہ", "Gujranwala" },
+                { "ضلع گوجرانوالہ", "Gujranwala" },
+                { "کراچی", "Karachi" },
+                { "ضلع کراچی", "Karachi" },
+                { "ہائیڈرآباد", "Hyderabad" },
+                { "ضلع ہائیڈرآباد", "Hyderabad" },
+                { "اسلام آباد", "Islamabad" },
+                { "ضلع اسلام آباد", "Islamabad" },
+                { "راولپنڈی", "Rawalpindi" },
+                { "ضلع راولپنڈی", "Rawalpindi" },
+                { "ملتان", "Multan" },
+                { "ضلع ملتان", "Multan" },
+                { "فیصل آباد", "Faisalabad" },
+                { "ضلع فیصل آباد", "Faisalabad" },
+                { "پیشاور", "Peshawar" },
+                { "ضلع پیشاور", "Peshawar" },
+                { "کوئٹہ", "Quetta" },
+                { "ضلع کوئٹہ", "Quetta" },
+            };
+
+            if (urduToEnglish.TryGetValue(n, out var englishName))
+            {
+                n = englishName;
+            }
+            
+            // Strip Urdu district prefix "ضلع " if not already converted
+            if (n.StartsWith("ضلع "))
+            {
+                n = n.Substring(4).Trim();
+            }
+            
             var lower = n.ToLowerInvariant();
 
+            // Strip English suffixes
             string[] suffixes = new[] { " tehsil", " district", " division" };
             foreach (var suffix in suffixes)
             {
