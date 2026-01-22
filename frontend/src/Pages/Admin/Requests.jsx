@@ -226,7 +226,8 @@ const AdminRequests = () => {
         console.log('Assignment clicked for request:', requestId, 'provinceId:', requestProvinceId, 'cityId:', requestCityId);
         
         // For ProvinceAdmin: Use the exact same sequential logic as SuperAdmin, but lock province to admin's provinceId
-        if (admin?.role === 'ProvinceAdmin' && admin?.provinceId) {
+        console.log('DEBUG admin object:', admin);
+        if ((admin?.role === 'ProvinceAdmin' || admin?.role === 3) && admin?.provinceId) {
             (async () => {
                 console.log('ProvinceAdmin detected, loading province/cities for province:', admin.provinceId);
                 const provinceId = admin.provinceId;
@@ -241,7 +242,9 @@ const AdminRequests = () => {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (provincesResponse.ok) {
-                        setProvinces(await provincesResponse.json() || []);
+                        const provincesData = await provincesResponse.json() || [];
+                        setProvinces(provincesData);
+                        console.log('DEBUG provincesData:', provincesData);
                     }
                 } catch (err) {
                     console.error('Error fetching provinces:', err);
@@ -259,6 +262,7 @@ const AdminRequests = () => {
                     if (citiesResponse.ok) {
                         const citiesData = await citiesResponse.json() || [];
                         setCities(citiesData);
+                        console.log('DEBUG citiesData:', citiesData);
                         // Auto-select city: request's city if present in list, else first city
                         let cityToSelect = (requestCityId && citiesData.some(c => c.id === requestCityId))
                             ? requestCityId
