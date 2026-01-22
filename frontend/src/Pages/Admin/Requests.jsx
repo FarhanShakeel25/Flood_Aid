@@ -231,13 +231,35 @@ const AdminRequests = () => {
             setSelectedProvinceId(admin.provinceId);
             // Fetch provinces to show locked dropdown value (API returns only their province)
             fetchProvinces();
-            fetchCitiesForProvince(admin.provinceId);
             
-            // If request has a city in this province, pre-select it and load volunteers
-            if (requestCityId) {
-                setSelectedCityId(requestCityId);
-                fetchVolunteers(requestCityId);
-            }
+            // Fetch cities for the admin's province, then handle city/volunteer selection
+            const loadCitiesAndVolunteers = async () => {
+                try {
+                    const token = localStorage.getItem('floodaid_token');
+                    const response = await fetch(`${API_BASE}/api/provinces/${admin.provinceId}/cities`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (response.ok) {
+                        const citiesData = await response.json();
+                        setCities(citiesData || []);
+                        
+                        // Determine which city to select
+                        let cityToSelect = requestCityId;
+                        if (!cityToSelect && citiesData && citiesData.length > 0) {
+                            // If no request city, use first city
+                            cityToSelect = citiesData[0].id;
+                        }
+                        
+                        if (cityToSelect) {
+                            setSelectedCityId(cityToSelect);
+                            fetchVolunteers(cityToSelect);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error loading cities for ProvinceAdmin:', err);
+                }
+            };
+            loadCitiesAndVolunteers();
         } else if (admin?.role === 'SuperAdmin') {
             // For SuperAdmin: Load all provinces and pre-select request's province if available
             console.log('SuperAdmin detected, loading all provinces');
