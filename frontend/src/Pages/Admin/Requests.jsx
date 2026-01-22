@@ -230,12 +230,13 @@ const AdminRequests = () => {
             (async () => {
                 console.log('ProvinceAdmin detected, loading province/cities for province:', admin.provinceId);
                 const provinceId = admin.provinceId;
+                // Set province immediately for UI
                 setSelectedProvinceId(provinceId);
+
+                // Fetch all provinces (for dropdown, but selection is locked)
                 setLoadingProvinces(true);
-                setLoadingCities(true);
-                const token = localStorage.getItem('floodaid_token');
                 try {
-                    // Fetch all provinces (for dropdown, but selection is locked)
+                    const token = localStorage.getItem('floodaid_token');
                     const provincesResponse = await fetch(`${API_BASE}/api/provinces`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
@@ -248,21 +249,26 @@ const AdminRequests = () => {
                     setLoadingProvinces(false);
                 }
 
+                // Fetch cities for the admin's province
+                setLoadingCities(true);
                 try {
-                    // Fetch cities for the admin's province
+                    const token = localStorage.getItem('floodaid_token');
                     const citiesResponse = await fetch(`${API_BASE}/api/provinces/${provinceId}/cities`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (citiesResponse.ok) {
                         const citiesData = await citiesResponse.json() || [];
                         setCities(citiesData);
-                        let cityToSelect = requestCityId;
-                        if (!cityToSelect && citiesData.length > 0) {
-                            cityToSelect = citiesData[0].id;
-                        }
+                        // Auto-select city: request's city if present in list, else first city
+                        let cityToSelect = (requestCityId && citiesData.some(c => c.id === requestCityId))
+                            ? requestCityId
+                            : (citiesData[0]?.id || null);
+                        setSelectedCityId(cityToSelect);
+                        // Fetch volunteers for the selected city
                         if (cityToSelect) {
-                            setSelectedCityId(cityToSelect);
                             await fetchVolunteers(cityToSelect);
+                        } else {
+                            setVolunteers([]);
                         }
                     }
                 } catch (err) {
