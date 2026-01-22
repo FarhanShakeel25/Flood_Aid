@@ -175,7 +175,8 @@ namespace FloodAid.Api.Controllers
                     Username = adminUser?.Username ?? _configuration["AdminCredentials:Username"] ?? "",
                     Role = adminUser?.Role ?? "SuperAdmin",
                     Permissions = new[] { "all" },
-                    LoginTime = DateTime.UtcNow
+                    LoginTime = DateTime.UtcNow,
+                    ProvinceId = adminUser?.ProvinceId // Pass ProvinceId for ProvinceAdmin
                 };
 
                 return Ok(new LoginResponse

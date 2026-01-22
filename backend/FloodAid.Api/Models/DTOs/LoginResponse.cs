@@ -18,5 +18,6 @@ namespace FloodAid.Api.Models.DTOs
         public string Role { get; set; } = string.Empty;
         public string[] Permissions { get; set; } = new[] { "all" };
         public DateTime? LoginTime { get; set; }
+        public int? ProvinceId { get; set; } // Added for ProvinceAdmin scoping
     }
 }
