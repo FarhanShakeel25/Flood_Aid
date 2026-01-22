@@ -27,6 +27,14 @@ const AdminRequests = () => {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [assigningRequestId, setAssigningRequestId] = useState(null);
     const [selectedVolunteer, setSelectedVolunteer] = useState(null);
+    
+    // Cascading dropdown state
+    const [provinces, setProvinces] = useState([]);
+    const [cities, setCities] = useState([]);
+    const [loadingProvinces, setLoadingProvinces] = useState(false);
+    const [loadingCities, setLoadingCities] = useState(false);
+    const [selectedProvinceId, setSelectedProvinceId] = useState(null);
+    const [selectedCityId, setSelectedCityId] = useState(null);
 
     useEffect(() => {
         const fetchRequests = async () => {
@@ -210,16 +218,130 @@ const AdminRequests = () => {
         setAssigningRequestId(requestId);
         setShowAssignModal(true);
         
-        // Find the request to get its cityId for filtering volunteers
-        // Uses requests (which contains all fetched requests with pagination)
+        // Find the request to get its details
         const request = requests.find(r => r.id === requestId);
         const requestCityId = request?.cityId;
+        const requestProvinceId = request?.provinceId;
         
-        console.log('Assignment clicked for request:', requestId, 'with cityId:', requestCityId);
+        console.log('Assignment clicked for request:', requestId, 'provinceId:', requestProvinceId, 'cityId:', requestCityId);
         
-        // Always fetch volunteers filtered by the request's city
-        fetchVolunteers(requestCityId);
+        // For ProvinceAdmin: Automatically load their province's cities and initialize selection
+        if (admin?.role === 'ProvinceAdmin' && admin?.provinceId) {
+            console.log('ProvinceAdmin detected, loading cities for province:', admin.provinceId);
+            setSelectedProvinceId(admin.provinceId);
+            fetchCitiesForProvince(admin.provinceId);
+            
+            // If request has a city in this province, pre-select it
+            if (requestCityId) {
+                setSelectedCityId(requestCityId);
+                fetchVolunteers(requestCityId);
+            }
+        } else if (admin?.role === 'SuperAdmin') {
+            // For SuperAdmin: Load all provinces and pre-select request's province if available
+            console.log('SuperAdmin detected, loading all provinces');
+            fetchProvinces();
+            
+            if (requestProvinceId) {
+                setSelectedProvinceId(requestProvinceId);
+                fetchCitiesForProvince(requestProvinceId);
+                
+                if (requestCityId) {
+                    setSelectedCityId(requestCityId);
+                    fetchVolunteers(requestCityId);
+                }
+            }
+        }
     };
+
+    const fetchProvinces = async () => {
+        try {
+            setLoadingProvinces(true);
+            const token = localStorage.getItem('floodaid_token');
+            
+            const response = await fetch(`${API_BASE}/api/provinces`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch provinces: ${response.status}`);
+            }
+
+            const result = await response.json();
+            setProvinces(result || []);
+            console.log('Fetched provinces:', result);
+        } catch (err) {
+            console.error('Error fetching provinces:', err);
+            alert(`Error loading provinces: ${err.message}`);
+        } finally {
+            setLoadingProvinces(false);
+        }
+    };
+
+    const fetchCitiesForProvince = async (provinceId) => {
+        try {
+            setLoadingCities(true);
+            setCities([]);
+            setSelectedCityId(null); // Reset city selection
+            
+            const token = localStorage.getItem('floodaid_token');
+            
+            const response = await fetch(`${API_BASE}/api/provinces/${provinceId}/cities`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch cities: ${response.status}`);
+            }
+
+            const result = await response.json();
+            setCities(result || []);
+            console.log('Fetched cities for province', provinceId, ':', result);
+        } catch (err) {
+            console.error('Error fetching cities:', err);
+            alert(`Error loading cities: ${err.message}`);
+        } finally {
+            setLoadingCities(false);
+        }
+    };
+
+    const handleProvinceChange = (e) => {
+        const provinceId = parseInt(e.target.value) || null;
+        setSelectedProvinceId(provinceId);
+        
+        if (provinceId) {
+            fetchCitiesForProvince(provinceId);
+        } else {
+            setCities([]);
+            setSelectedCityId(null);
+            setVolunteers([]);
+        }
+    };
+
+    const handleCityChange = (e) => {
+        const cityId = parseInt(e.target.value) || null;
+        setSelectedCityId(cityId);
+        
+        if (cityId) {
+            fetchVolunteers(cityId);
+        } else {
+            setVolunteers([]);
+        }
+    };
+
+    const closeAssignModal = () => {
+        setShowAssignModal(false);
+        setSelectedVolunteer(null);
+        setSelectedProvinceId(null);
+        setSelectedCityId(null);
+        setProvinces([]);
+        setCities([]);
+        setVolunteers([]);
+    };
+
 
     const handleConfirmAssignment = async () => {
         if (!selectedVolunteer || !assigningRequestId) return;
@@ -252,9 +374,7 @@ const AdminRequests = () => {
                 )
             );
 
-            setShowAssignModal(false);
-            setSelectedVolunteer(null);
-            setAssigningRequestId(null);
+            closeAssignModal();
             alert('Request assigned successfully!');
         } catch (err) {
             alert(`Error assigning request: ${err.message}`);
@@ -670,7 +790,7 @@ const AdminRequests = () => {
                 />
             )}
 
-            {/* Assignment Modal */}
+            {/* Assignment Modal with Cascading Dropdowns */}
             {showAssignModal && (
                 <div style={{
                     position: 'fixed',
@@ -690,58 +810,150 @@ const AdminRequests = () => {
                         padding: '2rem',
                         width: '90%',
                         maxWidth: '500px',
-                        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)'
+                        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
+                        maxHeight: '90vh',
+                        overflowY: 'auto'
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>Assign Request</h2>
+                            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>Assign Request to Volunteer</h2>
                             <button
-                                onClick={() => { setShowAssignModal(false); setSelectedVolunteer(null); }}
+                                onClick={closeAssignModal}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                             >
                                 <XIcon size={24} />
                             </button>
                         </div>
 
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.75rem' }}>
-                                Select Volunteer
-                            </label>
-                            {loadingVolunteers ? (
-                                <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>
-                                    Loading volunteers...
-                                </div>
-                            ) : (
-                                <select
-                                    value={selectedVolunteer?.id || ''}
-                                    onChange={(e) => {
-                                        const vol = volunteers.find(v => v.id === parseInt(e.target.value));
-                                        setSelectedVolunteer(vol);
-                                    }}
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.75rem',
-                                        border: '1px solid #e2e8f0',
-                                        borderRadius: '8px',
-                                        fontSize: '1rem'
-                                    }}
-                                >
-                                    <option value="">-- Select a volunteer --</option>
-                                    {volunteers.length === 0 ? (
-                                        <option disabled>No volunteers found</option>
-                                    ) : (
-                                        volunteers.map(v => (
+                        {/* Province Selector - Only for SuperAdmin */}
+                        {admin?.role === 'SuperAdmin' && (
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.75rem' }}>
+                                    Select Province
+                                </label>
+                                {loadingProvinces ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>
+                                        Loading provinces...
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={selectedProvinceId || ''}
+                                        onChange={handleProvinceChange}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '8px',
+                                            fontSize: '1rem'
+                                        }}
+                                    >
+                                        <option value="">-- Select a province --</option>
+                                        {provinces.map(p => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                        )}
+
+                        {/* City Selector - Show if ProvinceAdmin or SuperAdmin with province selected */}
+                        {(admin?.role === 'ProvinceAdmin' || (admin?.role === 'SuperAdmin' && selectedProvinceId)) && (
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.75rem' }}>
+                                    Select City
+                                </label>
+                                {loadingCities ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>
+                                        Loading cities...
+                                    </div>
+                                ) : cities.length === 0 && selectedProvinceId ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: '#ef4444' }}>
+                                        No cities found for this province
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={selectedCityId || ''}
+                                        onChange={handleCityChange}
+                                        disabled={admin?.role === 'SuperAdmin' && !selectedProvinceId}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '8px',
+                                            fontSize: '1rem',
+                                            backgroundColor: (admin?.role === 'SuperAdmin' && !selectedProvinceId) ? '#f1f5f9' : 'white',
+                                            cursor: (admin?.role === 'SuperAdmin' && !selectedProvinceId) ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        <option value="">-- Select a city --</option>
+                                        {cities.map(c => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Volunteer Selector - Show if city is selected */}
+                        {selectedCityId && (
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.75rem' }}>
+                                    Select Volunteer
+                                </label>
+                                {loadingVolunteers ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>
+                                        Loading volunteers...
+                                    </div>
+                                ) : volunteers.length === 0 ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: '#ef4444' }}>
+                                        No volunteers available in this city
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={selectedVolunteer?.id || ''}
+                                        onChange={(e) => {
+                                            const vol = volunteers.find(v => v.id === parseInt(e.target.value));
+                                            setSelectedVolunteer(vol);
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '8px',
+                                            fontSize: '1rem'
+                                        }}
+                                    >
+                                        <option value="">-- Select a volunteer --</option>
+                                        {volunteers.map(v => (
                                             <option key={v.id} value={v.id}>
                                                 {v.name} ({v.email})
                                             </option>
-                                        ))
-                                    )}
-                                </select>
-                            )}
-                        </div>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                        )}
+
+                        {!selectedCityId && (
+                            <div style={{
+                                padding: '1rem',
+                                background: '#f0f9ff',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '8px',
+                                color: '#1e40af',
+                                marginBottom: '1.5rem',
+                                textAlign: 'center'
+                            }}>
+                                Please select a city to see available volunteers
+                            </div>
+                        )}
 
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                             <button
-                                onClick={() => { setShowAssignModal(false); setSelectedVolunteer(null); }}
+                                onClick={closeAssignModal}
                                 style={{
                                     padding: '0.75rem 1.5rem',
                                     background: '#f1f5f9',
